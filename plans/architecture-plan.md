@@ -87,6 +87,7 @@
 
 ```
 school-kiosk/
+│
 ├── src-tauri/                    # Tauri Rust core
 │   ├── src/
 │   │   ├── main.rs              # Точка входа, запуск Python
@@ -94,39 +95,94 @@ school-kiosk/
 │   │   ├── admin.rs             # IPC: админ-режим
 │   │   └── process.rs           # Управление Python процессом
 │   ├── Cargo.toml
-│   └── tauri.conf.json
+│   ├── tauri.conf.json
+│   └── icons/                   # Иконки приложения
 │
 ├── backend/                      # Python FastAPI
-│   ├── app/
+│   ├── app/                     # Основной пакет приложения
 │   │   ├── __init__.py
-│   │   ├── main.py              # Точка входа FastAPI
-│   │   ├── config.py            # Настройки
-│   │   ├── database.py          # Подключение к БД
-│   │   ├── models/              # SQLAlchemy модели
+│   │   ├── main.py              # Точка входа FastAPI (uvicorn)
+│   │   ├── config.py            # Настройки из env/config файла
+│   │   ├── database.py          # Подключение к БД (SQLAlchemy async)
+│   │   │
+│   │   ├── models/              # SQLAlchemy ORM модели
+│   │   │   ├── __init__.py      # Экспорт всех моделей + Base
+│   │   │   ├── base.py          # Базовый класс (id, created_at, updated_at)
+│   │   │   ├── schedule.py      # Class, Subject, Teacher, ScheduleEntry
+│   │   │   ├── news.py          # News
+│   │   │   └── admin.py         # Admin, Settings
+│   │   │
+│   │   ├── schemas/             # Pydantic схемы (request/response)
 │   │   │   ├── __init__.py
-│   │   │   ├── schedule.py      # Расписание
-│   │   │   ├── news.py          # Новости
-│   │   │   └── admin.py         # Администраторы
-│   │   ├── routers/             # API роутеры
-│   │   │   ├── __init__.py
-│   │   │   ├── schedule.py      # /api/schedule/*
-│   │   │   ├── news.py          # /api/news/*
-│   │   │   └── admin.py         # /api/admin/*
+│   │   │   ├── common.py        # Пагинация, статус-ответы
+│   │   │   ├── schedule.py      # ClassCreate, ClassRead, ScheduleEntryCreate, ...
+│   │   │   ├── news.py          # NewsCreate, NewsRead, NewsUpdate
+│   │   │   └── admin.py         # LoginRequest, TokenResponse, SettingsUpdate
+│   │   │
+│   │   ├── routers/             # API роутеры (endpoints)
+│   │   │   ├── __init__.py      # Подключение всех роутеров к app
+│   │   │   ├── health.py        # GET /health (для Tauri health check)
+│   │   │   ├── kiosk.py         # Публичные endpoint'ы киоска
+│   │   │   ├── schedule.py      # /api/v1/schedule/*
+│   │   │   ├── news.py          # /api/v1/news/*
+│   │   │   └── admin.py         # /api/v1/admin/* (auth, settings)
+│   │   │
 │   │   ├── services/            # Бизнес-логика
 │   │   │   ├── __init__.py
-│   │   │   ├── schedule_service.py
-│   │   │   ├── news_service.py
-│   │   │   ├── vk_parser.py     # Парсинг VK
-│   │   │   ├── site_parser.py   # Парсинг сайта
-│   │   │   └── excel_importer.py
-│   │   └── schemas/             # Pydantic схемы
-│   │       ├── __init__.py
-│   │       ├── schedule.py
-│   │       ├── news.py
-│   │       └── admin.py
+│   │   │   ├── schedule_service.py   # CRUD + week logic
+│   │   │   ├── news_service.py       # CRUD + caching
+│   │   │   ├── auth_service.py       # JWT, пароли, токены
+│   │   │   ├── excel_importer.py     # Парсинг Excel -> schedule
+│   │   │   ├── vk_parser.py          # Парсинг VK API -> news
+│   │   │   └── site_parser.py        # Парсинг HTML сайта -> news
+│   │   │
+│   │   ├── middleware/          # Middleware
+│   │   │   ├── __init__.py
+│   │   │   ├── auth.py          # JWT проверка для админ-роутов
+│   │   │   ├── cors.py          # CORS настройки
+│   │   │   └── logging.py       # Логирование запросов
+│   │   │
+│   │   ├── tasks/               # Фоновые задачи (APScheduler)
+│   │   │   ├── __init__.py
+│   │   │   ├── scheduler.py     # Настройка планировщика
+│   │   │   ├── news_sync.py     # Периодический парсинг новостей
+│   │   │   └── cache_cleanup.py # Очистка кэша
+│   │   │
+│   │   ├── utils/               # Вспомогательные утилиты
+│   │   │   ├── __init__.py
+│   │   │   ├── date_utils.py    # Работа с датами, неделями
+│   │   │   ├── hash_utils.py    # Хеширование паролей
+│   │   │   └── file_utils.py    # Работа с файлами (Excel upload)
+│   │   │
+│   │   └── static/              # Статика для админ-панели
+│   │       └── admin/           # Сюда копируется React build
+│   │           └── index.html
+│   │
 │   ├── alembic/                 # Миграции БД
-│   ├── requirements.txt
-│   └── pyproject.toml
+│   │   ├── env.py               # Настройка Alembic
+│   │   ├── script.py.mako       # Шаблон миграций
+│   │   └── versions/            # Файлы миграций
+│   │       └── .gitkeep
+│   │
+│   ├── tests/                   # Тесты
+│   │   ├── __init__.py
+│   │   ├── conftest.py          # Фикстуры pytest (test DB, client)
+│   │   ├── test_health.py
+│   │   ├── test_schedule.py
+│   │   ├── test_news.py
+│   │   ├── test_auth.py
+│   │   ├── test_excel_import.py
+│   │   └── test_parsers.py
+│   │
+│   ├── scripts/                 # Вспомогательные скрипты
+│   │   ├── seed_data.py         # Наполнение тестовыми данными
+│   │   ├── create_admin.py      # Создание администратора
+│   │   └── reset_db.py          # Сброс БД
+│   │
+│   ├── alembic.ini              # Конфиг Alembic
+│   ├── pyproject.toml           # Зависимости + метаданные
+│   ├── requirements.txt         # pip freeze (для CI/CD)
+│   └── requirements-dev.txt     # Зависимости для разработки
 │
 ├── frontend/                    # React SPA
 │   ├── src/
@@ -159,14 +215,410 @@ school-kiosk/
 │   └── package.json
 │
 ├── scripts/                     # Скрипты для сборки/запуска
-│   ├── build.bat
-│   └── dev.bat
+│   ├── build.bat                # Полная сборка проекта
+│   ├── dev.bat                  # Запуск в режиме разработки
+│   └── setup.bat                # Первоначальная настройка окружения
 │
-├── requirements.txt
+├── .env.example                 # Пример переменных окружения
+├── .gitignore
+├── LICENSE
 └── README.md
 ```
 
-## 4. Модели данных (SQLite)
+## 4. Детальное описание Python-модулей
+
+### 4.1. `app/main.py` — точка входа
+
+```python
+# Назначение: запуск FastAPI приложения через uvicorn
+# - Создаёт экземпляр FastAPI
+# - Подключает все роутеры
+# - Инициализирует БД (create_all)
+# - Запускает APScheduler для фоновых задач
+# - Настраивает middleware (CORS, логирование)
+# - Раздаёт статику админ-панели
+
+# Запуск: uvicorn app.main:app --host 0.0.0.0 --port 8765
+```
+
+### 4.2. `app/config.py` — конфигурация
+
+```python
+# Назначение: все настройки приложения в одном месте
+# Источник: переменные окружения + .env файл
+
+class Settings(BaseSettings):
+    # --- Общие ---
+    APP_NAME: str = "School Kiosk"
+    DEBUG: bool = False
+    API_PREFIX: str = "/api/v1"
+
+    # --- Сервер ---
+    HOST: str = "0.0.0.0"
+    PORT: int = 8765
+
+    # --- База данных ---
+    DATABASE_URL: str = "sqlite+aiosqlite:///./school_kiosk.db"
+
+    # --- JWT ---
+    SECRET_KEY: str = "change-me-in-production"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_HOURS: int = 24
+    ALGORITHM: str = "HS256"
+
+    # --- Парсинг новостей ---
+    VK_ACCESS_TOKEN: str = ""
+    VK_GROUP_ID: str = ""
+    SCHOOL_SITE_URL: str = ""
+    NEWS_SYNC_INTERVAL_MINUTES: int = 60
+
+    # --- Киоск ---
+    CURSOR_HIDE_TIMEOUT_SECONDS: int = 3
+    SCREEN_REFRESH_INTERVAL_SECONDS: int = 300
+
+    # --- Админка ---
+    ADMIN_SESSION_TIMEOUT_MINUTES: int = 15
+    ALLOWED_IPS: list[str] = ["192.168.1.0/24", "10.0.0.0/8"]
+```
+
+### 4.3. `app/database.py` — подключение к БД
+
+```python
+# Назначение: настройка SQLAlchemy async engine + session
+
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker, declarative_base
+
+engine = create_async_engine(settings.DATABASE_URL, echo=settings.DEBUG)
+async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+Base = declarative_base()
+
+async def get_db() -> AsyncSession:
+    async with async_session() as session:
+        yield session
+
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+```
+
+### 4.4. `app/models/` — ORM модели
+
+#### `models/base.py` — базовый класс
+```python
+# Добавляет id, created_at, updated_at во все модели
+class TimestampMixin:
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        default=func.now(), onupdate=func.now()
+    )
+```
+
+#### `models/schedule.py` — 4 модели расписания
+```python
+class Class(TimestampMixin, Base):
+    __tablename__ = "classes"
+    name: str           # "10A", "11Б"
+    grade_level: int    # 10, 11
+    entries: list[ScheduleEntry] = relationship(back_populates="class_")
+
+class Subject(TimestampMixin, Base):
+    __tablename__ = "subjects"
+    name: str           # "Математика"
+    short_name: str     # "Мат"
+    entries: list[ScheduleEntry] = relationship(back_populates="subject")
+
+class Teacher(TimestampMixin, Base):
+    __tablename__ = "teachers"
+    full_name: str      # "Иванова М.И."
+    short_name: str     # "Иванова"
+    entries: list[ScheduleEntry] = relationship(back_populates="teacher")
+
+class ScheduleEntry(TimestampMixin, Base):
+    __tablename__ = "schedule_entries"
+    class_id: int = ForeignKey("classes.id")
+    subject_id: int = ForeignKey("subjects.id")
+    teacher_id: int = ForeignKey("teachers.id")
+    day_of_week: int    # 1=пн ... 5=пт
+    lesson_number: int  # 1..8
+    week_type: int      # 0=всегда, 1=числитель, 2=знаменатель
+    room: str           # "Каб. 301"
+
+    class_: Class = relationship(back_populates="entries")
+    subject: Subject = relationship(back_populates="entries")
+    teacher: Teacher = relationship(back_populates="entries")
+```
+
+#### `models/news.py` — новости
+```python
+class News(TimestampMixin, Base):
+    __tablename__ = "news"
+    title: str
+    content: str        # HTML или Markdown
+    image_url: str | None
+    source: str         # "vk", "site", "manual"
+    source_url: str | None
+    published_at: datetime
+    is_active: bool = True
+```
+
+#### `models/admin.py` — админы и настройки
+```python
+class Admin(TimestampMixin, Base):
+    __tablename__ = "admins"
+    username: str       # Уникальный логин
+    password_hash: str  # bcrypt hash
+    role: str           # "admin" или "editor"
+
+class Settings(Base):
+    __tablename__ = "settings"
+    key: str = Column(String, primary_key=True)   # "vk_group_id"
+    value: str = Column(String)                   # "-123456789"
+```
+
+### 4.5. `app/schemas/` — Pydantic схемы
+
+```python
+# Назначение: валидация входящих данных и форматирование ответов
+
+# --- Common ---
+class PaginationParams(BaseModel):
+    page: int = 1
+    page_size: int = 50
+
+class StatusResponse(BaseModel):
+    status: str = "ok"
+    message: str | None = None
+
+# --- Schedule ---
+class ClassCreate(BaseModel):
+    name: str           # "10A"
+    grade_level: int    # 10
+
+class ClassRead(ClassCreate):
+    id: int
+    created_at: datetime
+
+class ScheduleEntryCreate(BaseModel):
+    class_id: int
+    subject_id: int
+    teacher_id: int
+    day_of_week: int    # 1-5
+    lesson_number: int  # 1-8
+    week_type: int = 0  # 0=both, 1=числитель, 2=знаменатель
+    room: str = ""
+
+class ScheduleEntryRead(ScheduleEntryCreate):
+    id: int
+    subject_name: str   # Денормализовано для удобства
+    teacher_name: str
+
+# --- News ---
+class NewsCreate(BaseModel):
+    title: str
+    content: str
+    image_url: str | None = None
+    source: str = "manual"
+    source_url: str | None = None
+    published_at: datetime = None
+    is_active: bool = True
+
+# --- Admin ---
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int  # seconds
+```
+
+### 4.6. `app/routers/` — API endpoints
+
+#### `routers/health.py`
+```python
+# GET /health -> {"status": "ok", "version": "1.0.0"}
+# Используется Tauri для проверки, что Python backend запущен
+```
+
+#### `routers/kiosk.py` — публичные endpoint'ы
+```python
+# GET  /api/v1/schedule/today?class_id=X  -> расписание на сегодня
+# GET  /api/v1/schedule/now?class_id=X    -> какой урок сейчас идёт
+# GET  /api/v1/schedule/week?class_id=X   -> расписание на неделю
+# GET  /api/v1/schedule/classes           -> список классов
+# GET  /api/v1/news/active                -> активные новости
+# GET  /api/v1/kiosk/settings             -> настройки отображения
+```
+
+#### `routers/schedule.py` — админ CRUD расписания
+```python
+# Все endpoint'ы защищены JWT (Depends(get_current_admin))
+# GET    /api/v1/admin/schedule/classes        -> список классов
+# POST   /api/v1/admin/schedule/classes        -> создать класс
+# PUT    /api/v1/admin/schedule/classes/:id    -> обновить класс
+# DELETE /api/v1/admin/schedule/classes/:id    -> удалить класс
+# ...аналогично для subjects, teachers, entries
+# POST   /api/v1/admin/schedule/import-excel   -> импорт Excel
+```
+
+#### `routers/news.py` — админ CRUD новостей
+```python
+# GET    /api/v1/admin/news                    -> все новости (с пагинацией)
+# POST   /api/v1/admin/news                    -> создать новость
+# PUT    /api/v1/admin/news/:id                -> обновить новость
+# DELETE /api/v1/admin/news/:id                -> удалить новость
+# POST   /api/v1/admin/news/parse-vk           -> запустить парсинг VK
+# POST   /api/v1/admin/news/parse-site         -> запустить парсинг сайта
+```
+
+#### `routers/admin.py` — аутентификация и настройки
+```python
+# POST /api/v1/admin/auth/login       -> вход, получение JWT
+# POST /api/v1/admin/auth/refresh     -> обновление токена
+# GET  /api/v1/admin/settings         -> получить настройки
+# PUT  /api/v1/admin/settings         -> обновить настройки
+```
+
+### 4.7. `app/services/` — бизнес-логика
+
+#### `services/schedule_service.py`
+```python
+# - get_today_schedule(class_id) -> расписание на сегодня
+# - get_week_schedule(class_id) -> расписание на неделю
+# - get_current_lesson(class_id) -> какой урок сейчас
+# - create_entry(data) -> создать запись
+# - update_entry(id, data) -> обновить запись
+# - delete_entry(id) -> удалить запись
+# - import_from_excel(file) -> импорт из Excel
+```
+
+#### `services/news_service.py`
+```python
+# - get_active_news() -> активные новости
+# - create_news(data) -> создать
+# - update_news(id, data) -> обновить
+# - delete_news(id) -> удалить
+```
+
+#### `services/auth_service.py`
+```python
+# - authenticate(username, password) -> Admin | None
+# - create_access_token(admin) -> JWT строка
+# - create_refresh_token(admin) -> JWT строка
+# - verify_token(token) -> Admin | None
+# - hash_password(password) -> hash
+# - verify_password(password, hash) -> bool
+```
+
+#### `services/excel_importer.py`
+```python
+# - parse_excel(file_path) -> list[ScheduleEntryCreate]
+#   Ожидаемый формат Excel:
+#   Колонки: Класс | Предмет | Учитель | День | Урок | Кабинет | Тип_недели
+# - validate_data(entries) -> list[ValidationError]
+# - import_to_db(entries) -> int (сколько импортировано)
+```
+
+#### `services/vk_parser.py`
+```python
+# - fetch_news(count=10) -> list[NewsCreate]
+#   Использует VK API (wall.get) для получения постов из группы
+# - parse_post(post) -> NewsCreate
+#   Извлекает: текст, картинки, дату
+```
+
+#### `services/site_parser.py`
+```python
+# - fetch_news(url) -> list[NewsCreate]
+#   Парсит HTML школьного сайта
+# - parse_html(html) -> list[NewsCreate]
+#   Ищет: заголовки, текст, изображения
+```
+
+### 4.8. `app/middleware/` — middleware
+
+```python
+# auth.py:  JWTBearer middleware для защиты админ-роутов
+# cors.py:  CORS middleware (разрешаем всё для локальной сети)
+# logging.py: Логирование всех HTTP запросов (method, path, status, duration)
+```
+
+### 4.9. `app/tasks/` — фоновые задачи
+
+```python
+# scheduler.py: Настройка APScheduler
+#   - Запускается при старте приложения
+#   - Регистрирует задачи
+
+# news_sync.py: Периодический парсинг новостей
+#   - Раз в N минут проверяет VK и сайт
+#   - Добавляет новые новости в БД
+#   - Не дублирует существующие (по source_url)
+
+# cache_cleanup.py: Очистка устаревших данных
+#   - Удаляет неактивные новости старше 30 дней
+#   - Оптимизирует SQLite (VACUUM)
+```
+
+### 4.10. `app/utils/` — утилиты
+
+```python
+# date_utils.py:
+#   - get_current_week_type() -> 1|2 (числитель/знаменатель)
+#   - get_day_of_week() -> 1-7
+#   - get_lesson_time(lesson_number) -> (start, end)
+#   - is_lesson_now(lesson_number) -> bool
+
+# hash_utils.py:
+#   - hash_password(password) -> str (bcrypt)
+#   - verify_password(password, hash) -> bool
+
+# file_utils.py:
+#   - save_uploaded_file(file) -> str (путь к сохранённому файлу)
+#   - cleanup_temp_files()
+```
+
+### 4.11. `tests/` — тесты
+
+```python
+# conftest.py:
+#   - test_db: отдельная SQLite БД для тестов
+#   - test_client: AsyncClient для FastAPI
+#   - seed_test_data: наполнение тестовыми данными
+
+# test_health.py:       GET /health -> 200
+# test_schedule.py:     CRUD расписания
+# test_news.py:         CRUD новостей
+# test_auth.py:         логин, токены, защита роутов
+# test_excel_import.py: импорт Excel
+# test_parsers.py:      парсинг VK и сайта (с моками)
+```
+
+### 4.12. `scripts/` — вспомогательные скрипты
+
+```python
+# seed_data.py:
+#   - Создаёт тестовые классы (10А, 11Б, ...)
+#   - Создаёт тестовые предметы (Математика, Физика, ...)
+#   - Создаёт тестовое расписание на неделю
+#   - Создаёт тестовые новости
+#   - Создаёт администратора (admin/admin123)
+
+# create_admin.py:
+#   - Создаёт нового администратора
+#   - Запрашивает логин/пароль/роль
+
+# reset_db.py:
+#   - Удаляет БД
+#   - Создаёт новую
+#   - Применяет миграции
+```
+
+## 5. Модели данных (SQLite)
 
 ### schedule (расписание)
 ```mermaid
@@ -234,7 +686,7 @@ erDiagram
     }
 ```
 
-## 5. API Endpoints
+## 6. API Endpoints
 
 ### Публичные (киоск) - доступны без авторизации
 | Method | Path | Описание |
@@ -276,7 +728,7 @@ erDiagram
 | GET | `/api/v1/admin/settings` | Получить настройки |
 | PUT | `/api/v1/admin/settings` | Обновить настройки |
 
-## 6. Киоск-режим (Rust)
+## 7. Киоск-режим (Rust)
 
 Tauri Rust core будет реализовывать тот же функционал, что сейчас в C#:
 
@@ -302,7 +754,7 @@ struct KioskGuard {
 }
 ```
 
-## 7. План реализации (поэтапный)
+## 8. План реализации (поэтапный)
 
 ### Этап 1: Backend (Python FastAPI)
 1. Инициализация Python проекта, структура папок
@@ -334,7 +786,7 @@ struct KioskGuard {
 2. Инсталлятор (NSIS или WiX)
 3. Документация
 
-## 8. Ключевые решения
+## 9. Ключевые решения
 
 | Решение | Выбор | Обоснование |
 |---------|-------|-------------|
@@ -349,7 +801,7 @@ struct KioskGuard {
 | **CORS** | **Разрешён с любых origin** | **Админка открывается с разных устройств** |
 | **Фронтенд админки** | **Отдельный SPA build** | **Можно хостить отдельно или через FastAPI** |
 
-## 9. Диаграмма последовательности (запуск приложения)
+## 10. Диаграмма последовательности (запуск приложения)
 
 ```mermaid
 sequenceDiagram
@@ -378,7 +830,7 @@ sequenceDiagram
     Note over React: Автообновление каждые N минут
 ```
 
-## 10. Диаграмма последовательности (удалённая админка)
+## 11. Диаграмма последовательности (удалённая админка)
 
 ```mermaid
 sequenceDiagram
@@ -416,7 +868,7 @@ sequenceDiagram
     Note over Browser,Python: (polling каждые N секунд или WebSocket)
 ```
 
-## 11. Варианты доставки админ-панели
+## 12. Варианты доставки админ-панели
 
 Есть два варианта, как пользователь получает админку в браузере:
 
@@ -436,7 +888,7 @@ http://192.168.1.100:5173/admin  ->  Vite dev server
 
 **Рекомендация:** Вариант A для продакшна, Вариант B для разработки.
 
-## 12. Безопасность при удалённом доступе
+## 13. Безопасность при удалённом доступе
 
 1. **JWT токены** с ограниченным сроком (access: 1h, refresh: 24h)
 2. **Пароли** хранятся в bcrypt
@@ -447,7 +899,7 @@ http://192.168.1.100:5173/admin  ->  Vite dev server
 7. **Автоматический logout** при бездействии (15 минут)
 8. **API ключ** для внутренней коммуникации Tauri -> Python (защита от внешних запросов к публичным API)
 
-## 13. Сборка и единый установщик
+## 14. Сборка и единый установщик
 
 ### Общая схема сборки
 
@@ -643,7 +1095,7 @@ jobs:
           path: src-tauri/target/release/bundle/nsis/*.exe
 ```
 
-## 14. Требования к окружению
+## 15. Требования к окружению
 
 ### Для разработки
 - **Python 3.11+** + pip

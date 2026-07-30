@@ -447,7 +447,203 @@ http://192.168.1.100:5173/admin  ->  Vite dev server
 7. **Автоматический logout** при бездействии (15 минут)
 8. **API ключ** для внутренней коммуникации Tauri -> Python (защита от внешних запросов к публичным API)
 
-## 13. Требования к окружению
+## 13. Сборка и единый установщик
+
+### Общая схема сборки
+
+```
+Исходники                          Сборка                    Установщик
+──────────────────────────────────────────────────────────────────────────
+
+frontend/                         frontend/dist/
+  src/                              index.html       ─┐
+  package.json    ── Vite build ──> assets/*.js      ─┤
+                                    assets/*.css     ─┤
+                                                     ─┤
+backend/                          backend/dist/       ─┤
+  app/                              python-backend/   ─┤
+  requirements.txt ─ PyInstaller ─> python-backend.exe─┤
+                                                     ─┤
+src-tauri/                        src-tauri/target/   ─┤
+  src/                              release/          ─┤
+  Cargo.toml     ── cargo build ─> kiosk.exe         ─┤
+  tauri.conf.json                   bundle/           ─┤
+                                    school-kiosk.msi  ─┘
+                                    school-kiosk.exe (NSIS)
+```
+
+### Этап 1: Сборка React (Vite)
+
+```bash
+cd frontend
+npm install
+npm run build
+# Результат: frontend/dist/  (статический HTML+JS+CSS)
+```
+
+Tauri автоматически встраивает папку `frontend/dist/` в бинарник на этапе компиляции (через `tauri.conf.json` → `build.distDir`).
+
+### Этап 2: Упаковка Python (PyInstaller)
+
+```bash
+cd backend
+pip install -r requirements.txt
+pip install pyinstaller
+pyinstaller --onefile ^
+    --name python-backend ^
+    --hidden-import uvicorn ^
+    --hidden-import sqlalchemy ^
+    --add-data "app:app" ^
+    app/main.py
+# Результат: backend/dist/python-backend.exe  (~30-50MB)
+```
+
+**Параметр `--onefile`** создаёт один .exe, который при запуске распаковывается во временную папку. Это самодостаточный Python со всеми зависимостями.
+
+### Этап 3: Сборка Tauri + создание установщика
+
+```bash
+cd src-tauri
+cargo tauri build
+# Результат:
+#   src-tauri/target/release/kiosk.exe  (~5MB, сам Tauri)
+#   src-tauri/target/release/bundle/msi/school-kiosk-1.0.0.msi
+#   src-tauri/target/release/bundle/nsis/school-kiosk-1.0.0.exe
+```
+
+**Tauri bundler** делает следующее:
+1. Компилирует Rust-код в `kiosk.exe`
+2. Встраивает React-статику (`frontend/dist/`) внутрь `kiosk.exe`
+3. Копирует `python-backend.exe` рядом с `kiosk.exe`
+4. Создаёт установщик (MSI или NSIS), который включает оба файла
+
+### Что входит в установщик
+
+```
+C:\Program Files\School Kiosk\
+├── kiosk.exe              # Tauri + React (встроена статика)
+├── python-backend.exe     # Python FastAPI (PyInstaller bundle)
+├── school_kiosk.db        # SQLite (создаётся при первом запуске)
+└── config.json            # Настройки (порт, автозапуск и т.д.)
+```
+
+**Итоговый размер установщика:** ~40-60 MB
+- Python + зависимости: ~30-50 MB (PyInstaller)
+- Tauri + React: ~5-8 MB
+- Установщик (сжатие): ~20-30 MB
+
+### Что НЕ нужно устанавливать на ПК пользователя
+
+| Компонент | Где находится |
+|-----------|--------------|
+| Python 3.11 | Встроен в `python-backend.exe` |
+| FastAPI + Uvicorn | Встроен в `python-backend.exe` |
+| SQLAlchemy + SQLite | Встроен в `python-backend.exe` |
+| Node.js / npm | Не нужен |
+| Rust / Cargo | Не нужен |
+| WebView2 Runtime | Уже есть на Windows 10/11 |
+
+### Процесс запуска приложения
+
+```
+Пользователь запускает kiosk.exe
+         │
+         ▼
+Tauri стартует
+         │
+         ├── 1. Запускает python-backend.exe как child process
+         │         │
+         │         ▼
+         │    Python инициализирует БД (если нет — создаёт)
+         │    Python запускает FastAPI на 0.0.0.0:8765
+         │
+         ├── 2. Ждёт health check от Python (GET /health)
+         │
+         ├── 3. Открывает WebView с React SPA
+         │
+         └── 4. Активирует киоск-режим (блокировка клавиш)
+```
+
+### Скрипт полной сборки (build.bat)
+
+```batch
+@echo off
+echo === School Kiosk Build Script ===
+
+echo [1/4] Installing frontend dependencies...
+cd frontend
+call npm install
+
+echo [2/4] Building React frontend...
+call npm run build
+
+echo [3/4] Building Python backend...
+cd ../backend
+call pyinstaller --onefile --name python-backend app/main.py
+
+echo [4/4] Building Tauri app + installer...
+cd ../src-tauri
+call cargo tauri build
+
+echo === Build complete! ===
+echo Installer: src-tauri/target/release/bundle/nsis/school-kiosk-*.exe
+```
+
+### Автоматизация через GitHub Actions (CI/CD)
+
+```yaml
+# .github/workflows/build.yml
+name: Build and Release
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Build React
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      - name: Build Python
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install pyinstaller
+          pyinstaller --onefile --name python-backend app/main.py
+
+      - name: Build Tauri
+        run: |
+          cd src-tauri
+          cargo tauri build
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: school-kiosk-installer
+          path: src-tauri/target/release/bundle/nsis/*.exe
+```
+
+## 14. Требования к окружению
 
 ### Для разработки
 - **Python 3.11+** + pip
@@ -457,6 +653,7 @@ http://192.168.1.100:5173/admin  ->  Vite dev server
 - **WebView2 Runtime** (предустановлен на Win10/11)
 
 ### Для сборки (продакшн)
-- Python bundled с приложением (PyInstaller или embedded Python)
+- Python bundled с приложением (PyInstaller)
 - React собран в статику (Vite build)
-- Tauri собирает всё в один .exe/.msi инсталлятор
+- Tauri bundler создаёт единый .msi/.exe установщик
+- Всё работает из коробки на чистой Windows 10/11

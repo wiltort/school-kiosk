@@ -1,156 +1,156 @@
-# ========================  
-# Python Backend  
-# ========================  
-  
-# Virtual environments  
-venv/  
-.venv/  
-env/  
-ENV/  
-env.bak/  
-venv.bak/  
-.env  
-.env.local  
-.env.*.local  
-  
-# Python cache  
-__pycache__/  
-*.py[cod]  
-*$@class  
-*.so  
-.Python  
-.python-version  
-  
-# Python build  
-*.egg-info/  
-.eggs/  
-dist/  
-build/  
-*.egg  
-*.whl  
-  
-# PyInstaller  
-*.spec  
-*.manifest  
-  
-# Alembic  
-backend/alembic/versions/*.py  
-!backend/alembic/versions/.gitkeep  
-  
-# Database  
-*.db  
-*.sqlite  
-*.sqlite3  
-*.db-journal  
-*.db-wal  
-*.db-shm 
-  
-# ========================  
-# Node.js / React Frontend  
-# ========================  
-  
-# Dependencies  
-node_modules/  
-.pnpm-store/  
-.npm/  
-  
-# Build output  
-frontend/dist/  
-frontend/build/  
-  
-# Vite cache  
-frontend/.vite/  
-  
-# TypeScript  
-*.tsbuildinfo  
-frontend/tsconfig.tsbuildinfo 
-  
-# ========================  
-# Rust / Tauri  
-# ========================  
-  
-# Rust build  
-src-tauri/target/  
-src-tauri/debug/  
-src-tauri/release/  
-  
-# Tauri build  
-src-tauri/bin/  
-src-tauri/gen/ 
-  
-# ========================  
-# IDE & Editors  
-# ========================  
-  
-# Visual Studio Code  
-.vscode/  
-*.code-workspace  
-  
-# Visual Studio  
-.vs/  
-*.suo  
-*.user  
-*.userosscache  
-*.sln.docstates  
-  
-# JetBrains  
-.idea/  
-*.iml  
-*.iws 
-  
-# ========================  
-# OS files  
-# ========================  
-  
-# Windows  
-Thumbs.db  
-Thumbs.db:encryptable  
-ehthumbs.db  
-ehthumbs_vista.db  
-*.stackdump  
-[Dd]esktop.ini  
-$RECYCLE.BIN/  
-  
-# macOS  
-.DS_Store  
-.AppleDouble  
-.LSOverride  
-Icon  
-._.*  
-.Spotlight-V100  
-.Trashes  
-  
-# Linux  
-*~  
-.*.swp  
-.*.swo  
-.*.swn  
-.*.swm 
-  
-# ========================  
-# Logs & Temp files  
-# ========================  
-  
-*.log  
-logs/  
-*.tmp  
-*.temp  
-*.bak  
-*.old  
-*.orig  
-*.rej  
-  
-# ========================  
-# Project specific  
-# ========================  
-  
-# Local config  
-*.local.json  
-  
-# Coverage reports  
-coverage/  
-htmlcov/  
-.coverage  
-.coverage.*  
-*.lcov  
-.nyc_output/ 
+# ========================
+# Python Backend
+# ========================
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.env
+.env.local
+.env.*.local
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$@class
+*.so
+.Python
+.python-version
+
+# Python build
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+*.whl
+
+# PyInstaller
+*.spec
+*.manifest
+
+# Alembic
+backend/alembic/versions/*.py
+!backend/alembic/versions/.gitkeep
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ========================
+# Node.js / React Frontend
+# ========================
+
+# Dependencies
+node_modules/
+.pnpm-store/
+.npm/
+
+# Build output
+frontend/dist/
+frontend/build/
+
+# Vite cache
+frontend/.vite/
+
+# TypeScript
+*.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
+
+# ========================
+# Rust / Tauri
+# ========================
+
+# Rust build
+src-tauri/target/
+src-tauri/debug/
+src-tauri/release/
+
+# Tauri build
+src-tauri/bin/
+src-tauri/gen/
+
+# ========================
+# IDE & Editors
+# ========================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# JetBrains
+.idea/
+*.iml
+*.iws
+
+# ========================
+# OS files
+# ========================
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._.*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.*.swp
+.*.swo
+.*.swn
+.*.swm
+
+# ========================
+# Logs & Temp files
+# ========================
+
+*.log
+logs/
+*.tmp
+*.temp
+*.bak
+*.old
+*.orig
+*.rej
+
+# ========================
+# Project specific
+# ========================
+
+# Local config
+*.local.json
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+.coverage.*
+*.lcov
+.nyc_output/

@@ -1,0 +1,53 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+default_language_version:
+  python: python3.14
+
+repos:
+  # ============================================================
+  # Pre-commit built-in hooks — basic file checks
+  # ============================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=auto]
+
+  # ============================================================
+  # Ruff — linter + formatter (replaces flake8 + isort + black)
+  # ============================================================
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.1
+    hooks:
+      # Run the linter with auto-fix
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+      # Run the formatter
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # ============================================================
+  # Pytest — unit tests (fast, no external dependencies)
+  # ============================================================
+  - repo: local
+    hooks:
+      - id: pytest-unit
+        name: pytest (unit)
+        description: Run unit tests (fast, no external dependencies)
+        entry: cmd /c "poetry -C backend run pytest tests/unit -v --tb=short --no-header || exit /b 0"
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true

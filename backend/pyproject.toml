@@ -8,6 +8,7 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "fastapi (>=0.141.1,<0.142.0)"
 ]
 
 [tool.poetry]

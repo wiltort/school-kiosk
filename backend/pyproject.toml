@@ -1,5 +1,5 @@
 [project]
-name = "backend"
+name = "SchoolKioskBackend"
 version = "0.1.0"
 description = ""
 authors = [
@@ -9,14 +9,12 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi (>=0.141.1,<0.142.0)",
-    "pydantic-settings (>=2.14.2,<3.0.0)"
+    "pydantic-settings (>=2.14.2,<3.0.0)",
+    "sqlalchemy (>=2.0.51,<3.0.0)"
 ]
 
 [tool.poetry]
-packages = [{include = "backend", from = "src"}]
-# Source code is at src/core/ and src/main.py — not src/backend/
-# The package include above expects src/backend/ to exist.
-# We keep it for Poetry's build but the actual app code lives in src/.
+packages = [{include = "src"}]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -104,3 +102,8 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 pythonpath = ["src"]
 filterwarnings = ["ignore::pytest.PytestCollectionWarning"]
+
+[[tool.poetry.source]]
+name = "tsinghua"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+priority = "primary"

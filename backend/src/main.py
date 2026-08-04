@@ -1,6 +1,5 @@
 from contextlib import asynccontextmanager
 
-import uvicorn
 from fastapi import FastAPI
 
 from src.core.config import settings
@@ -34,10 +33,4 @@ def create_app() -> FastAPI:
     return app
 
 
-def run_app():
-    app = create_app()
-    uvicorn.run(app, host=settings.server_host, port=settings.server_port)
-
-
-if __name__ == "__main__":
-    run_app()
+app = create_app()

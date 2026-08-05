@@ -52,7 +52,7 @@ migrate-downgrade: ## Откатить последнюю миграцию
 
 .PHONY: pre-commit
 pre-commit: ## Запустить pre-commit для всех файлов
-	poetry run pre-commit run --all-files
+	$(POETRY) pre-commit run --all-files
 
 .PHONY: help
 help: ## Показать все доступные команды

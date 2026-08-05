@@ -3,11 +3,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from src.core.config import settings
-from src.core.database import Base, async_engine
+from src.core.database import db
+from src.models import Base
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001 — required by FastAPI lifespan signature
+    async_engine = db.db_engine
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -43,5 +45,5 @@ def start():
         app="src.main:app",
         host=settings.server_host,
         port=settings.server_port,
-        reload=True,
+        reload=settings.debug,
     )

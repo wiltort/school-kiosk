@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -19,6 +20,10 @@ class Settings(BaseSettings):
     server_port: int = 8765
 
     database_url: str = "sqlite+aiosqlite:///school_kiosk.db"
+    db_echo: bool = False
+
+    admin_login: str = "admin"
+    admin_password: SecretStr = SecretStr("admin")
 
 
 settings = Settings()

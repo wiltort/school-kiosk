@@ -6,8 +6,8 @@ install: ## Установить все зависимости (включая d
 	cd $(BACKEND) && poetry install
 
 .PHONY: run
-run: ## Запустить dev-сервер (uvicorn с hot-reload)
-	$(POETRY) uvicorn src.main:app --reload
+run: ## Запустить сервер (uvicorn с hot-reload)
+	$(POETRY) app
 
 .PHONY: test
 test: ## Запустить все тесты

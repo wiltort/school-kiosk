@@ -34,3 +34,14 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
+def start():
+    import uvicorn
+
+    uvicorn.run(
+        app="src.main:app",
+        host=settings.server_host,
+        port=settings.server_port,
+        reload=True,
+    )

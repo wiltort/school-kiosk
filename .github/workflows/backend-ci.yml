@@ -74,6 +74,9 @@ jobs:
       - name: Install dependencies
         run: poetry install --with dev --no-interaction
 
+      - name: Apply Alembic migrations
+        run: poetry run alembic upgrade head
+
       - name: Run tests
         run: poetry run pytest -v --tb=short
 
@@ -84,37 +87,3 @@ jobs:
           name: pytest-report
           path: backend/.pytest_cache/
           if-no-files-found: ignore
-
-  migrate:
-    name: Apply Alembic migrations
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    env:
-      BACKEND_DATABASE_URL: 'sqlite+aiosqlite:///ci_test.db'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.14'
-
-      - name: Install Poetry
-        run: |
-          pipx install poetry
-          poetry --version
-
-      - name: Install dependencies
-        run: poetry install --with dev --no-interaction
-
-      - name: Show current migration revision
-        run: poetry run alembic current
-
-      - name: Apply migrations
-        run: poetry run alembic upgrade head
-
-      - name: Verify migrations are up to date
-        run: poetry run alembic check

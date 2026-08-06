@@ -68,10 +68,10 @@ class ScheduleImageUpdate(BaseModel):
 
 class ScheduleImageGet(ScheduleImageBase):
     id: uuid.UUID = Field(..., description="ID расписания", examples=[uuid.uuid4()])
-    create_at: datetime = Field(
+    created_at: datetime = Field(
         ..., description="Дата создания", examples=[datetime.now()]
     )
-    update_at: datetime = Field(
+    updated_at: datetime = Field(
         ..., description="Дата обновления", examples=[datetime.now()]
     )
 

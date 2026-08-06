@@ -5,6 +5,7 @@ import uuid
 import pytest
 from sqlalchemy import Boolean, String, create_engine
 from sqlalchemy.orm import Session
+from src.enums.schedule import DayOfWeek
 from src.models.base import Base
 from src.models.schedule import ScheduleImage
 
@@ -27,6 +28,7 @@ def test_schedule_image_defaults(session):
     assert image.name == "Untitled"
     assert image.image == "schedule.png"
     assert image.is_active is False
+    assert image.day_of_week.value == 1
 
 
 def test_schedule_image_custom_values(session):
@@ -35,6 +37,7 @@ def test_schedule_image_custom_values(session):
         name="Weekday schedule",
         image="weekday.png",
         is_active=True,
+        day_of_week=DayOfWeek.THURSDAY,
     )
     session.add(image)
     session.flush()
@@ -42,6 +45,8 @@ def test_schedule_image_custom_values(session):
     assert image.name == "Weekday schedule"
     assert image.image == "weekday.png"
     assert image.is_active is True
+    assert image.day_of_week.value == 4
+    assert image.created_at is not None
 
 
 def test_schedule_image_id_is_uuid(session):
@@ -78,6 +83,7 @@ def test_schedule_image_columns():
     assert "is_active" in columns
     assert "created_at" in columns
     assert "updated_at" in columns
+    assert "day_of_week" in columns
 
 
 def test_schedule_image_name_column():

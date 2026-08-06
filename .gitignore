@@ -33,10 +33,6 @@ build/
 *.spec
 *.manifest
 
-# Alembic
-backend/alembic/versions/*.py
-!backend/alembic/versions/.gitkeep
-
 # Database
 *.db
 *.sqlite

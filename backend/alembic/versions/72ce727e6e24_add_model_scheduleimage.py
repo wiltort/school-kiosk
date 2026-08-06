@@ -1,8 +1,8 @@
-"""Create Schedule Image table
+"""Add model ScheduleImage
 
-Revision ID: d4040b10115d
+Revision ID: 72ce727e6e24
 Revises:
-Create Date: 2026-08-05 10:41:21.674631
+Create Date: 2026-08-06 08:18:06.720022
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "d4040b10115d"
+revision: str = "72ce727e6e24"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -26,6 +26,20 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("image", sa.String(length=255), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column(
+            "day_of_week",
+            sa.Enum(
+                "MONDAY",
+                "TUESDAY",
+                "WEDNESDAY",
+                "THURSDAY",
+                "FRIDAY",
+                "SATURDAY",
+                "SUNDAY",
+                name="dayofweek",
+            ),
+            nullable=False,
+        ),
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),

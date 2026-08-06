@@ -50,6 +50,10 @@ migrate: ## Применить все миграции
 migrate-downgrade: ## Откатить последнюю миграцию
 	$(POETRY) alembic downgrade -1
 
+.PHONY: pre-commit-install
+pre-commit-install: ## Установить pre-commit
+	$(POETRY) pre-commit install
+
 .PHONY: pre-commit
 pre-commit: ## Запустить pre-commit для всех файлов
 	$(POETRY) pre-commit run --all-files

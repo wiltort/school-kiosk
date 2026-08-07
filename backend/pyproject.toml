@@ -12,7 +12,8 @@ dependencies = [
     "fastapi (>=0.141.1,<0.142.0)",
     "pydantic-settings (>=2.14.2,<3.0.0)",
     "sqlalchemy (>=2.0.51,<3.0.0)",
-    "uvicorn (>=0.52.1,<0.53.0)"
+    "uvicorn (>=0.52.1,<0.53.0)",
+    "alembic (>=1.18.5,<2.0.0)"
 ]
 
 [tool.poetry]
@@ -30,7 +31,8 @@ dev = [
     "isort (>=8.0.1,<9.0.0)",
     "pre-commit (>=4.6.1,<5.0.0)",
     "ruff (>=0.16.1,<0.17.0)",
-    "pytest (>=9.1.1,<10.0.0)"
+    "pytest (>=9.1.1,<10.0.0)",
+    "pytest-cov (>=6.0.0,<7.0.0)"
 ]
 
 # ============================================================
@@ -58,6 +60,11 @@ select = [
 ignore = [
     "E501",  # line-too-long — handled by formatter
 ]
+
+[tool.ruff.lint.flake8-bugbear]
+# Allow FastAPI's `Depends()` in argument defaults — this is the standard,
+# idiomatic DI pattern and is not an "unsafe" function call.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]  # allow assert in tests
@@ -106,7 +113,5 @@ python_files = ["test_*.py"]
 pythonpath = ["src"]
 filterwarnings = ["ignore::pytest.PytestCollectionWarning"]
 
-[[tool.poetry.source]]
-name = "tsinghua"
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-priority = "supplemental"
+[project.scripts]
+app = "src.main:start"

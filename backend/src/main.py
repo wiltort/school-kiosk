@@ -1,14 +1,16 @@
 from contextlib import asynccontextmanager
 
-import uvicorn
 from fastapi import FastAPI
 
+from src.apps import apps_router
 from src.core.config import settings
-from src.core.database import Base, async_engine
+from src.core.database import db
+from src.models import Base
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001 — required by FastAPI lifespan signature
+    async_engine = db.db_engine
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -25,7 +27,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # TODO подключить роутеры
+    app.include_router(apps_router)
 
     @app.get("/", tags=["root"])
     def root():
@@ -34,10 +36,15 @@ def create_app() -> FastAPI:
     return app
 
 
-def run_app():
-    app = create_app()
-    uvicorn.run(app, host=settings.server_host, port=settings.server_port)
+app = create_app()
 
 
-if __name__ == "__main__":
-    run_app()
+def start():
+    import uvicorn
+
+    uvicorn.run(
+        app="src.main:app",
+        host=settings.server_host,
+        port=settings.server_port,
+        reload=settings.debug,
+    )

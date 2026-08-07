@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from src.apps import apps_router
 from src.core.config import settings
 from src.core.database import db
 from src.models import Base
@@ -26,7 +27,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # TODO подключить роутеры
+    app.include_router(apps_router)
 
     @app.get("/", tags=["root"])
     def root():

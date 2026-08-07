@@ -1,8 +1,10 @@
 import uuid
 
 from fastapi import Depends, HTTPException
-from sqlalchemy import case, delete, insert, select, update
+from sqlalchemy import case, delete, func, insert, select, update
+from sqlalchemy.engine import Result
 from sqlalchemy.exc import IntegrityError, NoResultFound
+
 from src.apps.schedule.schemas import (
     ScheduleImageCreate,
     ScheduleImageGet,
@@ -87,7 +89,16 @@ class ScheduleImageManager:
     async def delete(self, id: uuid.UUID) -> None:
         async with self.db.db_session() as session:
             query = delete(self.model).where(self.model.id == id)
-            result = await session.execute(query)
-            if result.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Расписание не найдено")
+            result: Result = await session.execute(query)
+            if hasattr(result, "rowcount"):
+                if result.rowcount == 0:
+                    raise HTTPException(status_code=404, detail="Расписание не найдено")
+            else:
+                count = await session.scalar(
+                    select(func.count())
+                    .select_from(self.model)
+                    .where(self.model.id == id)
+                )
+                if count == 0:
+                    raise HTTPException(status_code=404, detail="Расписание не найдено")
             await session.commit()

@@ -21,7 +21,7 @@ SECTIONS = [
             "check",
         ],
     ),
-    ("Database", ["migration", "migrate", "migrate-downgrade"]),
+    ("Database", ["db-migration", "db-migrate", "db-migrate-downgrade", "db-current"]),
     ("GitFlow", ["pre-commit-install", "pre-commit", "new-branch"]),
     ("Help", ["help"]),
 ]

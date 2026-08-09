@@ -1,19 +1,62 @@
-from sqlalchemy import Boolean, Enum, String
-from sqlalchemy.orm import Mapped, mapped_column
+import uuid
 
-from src.enums.schedule import DayOfWeek
+from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from src.models.base import Base
-from src.models.mixins import IDMixin, TimestampMixin
+from src.models.mixins import IDMixin, ScheduleMixin
 
 
-class ScheduleImage(IDMixin, TimestampMixin, Base):
-    __tablename__ = "schedules"
-    name: Mapped[str] = mapped_column(String(255), nullable=False, default="Untitled")
+class ScheduleImage(ScheduleMixin, Base):
+    __tablename__ = "schedule_images"
     image: Mapped[str] = mapped_column(String(255), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    day_of_week: Mapped[DayOfWeek] = mapped_column(
-        Enum(DayOfWeek), nullable=False, default=DayOfWeek.MONDAY
+
+
+class ScheduleTable(ScheduleMixin, Base):
+    __tablename__ = "schedule_tables"
+
+    schedule_rows: Mapped[list[ScheduleRow]] = relationship(
+        "ScheduleRow",
+        back_populates="schedule_table",
+        lazy="joined",
+        cascade="all, delete-orphan",
+        order_by="ScheduleRow.number",
     )
 
-    def __repr__(self) -> str:
-        return f"Schedule(id={self.id}, name={self.name})"
+
+class ScheduleRow(IDMixin, Base):
+    __tablename__ = "schedule_rows"
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    header: Mapped[str] = mapped_column(String(255), nullable=False)
+    schedule_table_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("schedule_tables.id", ondelete="CASCADE")
+    )
+
+    lessons: Mapped[list[Lesson]] = relationship(
+        "Lesson",
+        back_populates="schedule_row",
+        lazy="joined",
+        cascade="all, delete-orphan",
+        order_by="Lesson.number",
+    )
+    schedule_table: Mapped[ScheduleTable] = relationship(
+        "ScheduleTable",
+        back_populates="schedule_rows",
+        lazy="joined",
+    )
+
+
+class Lesson(IDMixin, Base):
+    __tablename__ = "lessons"
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    schedule_row_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("schedule_rows.id", ondelete="CASCADE")
+    )
+
+    schedule_row: Mapped[ScheduleRow] = relationship(
+        "ScheduleRow", back_populates="lessons", lazy="joined"
+    )
+
+    def __repr__(self):
+        return f"Lesson(id={self.id}, name={self.name})"

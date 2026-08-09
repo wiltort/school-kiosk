@@ -39,17 +39,21 @@ check: ## Полная проверка: линт + проверка форма�
 	$(POETRY) ruff check src tests
 	$(POETRY) ruff format --check src tests
 
-.PHONY: migration
-migration: ## Создать новую миграцию (использование: make migration m="описание")
+.PHONY: db-migration
+db-migration: ## Создать новую миграцию (использование: make migration m="описание")
 	$(POETRY) alembic revision --autogenerate -m "$(m)"
 
-.PHONY: migrate
-migrate: ## Применить все миграции
+.PHONY: db-migrate
+db-migrate: ## Применить все миграции
 	$(POETRY) alembic upgrade head
 
-.PHONY: migrate-downgrade
-migrate-downgrade: ## Откатить последнюю миграцию
+.PHONY: db-migrate-downgrade
+db-migrate-downgrade: ## Откатить последнюю миграцию
 	$(POETRY) alembic downgrade -1
+
+.PHONY: db-current
+db-current: ## Показать текущую миграцию
+	$(POETRY) alembic current
 
 .PHONY: pre-commit-install
 pre-commit-install: ## Установить pre-commit

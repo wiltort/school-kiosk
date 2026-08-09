@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import UUID, DateTime, Enum
+from sqlalchemy import UUID, Boolean, DateTime, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -23,3 +23,15 @@ class TimestampMixin:
 
 class DayOfWeekMixin:
     day_of_week: Mapped[DayOfWeek] = mapped_column(Enum(DayOfWeek))
+
+
+class ScheduleMixin(IDMixin, TimestampMixin, DayOfWeekMixin):
+    name: Mapped[str] = mapped_column(String(255), nullable=False, default="Untitled")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    description: Mapped[str] = mapped_column(String(500), nullable=True)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
+
+    def __str__(self):
+        return f"{self.__class__.__name__}: {self.name}"

@@ -6,9 +6,24 @@ from pathlib import Path
 
 MAKEFILE = Path(__file__).resolve().parent.parent / "Makefile"
 
-# (заголовок, список имён целей) — секции справки
+# (заголовок, список имён целей / None = все оставшиеся) — секции справки
 SECTIONS = [
-    ("Backend", None),  # None = все оставшиеся цели
+    (
+        "Backend",
+        [
+            "install",
+            "run",
+            "test",
+            "test-integration",
+            "test-coverage",
+            "lint",
+            "format",
+            "check",
+        ],
+    ),
+    ("Database", ["migration", "migrate", "migrate-downgrade"]),
+    ("GitFlow", ["pre-commit-install", "pre-commit", "new-branch"]),
+    ("Help", ["help"]),
 ]
 
 lines = MAKEFILE.read_text(encoding="utf-8")

@@ -1,5 +1,6 @@
 BACKEND := backend
 POETRY  := cd $(BACKEND) && poetry run
+FEATURE_BRANCH_FROM := dev
 
 .PHONY: install
 install: ## Установить все зависимости (включая dev)
@@ -61,3 +62,10 @@ pre-commit: ## Запустить pre-commit для всех файлов
 .PHONY: help
 help: ## Показать все доступные команды
 	@python -X utf8 scripts/make_help.py
+
+.PHONY: new-branch
+new-branch: ## Создать новую ветку (использование: make new-branch n="Имя-ветки")
+	git checkout $(FEATURE_BRANCH_FROM)
+	git fetch origin
+	git pull origin $(FEATURE_BRANCH_FROM)
+	git checkout -b "$(n)"

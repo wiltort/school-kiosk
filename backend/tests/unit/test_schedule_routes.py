@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 from src.apps.schedule.routes import schedule_router
-from src.core.database import DBDependency
+from src.core.database import get_db_dependency
 from src.enums.schedule import DayOfWeek
 from src.main import create_app
 from src.models import Base
@@ -49,7 +49,7 @@ def client():
 
     app = create_app()
     fake_db = _FakeDB(session_factory)
-    app.dependency_overrides[DBDependency] = lambda: fake_db
+    app.dependency_overrides[get_db_dependency] = lambda: fake_db
 
     with TestClient(app) as test_client:
         yield test_client

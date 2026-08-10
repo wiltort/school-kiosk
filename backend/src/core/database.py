@@ -26,5 +26,22 @@ class DBDependency:
         return self._engine
 
 
-def get_db_engine() -> AsyncEngine:
-    return DBDependency().db_engine
+_db: DBDependency | None = None
+
+
+def get_db_dependency() -> DBDependency:
+    """Возвращает единственный экземпляр DBDependency (синглтон).
+
+    Используется как FastAPI-зависимость и внутри lifespan, чтобы все
+    потребители работали с одним и тем же AsyncEngine.
+    """
+    global _db
+    if _db is None:
+        _db = DBDependency()
+    return _db
+
+
+def reset_db_dependency() -> None:
+    """Сброс синглтона."""
+    global _db
+    _db = None

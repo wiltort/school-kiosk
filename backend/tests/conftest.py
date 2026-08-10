@@ -1,5 +1,3 @@
-"""Pytest configuration — adds src/ to Python path."""
-
 import sys
 from pathlib import Path
 
@@ -7,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from src.core.database import get_db_engine
+from src.core.database import get_db_dependency
 from src.main import app
 from src.models.base import Base
 from src.models.schedule import Lesson, ScheduleRow, ScheduleTable
@@ -55,20 +53,58 @@ def session(test_engine):
 def client(session: Session):
     """Фикстура для тестового клиента FastAPI с переопределенной зависимостью БД."""
 
-    def override_get_db():
-        try:
-            yield session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db_engine] = override_get_db
+    app.dependency_overrides[get_db_dependency] = lambda: _SessionDependency(session)
 
     with TestClient(app) as test_client:
         yield test_client
 
+    app.dependency_overrides.clear()
+
+
+class _SessionDependency:
+    """DBDependency с замененной синхронной сессией."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    @property
+    def db_session(self):
+        return _SyncSessionFactory(self._session)
+
+
+class _SyncSessionFactory:
+    """Фабрика синхронных сессий."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def __call__(self):
+        return _SessionContext(self._session)
+
+
+class _SessionContext:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    async def __aenter__(self) -> Session:
+        return self._session
+
+    async def __aexit__(self, *exc) -> None:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def clean_db(session):
+    """Очистка БД после каждого теста."""
+    yield
+    for table in reversed(Base.metadata.sorted_tables):
+        session.execute(table.delete())
+    session.commit()
+
 
 @pytest.fixture()
 def schedule_table_sample(session: Session):
+    """Фикстура для создания примера таблицы расписания."""
     schedule = ScheduleTable(
         schedule_rows=[
             ScheduleRow(
@@ -92,12 +128,3 @@ def schedule_table_sample(session: Session):
     session.add(schedule)
     session.flush()
     return schedule
-
-
-@pytest.fixture(autouse=True)
-def clean_db(session):
-    """Очистка БД после каждого теста."""
-    yield
-    for table in reversed(Base.metadata.sorted_tables):
-        session.execute(table.delete())
-    session.commit()

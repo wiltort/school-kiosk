@@ -10,13 +10,13 @@ from src.apps.schedule.schemas import (
     ScheduleImageGet,
     ScheduleImageUpdate,
 )
-from src.core.database import DBDependency
+from src.core.database import DBDependency, get_db_dependency
 from src.enums.schedule import DayOfWeek
 from src.models import ScheduleImage
 
 
 class ScheduleImageManager:
-    def __init__(self, db: DBDependency = Depends(DBDependency)) -> None:
+    def __init__(self, db: DBDependency = Depends(get_db_dependency)) -> None:
         self.db = db
         self.model = ScheduleImage
 

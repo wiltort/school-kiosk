@@ -70,7 +70,7 @@ def test_schedule_image_id_unique_per_instance(session):
 
 def test_schedule_image_table_name():
     """Test that ScheduleImage maps to the expected table name."""
-    assert ScheduleImage.__tablename__ == "schedules"
+    assert ScheduleImage.__tablename__ == "schedule_images"
 
 
 def test_schedule_image_columns():
@@ -124,4 +124,4 @@ def test_schedule_image_repr():
     """Test the string representation of ScheduleImage."""
     image = ScheduleImage(id=uuid.uuid4(), name="Weekday schedule")
 
-    assert repr(image) == f"Schedule(id={image.id}, name=Weekday schedule)"
+    assert repr(image) == f"ScheduleImage(id={image.id}, name=Weekday schedule)"

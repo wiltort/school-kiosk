@@ -26,4 +26,5 @@ class DBDependency:
         return self._engine
 
 
-db = DBDependency()
+def get_db_engine() -> AsyncEngine:
+    return DBDependency().db_engine

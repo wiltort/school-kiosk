@@ -22,7 +22,9 @@ class TimestampMixin:
 
 
 class DayOfWeekMixin:
-    day_of_week: Mapped[DayOfWeek] = mapped_column(Enum(DayOfWeek))
+    day_of_week: Mapped[DayOfWeek] = mapped_column(
+        Enum(DayOfWeek), default=DayOfWeek.MONDAY
+    )
 
 
 class ScheduleMixin(IDMixin, TimestampMixin, DayOfWeekMixin):

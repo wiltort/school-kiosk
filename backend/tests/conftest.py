@@ -1,110 +1,71 @@
 import sys
 from pathlib import Path
 
-import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from src.core.database import get_db_dependency
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from src.core.database import DBDependency, get_db_dependency
 from src.main import app
 from src.models.base import Base
-from src.models.schedule import Lesson, ScheduleRow, ScheduleTable
 
 SRC_DIR = Path(__file__).resolve().parent.parent
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 
-@pytest.fixture(scope="session")
-def test_engine():
-    """Создание тестового движка SQLAlchemy с SQLite в памяти."""
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
-
+@pytest_asyncio.fixture(scope="session")
+async def async_engine():
+    """Создаёт асинхронный движок SQLite in-memory и создаёт все таблицы."""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield engine
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
 
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
+
+@pytest_asyncio.fixture(scope="function")
+async def async_session_maker(async_engine):
+    """Возвращает фабрику асинхронных сессий (для каждого теста своя)."""
+    return async_sessionmaker(async_engine, expire_on_commit=False)
 
 
-@pytest.fixture(scope="function")
-def session(test_engine):
-    """Создание сессии SQLAlchemy для тестирования."""
-    connection = test_engine.connect()
-    transaction = connection.begin()
-
-    testing_session_local = sessionmaker(
-        autocommit=False,
-        autoflush=False,
-        bind=connection,
-    )
-
-    session = testing_session_local()
-
-    try:
+@pytest_asyncio.fixture(scope="function")
+async def async_session(async_session_maker):
+    """Создаёт конкретную сессию для использования в тестах (опционально)."""
+    async with async_session_maker() as session:
         yield session
-    finally:
-        session.close()
-        transaction.rollback()
-        connection.close()
 
 
-@pytest.fixture(scope="function")
-def client(session: Session):
-    """Фикстура для тестового клиента FastAPI с переопределенной зависимостью БД."""
+@pytest_asyncio.fixture(scope="function")
+def client(async_session_maker):
+    """Тестовый клиент FastAPI с подменой зависимости БД на асинхронную."""
 
-    app.dependency_overrides[get_db_dependency] = lambda: _SessionDependency(session)
+    def override_get_db():
+        return DBDependency(async_session_maker)
 
+    app.dependency_overrides[get_db_dependency] = override_get_db
     with TestClient(app) as test_client:
         yield test_client
-
     app.dependency_overrides.clear()
 
 
-class _SessionDependency:
-    """DBDependency с замененной синхронной сессией."""
-
-    def __init__(self, session: Session) -> None:
-        self._session = session
-
-    @property
-    def db_session(self):
-        return _SyncSessionFactory(self._session)
-
-
-class _SyncSessionFactory:
-    """Фабрика синхронных сессий."""
-
-    def __init__(self, session: Session) -> None:
-        self._session = session
-
-    def __call__(self):
-        return _SessionContext(self._session)
-
-
-class _SessionContext:
-    def __init__(self, session: Session) -> None:
-        self._session = session
-
-    async def __aenter__(self) -> Session:
-        return self._session
-
-    async def __aexit__(self, *exc) -> None:
-        pass
-
-
-@pytest.fixture(autouse=True)
-def clean_db(session):
-    """Очистка БД после каждого теста."""
+@pytest_asyncio.fixture(autouse=True)
+async def clean_db(async_session_maker):
+    """Автоматически очищает все таблицы после каждого теста."""
     yield
-    for table in reversed(Base.metadata.sorted_tables):
-        session.execute(table.delete())
-    session.commit()
+    async with async_session_maker() as session:
+        for table in reversed(Base.metadata.sorted_tables):
+            await session.execute(table.delete())
+        await session.commit()
 
 
-@pytest.fixture()
-def schedule_table_sample(session: Session):
-    """Фикстура для создания примера таблицы расписания."""
+@pytest_asyncio.fixture
+async def schedule_table_sample(async_session_maker):
+    """Создаёт пример расписания в БД и возвращает объект ScheduleTable."""
+    from src.models.schedule import Lesson, ScheduleRow, ScheduleTable
+
     schedule = ScheduleTable(
         schedule_rows=[
             ScheduleRow(
@@ -125,6 +86,18 @@ def schedule_table_sample(session: Session):
             ),
         ]
     )
-    session.add(schedule)
-    session.flush()
-    return schedule
+    async with async_session_maker() as session:
+        session.add(schedule)
+        await session.flush()
+        await session.commit()
+
+        return schedule
+
+
+@pytest_asyncio.fixture
+def manager_factory(async_session_maker):
+    def _create_manager(manager_cls):
+        db_dependency = DBDependency(async_session_maker)
+        return manager_cls(db=db_dependency)
+
+    return _create_manager

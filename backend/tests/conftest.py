@@ -1,3 +1,5 @@
+"""Общие фикстуры для тестирования бэкенда."""
+
 import sys
 from pathlib import Path
 
@@ -90,12 +92,15 @@ async def schedule_table_sample(async_session_maker):
         session.add(schedule)
         await session.flush()
         await session.commit()
+        await session.refresh(schedule)
 
         return schedule
 
 
 @pytest_asyncio.fixture
 def manager_factory(async_session_maker):
+    """Фабрика менеджеров для тестирования."""
+
     def _create_manager(manager_cls):
         db_dependency = DBDependency(async_session_maker)
         return manager_cls(db=db_dependency)

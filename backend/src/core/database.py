@@ -9,13 +9,19 @@ from src.core.config import settings
 
 
 class DBDependency:
-    def __init__(self) -> None:
-        self._engine = create_async_engine(
-            url=settings.database_url, echo=settings.db_echo
-        )
-        self._session_factory = async_sessionmaker(
-            bind=self._engine, expire_on_commit=False, autocommit=False
-        )
+    def __init__(
+        self, session_factory: async_sessionmaker[AsyncSession] | None = None
+    ) -> None:
+        if session_factory is None:
+            self._engine = create_async_engine(
+                url=settings.database_url, echo=settings.db_echo
+            )
+            self._session_factory = async_sessionmaker(
+                bind=self._engine, expire_on_commit=False, autocommit=False
+            )
+        else:
+            self._engine = None
+            self._session_factory = session_factory
 
     @property
     def db_session(self) -> async_sessionmaker[AsyncSession]:

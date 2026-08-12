@@ -12,7 +12,7 @@ from src.apps.schedule.schemas import (
 )
 from src.core.database import DBDependency, get_db_dependency
 from src.enums.schedule import DayOfWeek
-from src.models import ScheduleImage
+from src.models import ScheduleImage, ScheduleTable
 
 
 class ScheduleImageManager:
@@ -102,3 +102,9 @@ class ScheduleImageManager:
                 if count == 0:
                     raise HTTPException(status_code=404, detail="Расписание не найдено")
             await session.commit()
+
+
+class ScheduleTableManager:
+    def __init__(self, db: DBDependency = Depends(get_db_dependency)) -> None:
+        self.db = db
+        self.model = ScheduleTable

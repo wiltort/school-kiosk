@@ -1,1 +1,1 @@
-"""Unit tests — fast, no external dependencies."""
+"""Юнит-тесты."""

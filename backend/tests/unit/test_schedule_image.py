@@ -19,7 +19,7 @@ def test_schedule_image_defaults(sync_session):
     assert image.day_of_week.value == 1
 
 
-def test_schedule_image_custom_values(session):
+def test_schedule_image_custom_values(sync_session):
     """Тест, что ScheduleImage применяет пользовательские значения при flush."""
     image = ScheduleImage(
         name="Weekday schedule",
@@ -27,8 +27,8 @@ def test_schedule_image_custom_values(session):
         is_active=True,
         day_of_week=DayOfWeek.THURSDAY,
     )
-    session.add(image)
-    session.flush()
+    sync_session.add(image)
+    sync_session.flush()
 
     assert image.name == "Weekday schedule"
     assert image.image == "weekday.png"
@@ -37,21 +37,21 @@ def test_schedule_image_custom_values(session):
     assert image.created_at is not None
 
 
-def test_schedule_image_id_is_uuid(session):
+def test_schedule_image_id_is_uuid(sync_session):
     """Тест, что ScheduleImage.id является UUID."""
     image = ScheduleImage(image="schedule.png")
-    session.add(image)
-    session.flush()
+    sync_session.add(image)
+    sync_session.flush()
 
     assert isinstance(image.id, uuid.UUID)
 
 
-def test_schedule_image_id_unique_per_instance(session):
+def test_schedule_image_id_unique_per_instance(sync_session):
     """Тест, что ScheduleImage.id уникальный для каждого объекта."""
     first = ScheduleImage(image="a.png")
     second = ScheduleImage(image="b.png")
-    session.add_all([first, second])
-    session.flush()
+    sync_session.add_all([first, second])
+    sync_session.flush()
 
     assert first.id != second.id
 

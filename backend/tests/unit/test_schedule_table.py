@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 import pytest
-from src.models.schedule import ScheduleRow
+from src.models import ScheduleRow
 
 
 @pytest.mark.asyncio

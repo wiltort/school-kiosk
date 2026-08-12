@@ -88,7 +88,7 @@ async def clean_db(async_session_maker):
 @pytest_asyncio.fixture
 async def schedule_table_sample(async_session_maker):
     """Создаёт пример расписания в БД и возвращает объект ScheduleTable."""
-    from src.models.schedule import Lesson, ScheduleRow, ScheduleTable
+    from src.models import Lesson, ScheduleRow, ScheduleTable
 
     schedule = ScheduleTable(
         schedule_rows=[

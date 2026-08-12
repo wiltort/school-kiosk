@@ -1,4 +1,4 @@
-"""Unit tests for the ScheduleImageManager CRUD operations."""
+"""Юнит-тесты для ScheduleImageManager CRUD операций."""
 
 import uuid
 

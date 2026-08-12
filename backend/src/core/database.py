@@ -28,7 +28,7 @@ class DBDependency:
         return self._session_factory
 
     @property
-    def db_engine(self) -> AsyncEngine:
+    def db_engine(self) -> AsyncEngine | None:
         return self._engine
 
 

@@ -1,4 +1,4 @@
-"""Unit tests for application configuration."""
+"""Юнит-тесты для конфигурации приложения."""
 
 from src.core.config import BASE_DIR, Settings
 

@@ -3,9 +3,13 @@
 import sys
 from pathlib import Path
 
+import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 from src.core.database import DBDependency, get_db_dependency
 from src.main import app
 from src.models.base import Base
@@ -18,7 +22,12 @@ if str(SRC_DIR) not in sys.path:
 @pytest_asyncio.fixture(scope="session")
 async def async_engine():
     """Создаёт асинхронный движок SQLite in-memory и создаёт все таблицы."""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        echo=False,
+        poolclass=StaticPool,
+        connect_args={"check_same_thread": False},
+    )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine
@@ -30,7 +39,13 @@ async def async_engine():
 @pytest_asyncio.fixture(scope="function")
 async def async_session_maker(async_engine):
     """Возвращает фабрику асинхронных сессий (для каждого теста своя)."""
-    return async_sessionmaker(async_engine, expire_on_commit=False)
+    return async_sessionmaker(
+        async_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -41,10 +56,11 @@ async def async_session(async_session_maker):
 
 
 @pytest_asyncio.fixture(scope="function")
-def client(async_session_maker):
+async def client(async_session_maker):
     """Тестовый клиент FastAPI с подменой зависимости БД на асинхронную."""
 
     def override_get_db():
+        """Возвращает зависимость БД с асинхронной фабрикой сессий."""
         return DBDependency(async_session_maker)
 
     app.dependency_overrides[get_db_dependency] = override_get_db
@@ -58,9 +74,15 @@ async def clean_db(async_session_maker):
     """Автоматически очищает все таблицы после каждого теста."""
     yield
     async with async_session_maker() as session:
-        for table in reversed(Base.metadata.sorted_tables):
-            await session.execute(table.delete())
-        await session.commit()
+        try:
+            for table in reversed(Base.metadata.sorted_tables):
+                await session.execute(table.delete())
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            raise e
+        finally:
+            await session.close()
 
 
 @pytest_asyncio.fixture
@@ -97,12 +119,23 @@ async def schedule_table_sample(async_session_maker):
         return schedule
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture()
 def manager_factory(async_session_maker):
     """Фабрика менеджеров для тестирования."""
 
     def _create_manager(manager_cls):
+        """Создаёт экземпляр менеджера с подменённой зависимостью БД."""
         db_dependency = DBDependency(async_session_maker)
         return manager_cls(db=db_dependency)
 
     return _create_manager
+
+
+@pytest.fixture()
+def sync_session():
+    """Провайдер синхронной сессии SQLAlchemy."""
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    with Session(engine) as db_session:
+        yield db_session
+    engine.dispose()

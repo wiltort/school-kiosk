@@ -1,61 +1,9 @@
 """Unit tests for the schedule API routers (HTTP endpoints)."""
 
-import asyncio
 import uuid
 
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
-from sqlalchemy.pool import StaticPool
 from src.apps.schedule.routes import schedule_router
-from src.core.database import get_db_dependency
 from src.enums.schedule import DayOfWeek
-from src.main import create_app
-from src.models import Base
-
-
-class _FakeDB:
-    """Minimal stand-in for DBDependency exposing only `db_session`."""
-
-    def __init__(self, session_factory) -> None:
-        self._session_factory = session_factory
-
-    @property
-    def db_session(self) -> async_sessionmaker[AsyncSession]:
-        return self._session_factory
-
-
-@pytest.fixture()
-def client():
-    """Provide a TestClient whose DB dependency is backed by in-memory SQLite."""
-    engine = create_async_engine(
-        "sqlite+aiosqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    session_factory = async_sessionmaker(
-        bind=engine, expire_on_commit=False, autocommit=False
-    )
-
-    async def _init() -> None:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-    asyncio.run(_init())
-
-    app = create_app()
-    fake_db = _FakeDB(session_factory)
-    app.dependency_overrides[get_db_dependency] = lambda: fake_db
-
-    with TestClient(app) as test_client:
-        yield test_client
-
-    app.dependency_overrides.clear()
-    asyncio.run(engine.dispose())
 
 
 def _valid_payload(**overrides) -> dict:
@@ -76,9 +24,6 @@ def _create_record(client) -> dict:
     return response.json()
 
 
-# ---------------------------------------------------------------------------
-# create (POST /api/v1/schedule)
-# ---------------------------------------------------------------------------
 def test_create_returns_201_and_record(client):
     """Test that POST creates a schedule and returns it with status 201."""
     response = client.post("/api/v1/schedule", json=_valid_payload())

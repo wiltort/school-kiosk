@@ -137,11 +137,28 @@ class ScheduleTableManager:
                             lesson = Lesson(**lesson_data)
                             session.add(lesson)
             await session.flush()
+            await session.commit()
             return await self.get(table_id)
 
     async def get(self, id: uuid.UUID) -> ScheduleTableSchema:
         async with self.db.db_session() as session:
             query = select(self.model).where(self.model.id == id)
             result = await session.execute(query)
-            schedule_data = result.unique().scalar_one()
+            try:
+                schedule_data = result.unique().scalar_one()
+            except NoResultFound:
+                raise HTTPException(
+                    status_code=404, detail="Таблица расписания не найдена"
+                ) from None
             return ScheduleTableSchema.model_validate(schedule_data)
+
+    async def get_all(self) -> list[ScheduleTableSchema]:
+        weekday_order = case(
+            {day.name: index for index, day in enumerate(DayOfWeek, start=1)},
+            value=self.model.day_of_week,
+        )
+        async with self.db.db_session() as session:
+            query = select(self.model).order_by(weekday_order)
+            result = await session.execute(query)
+            schedule_data = result.unique().scalars().all()
+            return [ScheduleTableSchema.model_validate(item) for item in schedule_data]

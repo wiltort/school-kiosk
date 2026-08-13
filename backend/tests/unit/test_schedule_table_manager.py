@@ -72,13 +72,11 @@ async def test_create_applies_model_defaults_for_none_fields(manager_factory):
     assert created.day_of_week == DayOfWeek.MONDAY
 
 
-'''
 @pytest.mark.asyncio
-async def test_get_schedule_image(manager_factory):
-    """Тест получения изображния из бд."""
+async def test_get_schedule_table(manager_factory):
+    """Тест получения таблицы расписания из бд."""
     manager = manager_factory(ScheduleTableManager)
     created = await manager.create(_sample_create())
-
     fetched = await manager.get(created.id)
 
     assert fetched.id == created.id
@@ -100,7 +98,7 @@ async def test_get_missing_raises_404(manager_factory):
 @pytest.mark.asyncio
 async def test_get_all_returns_created_records(manager_factory):
     """Тест получения всех созданных записей."""
-    manager = manager_factory(ScheduleImageManager)
+    manager = manager_factory(ScheduleTableManager)
     await manager.create(_sample_create(name="A", day_of_week=DayOfWeek.MONDAY))
     await manager.create(_sample_create(name="B", day_of_week=DayOfWeek.TUESDAY))
 
@@ -113,7 +111,7 @@ async def test_get_all_returns_created_records(manager_factory):
 @pytest.mark.asyncio
 async def test_get_all_orders_by_day_of_week(manager_factory):
     """Тест получения всех записей по дню недели."""
-    manager = manager_factory(ScheduleImageManager)
+    manager = manager_factory(ScheduleTableManager)
 
     await manager.create(_sample_create(name="late", day_of_week=DayOfWeek.FRIDAY))
     await manager.create(_sample_create(name="early", day_of_week=DayOfWeek.MONDAY))
@@ -122,6 +120,8 @@ async def test_get_all_orders_by_day_of_week(manager_factory):
 
     assert [r.name for r in records] == ["early", "late"]
 
+
+'''
 
 @pytest.mark.asyncio
 async def test_update_partial_fields(manager_factory):

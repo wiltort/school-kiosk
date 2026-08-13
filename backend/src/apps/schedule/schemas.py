@@ -189,3 +189,43 @@ class ScheduleTableCreate(BaseModel):
             )
         ],
     )
+
+
+class LessonUpdate(BaseModel):
+    name: str | None = Field(
+        None, description="Название урока", examples=["Математика"]
+    )
+    number: int | None = Field(None, description="Номер урока", examples=[1])
+
+
+class ScheduleRowUpdate(BaseModel):
+    number: int | None = Field(None, description="Номер строки", examples=[1])
+    header: str | None = Field(
+        None, description="Заголовок строки", examples=["5 класс"]
+    )
+    lessons: list[LessonUpdate] | None = Field(
+        None, description="Уроки", examples=[LessonCreate(name="Математика", number=1)]
+    )
+
+
+class ScheduleTableUpdate(BaseModel):
+    name: str | None = Field(
+        None, description="Название расписания", examples=["Расписание 1"]
+    )
+    is_active: bool | None = Field(
+        default=None, description="Активное расписание", examples=[True]
+    )
+    day_of_week: DayOfWeek | None = Field(
+        default=None, description="День недели", examples=[DayOfWeek.MONDAY]
+    )
+    schedule_rows: list[ScheduleRowCreate] | None = Field(
+        None,
+        description="Строки расписания",
+        examples=[
+            ScheduleRowCreate(
+                number=1,
+                header="5 класс",
+                lessons=[LessonCreate(name="Математика", number=1)],
+            )
+        ],
+    )

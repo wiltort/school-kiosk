@@ -11,6 +11,7 @@ from src.apps.schedule.schemas import (
     ScheduleImageUpdate,
     ScheduleTableCreate,
     ScheduleTableSchema,
+    ScheduleTableUpdate,
 )
 from src.core.database import DBDependency, get_db_dependency
 from src.enums.schedule import DayOfWeek
@@ -162,3 +163,15 @@ class ScheduleTableManager:
             result = await session.execute(query)
             schedule_data = result.unique().scalars().all()
             return [ScheduleTableSchema.model_validate(item) for item in schedule_data]
+
+    async def update(
+        self, id: uuid.UUID, schedule: ScheduleTableUpdate
+    ) -> ScheduleTableSchema:
+        pass
+        # async with self.db.db_session() as session:
+        # update_data = schedule.model_dump(execute_unset=True)
+        # if not update_data:
+        # raise HTTPException(status_code=400, detail="Нет данных для обновления")
+        # query = select(self.model).where(self.model.id == id)
+        # result = await session.execute(query)
+        # table = result.unique().scalar_one()

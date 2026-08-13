@@ -9,10 +9,12 @@ from src.apps.schedule.schemas import (
     ScheduleImageCreate,
     ScheduleImageGet,
     ScheduleImageUpdate,
+    ScheduleTableCreate,
+    ScheduleTableSchema,
 )
 from src.core.database import DBDependency, get_db_dependency
 from src.enums.schedule import DayOfWeek
-from src.models import ScheduleImage, ScheduleTable
+from src.models import Lesson, ScheduleImage, ScheduleRow, ScheduleTable
 
 
 class ScheduleImageManager:
@@ -108,3 +110,38 @@ class ScheduleTableManager:
     def __init__(self, db: DBDependency = Depends(get_db_dependency)) -> None:
         self.db = db
         self.model = ScheduleTable
+
+    async def create(self, schedule: ScheduleTableCreate) -> ScheduleTableSchema:
+        async with self.db.db_session() as session:
+            query = (
+                insert(self.model)
+                .values(
+                    **schedule.model_dump(exclude_none=True, exclude={"schedule_rows"})
+                )
+                .returning(self.model.id)
+            )
+            result = await session.execute(query)
+            table_id = result.scalar_one()
+            if schedule.schedule_rows:
+                for row_data in schedule.schedule_rows:
+                    row = row_data.model_dump(exclude_none=True, exclude={"lessons"})
+                    row["schedule_table_id"] = table_id
+                    row = ScheduleRow(**row)
+                    session.add(row)
+                    await session.flush()
+
+                    if row_data.lessons:
+                        for lesson_data in row_data.lessons:
+                            lesson_data = lesson_data.model_dump()
+                            lesson_data["schedule_row_id"] = row.id
+                            lesson = Lesson(**lesson_data)
+                            session.add(lesson)
+            await session.flush()
+            return await self.get(table_id)
+
+    async def get(self, id: uuid.UUID) -> ScheduleTableSchema:
+        async with self.db.db_session() as session:
+            query = select(self.model).where(self.model.id == id)
+            result = await session.execute(query)
+            schedule_data = result.unique().scalar_one()
+            return ScheduleTableSchema.model_validate(schedule_data)

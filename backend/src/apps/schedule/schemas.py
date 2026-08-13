@@ -98,9 +98,12 @@ class LessonBase(BaseModel):
 
 class LessonSchema(LessonBase):
     id: uuid.UUID = Field(..., description="ID урока", examples=[uuid.uuid4()])
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
 
-class LessonCreate(BaseModel):
+class LessonCreate(LessonBase):
     pass
 
 
@@ -116,17 +119,14 @@ class ScheduleRowSchema(ScheduleRowBase):
         description="Уроки",
         examples=[LessonSchema(id=uuid.uuid4(), name="Математика", number=1)],
     )
-    created_at: datetime = Field(
-        ..., description="Дата создания", examples=[datetime.now()]
-    )
-    updated_at: datetime = Field(
-        ..., description="Дата обновления", examples=[datetime.now()]
+    model_config = ConfigDict(
+        from_attributes=True,
     )
 
 
 class ScheduleRowCreate(ScheduleRowBase):
     lessons: list[LessonCreate] = Field(
-        ..., description="Уроки", examples=[LessonCreate(name="Математика")]
+        ..., description="Уроки", examples=[LessonCreate(name="Математика", number=1)]
     )
 
 
@@ -159,6 +159,9 @@ class ScheduleTableSchema(ScheduleTableBase):
     )
     updated_at: datetime = Field(
         ..., description="Дата обновления", examples=[datetime.now()]
+    )
+    model_config = ConfigDict(
+        from_attributes=True,
     )
 
 

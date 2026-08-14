@@ -6,6 +6,8 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
+    model_config = {"env_prefix": "BACKEND_"}
+
     app_name: str = "School Kiosk API"
     app_description: str = "API backend for School Kiosk"
     app_version: str = "0.1.0"
@@ -17,6 +19,10 @@ class Settings(BaseSettings):
     server_port: int = 8765
 
     database_url: str = "sqlite+aiosqlite:///school_kiosk.db"
+    db_echo: bool = False
+
+    default_admin_login: str = "admin"
+    default_admin_password: str = "admin"  # noqa: S105
 
 
 settings = Settings()

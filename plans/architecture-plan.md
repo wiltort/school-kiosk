@@ -99,90 +99,56 @@ school-kiosk/
 │   └── icons/                   # Иконки приложения
 │
 ├── backend/                      # Python FastAPI
-│   ├── app/                     # Основной пакет приложения
+│   ├── src/                     # Основной пакет приложения
 │   │   ├── __init__.py
-│   │   ├── main.py              # Точка входа FastAPI (uvicorn)
-│   │   ├── config.py            # Настройки из env/config файла
-│   │   ├── database.py          # Подключение к БД (SQLAlchemy async)
+│   │   ├── main.py              # Точка входа FastAPI (lifespan, create_app)
 │   │   │
-│   │   ├── models/              # SQLAlchemy ORM модели
+│   │   ├── core/                # Инфраструктура (настройки, БД)
+│   │   │   ├── __init__.py
+│   │   │   ├── config.py        # Настройки (pydantic-settings, env_prefix=BACKEND_)
+│   │   │   └── database.py      # DBDependency (async engine + session factory)
+│   │   │
+│   │   ├── apps/                # Функциональные модули (feature-based)
+│   │   │   ├── __init__.py
+│   │   │   └── schedule/        # Модуль «Расписание»
+│   │   │       ├── __init__.py
+│   │   │       ├── managers.py  # ScheduleImageManager (бизнес-логика/CRUD)
+│   │   │       └── schemas.py   # Pydantic схемы (Create/Update/Get)
+│   │   │
+│   │   ├── enums/               # Перечисления
+│   │   │   ├── __init__.py
+│   │   │   └── schedule.py      # DayOfWeek (пн-вс)
+│   │   │
+│   │   ├── models/              # SQLAlchemy ORM модели (общий слой)
 │   │   │   ├── __init__.py      # Экспорт всех моделей + Base
-│   │   │   ├── base.py          # Базовый класс (id, created_at, updated_at)
-│   │   │   ├── schedule.py      # Class, Subject, Teacher, ScheduleEntry
-│   │   │   ├── news.py          # News
-│   │   │   └── admin.py         # Admin, Settings
+│   │   │   ├── base.py          # Base (DeclarativeBase)
+│   │   │   ├── mixins.py        # IDMixin, TimestampMixin, DayOfWeekMixin
+│   │   │   └── schedule.py      # ScheduleImage
 │   │   │
-│   │   ├── schemas/             # Pydantic схемы (request/response)
-│   │   │   ├── __init__.py
-│   │   │   ├── common.py        # Пагинация, статус-ответы
-│   │   │   ├── schedule.py      # ClassCreate, ClassRead, ScheduleEntryCreate, ...
-│   │   │   ├── news.py          # NewsCreate, NewsRead, NewsUpdate
-│   │   │   └── admin.py         # LoginRequest, TokenResponse, SettingsUpdate
-│   │   │
-│   │   ├── routers/             # API роутеры (endpoints)
-│   │   │   ├── __init__.py      # Подключение всех роутеров к app
-│   │   │   ├── health.py        # GET /health (для Tauri health check)
-│   │   │   ├── kiosk.py         # Публичные endpoint'ы киоска
-│   │   │   ├── schedule.py      # /api/v1/schedule/*
-│   │   │   ├── news.py          # /api/v1/news/*
-│   │   │   └── admin.py         # /api/v1/admin/* (auth, settings)
-│   │   │
-│   │   ├── services/            # Бизнес-логика
-│   │   │   ├── __init__.py
-│   │   │   ├── schedule_service.py   # CRUD + week logic
-│   │   │   ├── news_service.py       # CRUD + caching
-│   │   │   ├── auth_service.py       # JWT, пароли, токены
-│   │   │   ├── excel_importer.py     # Парсинг Excel -> schedule
-│   │   │   ├── vk_parser.py          # Парсинг VK API -> news
-│   │   │   └── site_parser.py        # Парсинг HTML сайта -> news
-│   │   │
-│   │   ├── middleware/          # Middleware
-│   │   │   ├── __init__.py
-│   │   │   ├── auth.py          # JWT проверка для админ-роутов
-│   │   │   ├── cors.py          # CORS настройки
-│   │   │   └── logging.py       # Логирование запросов
-│   │   │
-│   │   ├── tasks/               # Фоновые задачи (APScheduler)
-│   │   │   ├── __init__.py
-│   │   │   ├── scheduler.py     # Настройка планировщика
-│   │   │   ├── news_sync.py     # Периодический парсинг новостей
-│   │   │   └── cache_cleanup.py # Очистка кэша
-│   │   │
-│   │   ├── utils/               # Вспомогательные утилиты
-│   │   │   ├── __init__.py
-│   │   │   ├── date_utils.py    # Работа с датами, неделями
-│   │   │   ├── hash_utils.py    # Хеширование паролей
-│   │   │   └── file_utils.py    # Работа с файлами (Excel upload)
-│   │   │
-│   │   └── static/              # Статика для админ-панели
-│   │       └── admin/           # Сюда копируется React build
-│   │           └── index.html
+│   │   └── (планируется)        # routers/, middleware/, tasks/, utils/
 │   │
 │   ├── alembic/                 # Миграции БД
 │   │   ├── env.py               # Настройка Alembic
 │   │   ├── script.py.mako       # Шаблон миграций
 │   │   └── versions/            # Файлы миграций
-│   │       └── .gitkeep
+│   │       └── 72ce727e6e24_add_model_scheduleimage.py
 │   │
 │   ├── tests/                   # Тесты
 │   │   ├── __init__.py
-│   │   ├── conftest.py          # Фикстуры pytest (test DB, client)
-│   │   ├── test_health.py
-│   │   ├── test_schedule.py
-│   │   ├── test_news.py
-│   │   ├── test_auth.py
-│   │   ├── test_excel_import.py
-│   │   └── test_parsers.py
-│   │
-│   ├── scripts/                 # Вспомогательные скрипты
-│   │   ├── seed_data.py         # Наполнение тестовыми данными
-│   │   ├── create_admin.py      # Создание администратора
-│   │   └── reset_db.py          # Сброс БД
+│   │   ├── conftest.py          # Добавление src/ в sys.path
+│   │   ├── unit/                # Юнит-тесты
+│   │   │   ├── __init__.py
+│   │   │   ├── test_config.py
+│   │   │   ├── test_main.py
+│   │   │   └── test_schedule_image.py
+│   │   └── integration/         # Интеграционные тесты
+│   │       └── __init__.py
 │   │
 │   ├── alembic.ini              # Конфиг Alembic
-│   ├── pyproject.toml           # Зависимости + метаданные
-│   ├── requirements.txt         # pip freeze (для CI/CD)
-│   └── requirements-dev.txt     # Зависимости для разработки
+│   ├── pyproject.toml           # Зависимости + метаданные (Poetry)
+│   ├── poetry.lock
+│   ├── poetry.toml
+│   └── .pre-commit-config.yaml
 │
 ├── frontend/                    # React SPA
 │   ├── src/
@@ -231,126 +197,99 @@ school-kiosk/
 
 ```python
 # Назначение: запуск FastAPI приложения через uvicorn
-# - Создаёт экземпляр FastAPI
-# - Подключает все роутеры
-# - Инициализирует БД (create_all)
-# - Запускает APScheduler для фоновых задач
-# - Настраивает middleware (CORS, логирование)
-# - Раздаёт статику админ-панели
+# - Создаёт экземпляр FastAPI (create_app)
+# - Инициализирует БД (create_all) в lifespan
+# - TODO: подключить роутеры
+# - TODO: запустить APScheduler для фоновых задач
+# - TODO: настроить middleware (CORS, логирование)
 
-# Запуск: uvicorn app.main:app --host 0.0.0.0 --port 8765
+# Запуск: uvicorn src.main:app --host 0.0.0.0 --port 8765
+# Или:   app (console script из pyproject.toml -> src.main:start)
 ```
 
-### 4.2. `app/config.py` — конфигурация
+### 4.2. `src/core/config.py` — конфигурация
 
 ```python
 # Назначение: все настройки приложения в одном месте
-# Источник: переменные окружения + .env файл
+# Источник: переменные окружения с префиксом BACKEND_ + .env файл
 
 class Settings(BaseSettings):
-    # --- Общие ---
-    APP_NAME: str = "School Kiosk"
-    DEBUG: bool = False
-    API_PREFIX: str = "/api/v1"
+    model_config = {"env_prefix": "BACKEND_"}
 
-    # --- Сервер ---
-    HOST: str = "0.0.0.0"
-    PORT: int = 8765
+    app_name: str = "School Kiosk API"
+    app_description: str = "API backend for School Kiosk"
+    app_version: str = "0.1.0"
 
-    # --- База данных ---
-    DATABASE_URL: str = "sqlite+aiosqlite:///./school_kiosk.db"
+    debug: bool = False
+    api_prefix: str = "/api/v1"
 
-    # --- JWT ---
-    SECRET_KEY: str = "change-me-in-production"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    REFRESH_TOKEN_EXPIRE_HOURS: int = 24
-    ALGORITHM: str = "HS256"
+    server_host: str = "0.0.0.0"  # доступ из локальной сети
+    server_port: int = 8765
 
-    # --- Парсинг новостей ---
-    VK_ACCESS_TOKEN: str = ""
-    VK_GROUP_ID: str = ""
-    SCHOOL_SITE_URL: str = ""
-    NEWS_SYNC_INTERVAL_MINUTES: int = 60
+    database_url: str = "sqlite+aiosqlite:///school_kiosk.db"
+    db_echo: bool = False
 
-    # --- Киоск ---
-    CURSOR_HIDE_TIMEOUT_SECONDS: int = 3
-    SCREEN_REFRESH_INTERVAL_SECONDS: int = 300
+    default_admin_login: str = "admin"
+    default_admin_password: str = "admin"
 
-    # --- Админка ---
-    ADMIN_SESSION_TIMEOUT_MINUTES: int = 15
-    ALLOWED_IPS: list[str] = ["192.168.1.0/24", "10.0.0.0/8"]
+settings = Settings()
 ```
 
-### 4.3. `app/database.py` — подключение к БД
+### 4.3. `src/core/database.py` — подключение к БД
 
 ```python
-# Назначение: настройка SQLAlchemy async engine + session
+# Назначение: настройка SQLAlchemy async engine + session factory
+# Реализовано через класс DBDependency (DI для FastAPI)
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
+class DBDependency:
+    def __init__(self) -> None:
+        self._engine = create_async_engine(
+            url=settings.database_url, echo=settings.db_echo
+        )
+        self._session_factory = async_sessionmaker(
+            bind=self._engine, expire_on_commit=False, autocommit=False
+        )
 
-engine = create_async_engine(settings.DATABASE_URL, echo=settings.DEBUG)
-async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-Base = declarative_base()
+    @property
+    def db_session(self) -> async_sessionmaker[AsyncSession]:
+        return self._session_factory
 
-async def get_db() -> AsyncSession:
-    async with async_session() as session:
-        yield session
+    @property
+    def db_engine(self) -> AsyncEngine:
+        return self._engine
 
-async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+db = DBDependency()
 ```
 
-### 4.4. `app/models/` — ORM модели
+### 4.4. `src/models/` — ORM модели (общий слой)
 
 #### `models/base.py` — базовый класс
 ```python
-# Добавляет id, created_at, updated_at во все модели
-class TimestampMixin:
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        default=func.now(), onupdate=func.now()
+# Базовый DeclarativeBase для всех моделей
+class Base(DeclarativeBase):
+    pass
+```
+
+#### `models/mixins.py` — переиспользуемые миксины
+```python
+# IDMixin:        id: UUID (primary_key, default=uuid4)
+# TimestampMixin: created_at, updated_at (DateTime, default=func.now())
+# DayOfWeekMixin: day_of_week: Enum(DayOfWeek)
+```
+
+#### `models/schedule.py` — модель расписания (изображение)
+```python
+class ScheduleImage(IDMixin, TimestampMixin, Base):
+    __tablename__ = "schedules"
+    name: Mapped[str] = mapped_column(String(255), nullable=False, default="Untitled")
+    image: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    day_of_week: Mapped[DayOfWeek] = mapped_column(
+        Enum(DayOfWeek), nullable=False, default=DayOfWeek.MONDAY
     )
 ```
 
-#### `models/schedule.py` — 4 модели расписания
-```python
-class Class(TimestampMixin, Base):
-    __tablename__ = "classes"
-    name: str           # "10A", "11Б"
-    grade_level: int    # 10, 11
-    entries: list[ScheduleEntry] = relationship(back_populates="class_")
-
-class Subject(TimestampMixin, Base):
-    __tablename__ = "subjects"
-    name: str           # "Математика"
-    short_name: str     # "Мат"
-    entries: list[ScheduleEntry] = relationship(back_populates="subject")
-
-class Teacher(TimestampMixin, Base):
-    __tablename__ = "teachers"
-    full_name: str      # "Иванова М.И."
-    short_name: str     # "Иванова"
-    entries: list[ScheduleEntry] = relationship(back_populates="teacher")
-
-class ScheduleEntry(TimestampMixin, Base):
-    __tablename__ = "schedule_entries"
-    class_id: int = ForeignKey("classes.id")
-    subject_id: int = ForeignKey("subjects.id")
-    teacher_id: int = ForeignKey("teachers.id")
-    day_of_week: int    # 1=пн ... 5=пт
-    lesson_number: int  # 1..8
-    week_type: int      # 0=всегда, 1=числитель, 2=знаменатель
-    room: str           # "Каб. 301"
-
-    class_: Class = relationship(back_populates="entries")
-    subject: Subject = relationship(back_populates="entries")
-    teacher: Teacher = relationship(back_populates="entries")
-```
-
-#### `models/news.py` — новости
+#### `models/news.py` — новости (планируется)
 ```python
 class News(TimestampMixin, Base):
     __tablename__ = "news"
@@ -363,7 +302,7 @@ class News(TimestampMixin, Base):
     is_active: bool = True
 ```
 
-#### `models/admin.py` — админы и настройки
+#### `models/admin.py` — админы и настройки (планируется)
 ```python
 class Admin(TimestampMixin, Base):
     __tablename__ = "admins"
@@ -377,74 +316,48 @@ class Settings(Base):
     value: str = Column(String)                   # "-123456789"
 ```
 
-### 4.5. `app/schemas/` — Pydantic схемы
+### 4.5. `src/apps/schedule/schemas.py` — Pydantic схемы
 
 ```python
 # Назначение: валидация входящих данных и форматирование ответов
+# Схемы живут внутри модуля приложения (apps/schedule)
 
-# --- Common ---
-class PaginationParams(BaseModel):
-    page: int = 1
-    page_size: int = 50
+class ScheduleImageBase(BaseModel):
+    name: str = Field(..., max_length=255)
+    image: str = Field(..., max_length=255)
+    is_active: bool
+    day_of_week: DayOfWeek
 
-class StatusResponse(BaseModel):
-    status: str = "ok"
-    message: str | None = None
+class ScheduleImageCreate(BaseModel):
+    name: str | None = None
+    image: str = Field(...)
+    is_active: bool | None = None
+    day_of_week: DayOfWeek | None = None
 
-# --- Schedule ---
-class ClassCreate(BaseModel):
-    name: str           # "10A"
-    grade_level: int    # 10
+class ScheduleImageUpdate(BaseModel):
+    name: str | None = None
+    image: str | None = None
+    is_active: bool | None = None
+    day_of_week: DayOfWeek | None = None
 
-class ClassRead(ClassCreate):
-    id: int
-    created_at: datetime
-
-class ScheduleEntryCreate(BaseModel):
-    class_id: int
-    subject_id: int
-    teacher_id: int
-    day_of_week: int    # 1-5
-    lesson_number: int  # 1-8
-    week_type: int = 0  # 0=both, 1=числитель, 2=знаменатель
-    room: str = ""
-
-class ScheduleEntryRead(ScheduleEntryCreate):
-    id: int
-    subject_name: str   # Денормализовано для удобства
-    teacher_name: str
-
-# --- News ---
-class NewsCreate(BaseModel):
-    title: str
-    content: str
-    image_url: str | None = None
-    source: str = "manual"
-    source_url: str | None = None
-    published_at: datetime = None
-    is_active: bool = True
-
-# --- Admin ---
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-    expires_in: int  # seconds
+class ScheduleImageGet(ScheduleImageBase):
+    id: uuid.UUID
+    create_at: datetime
+    update_at: datetime
+    model_config = ConfigDict(from_attributes=True)
 ```
 
-### 4.6. `app/routers/` — API endpoints
+### 4.6. `src/apps/*/routers.py` — API endpoints (планируется)
 
-#### `routers/health.py`
+> **Статус:** роутеры ещё не реализованы. В `src/main.py` есть TODO «подключить роутеры».
+> Роутеры будут жить внутри модулей приложений (`src/apps/schedule/routers.py`), а не в отдельной глобальной папке.
+
 ```python
 # GET /health -> {"status": "ok", "version": "1.0.0"}
 # Используется Tauri для проверки, что Python backend запущен
 ```
 
-#### `routers/kiosk.py` — публичные endpoint'ы
+#### Публичные endpoint'ы киоска (планируется)
 ```python
 # GET  /api/v1/schedule/today?class_id=X  -> расписание на сегодня
 # GET  /api/v1/schedule/now?class_id=X    -> какой урок сейчас идёт
@@ -454,7 +367,7 @@ class TokenResponse(BaseModel):
 # GET  /api/v1/kiosk/settings             -> настройки отображения
 ```
 
-#### `routers/schedule.py` — админ CRUD расписания
+#### Админ CRUD расписания (планируется)
 ```python
 # Все endpoint'ы защищены JWT (Depends(get_current_admin))
 # GET    /api/v1/admin/schedule/classes        -> список классов
@@ -465,7 +378,7 @@ class TokenResponse(BaseModel):
 # POST   /api/v1/admin/schedule/import-excel   -> импорт Excel
 ```
 
-#### `routers/news.py` — админ CRUD новостей
+#### Админ CRUD новостей (планируется)
 ```python
 # GET    /api/v1/admin/news                    -> все новости (с пагинацией)
 # POST   /api/v1/admin/news                    -> создать новость
@@ -475,7 +388,7 @@ class TokenResponse(BaseModel):
 # POST   /api/v1/admin/news/parse-site         -> запустить парсинг сайта
 ```
 
-#### `routers/admin.py` — аутентификация и настройки
+#### Аутентификация и настройки (планируется)
 ```python
 # POST /api/v1/admin/auth/login       -> вход, получение JWT
 # POST /api/v1/admin/auth/refresh     -> обновление токена
@@ -483,10 +396,41 @@ class TokenResponse(BaseModel):
 # PUT  /api/v1/admin/settings         -> обновить настройки
 ```
 
-### 4.7. `app/services/` — бизнес-логика
+### 4.7. `src/apps/*/managers.py` — бизнес-логика (менеджеры)
 
-#### `services/schedule_service.py`
+> **Статус:** реализован `ScheduleImageManager`. Менеджер — аналог Service/Repository/DAO.
+> Живёт внутри модуля приложения (`src/apps/schedule/managers.py`).
+
+#### `apps/schedule/managers.py` — ScheduleImageManager (реализован)
 ```python
+class ScheduleImageManager:
+    def __init__(self, db: DBDependency = Depends(DBDependency)) -> None:
+        self.db = db
+        self.model = ScheduleImage
+
+    async def create(self, schedule: ScheduleImageCreate) -> ScheduleImageGet:
+        async with self.db.db_session as session:
+            query = insert(self.model).values(**schedule.model_dump()).returning(self.model)
+            try:
+                result = await session.execute(query)
+            except IntegrityError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            await session.commit()
+            schedule_data = result.scalar_one()
+            return ScheduleImageGet.model_validate(schedule_data)
+```
+
+#### Правила проектирования менеджера
+- Один менеджер — одна сущность (`ScheduleImageManager` работает только с `ScheduleImage`).
+- Принимает Pydantic-схемы, возвращает Pydantic-схемы (граница между API и БД).
+- Управляет сессией и транзакциями (открывает сессию, коммитит).
+- Обрабатывает ошибки БД (`IntegrityError` -> `HTTPException`).
+- Получает зависимости через DI (`Depends(DBDependency)`).
+- Именование: `<Entity>Manager`.
+
+#### Планируемые менеджеры
+```python
+# ScheduleManager (расписание на неделю, текущий урок, импорт Excel)
 # - get_today_schedule(class_id) -> расписание на сегодня
 # - get_week_schedule(class_id) -> расписание на неделю
 # - get_current_lesson(class_id) -> какой урок сейчас
@@ -494,52 +438,42 @@ class TokenResponse(BaseModel):
 # - update_entry(id, data) -> обновить запись
 # - delete_entry(id) -> удалить запись
 # - import_from_excel(file) -> импорт из Excel
-```
 
-#### `services/news_service.py`
-```python
+# NewsManager (новости)
 # - get_active_news() -> активные новости
 # - create_news(data) -> создать
 # - update_news(id, data) -> обновить
 # - delete_news(id) -> удалить
-```
 
-#### `services/auth_service.py`
-```python
+# AuthManager (JWT, пароли, токены)
 # - authenticate(username, password) -> Admin | None
 # - create_access_token(admin) -> JWT строка
 # - create_refresh_token(admin) -> JWT строка
 # - verify_token(token) -> Admin | None
 # - hash_password(password) -> hash
 # - verify_password(password, hash) -> bool
-```
 
-#### `services/excel_importer.py`
-```python
+# ExcelImporter (парсинг Excel -> schedule)
 # - parse_excel(file_path) -> list[ScheduleEntryCreate]
 #   Ожидаемый формат Excel:
 #   Колонки: Класс | Предмет | Учитель | День | Урок | Кабинет | Тип_недели
 # - validate_data(entries) -> list[ValidationError]
 # - import_to_db(entries) -> int (сколько импортировано)
-```
 
-#### `services/vk_parser.py`
-```python
+# VkParser (парсинг VK API -> news)
 # - fetch_news(count=10) -> list[NewsCreate]
 #   Использует VK API (wall.get) для получения постов из группы
 # - parse_post(post) -> NewsCreate
 #   Извлекает: текст, картинки, дату
-```
 
-#### `services/site_parser.py`
-```python
+# SiteParser (парсинг HTML сайта -> news)
 # - fetch_news(url) -> list[NewsCreate]
 #   Парсит HTML школьного сайта
 # - parse_html(html) -> list[NewsCreate]
 #   Ищет: заголовки, текст, изображения
 ```
 
-### 4.8. `app/middleware/` — middleware
+### 4.8. `src/core/middleware/` — middleware (планируется)
 
 ```python
 # auth.py:  JWTBearer middleware для защиты админ-роутов
@@ -547,7 +481,7 @@ class TokenResponse(BaseModel):
 # logging.py: Логирование всех HTTP запросов (method, path, status, duration)
 ```
 
-### 4.9. `app/tasks/` — фоновые задачи
+### 4.9. `src/core/tasks/` — фоновые задачи (планируется)
 
 ```python
 # scheduler.py: Настройка APScheduler
@@ -564,7 +498,7 @@ class TokenResponse(BaseModel):
 #   - Оптимизирует SQLite (VACUUM)
 ```
 
-### 4.10. `app/utils/` — утилиты
+### 4.10. `src/core/utils/` — утилиты (планируется)
 
 ```python
 # date_utils.py:
@@ -584,21 +518,29 @@ class TokenResponse(BaseModel):
 
 ### 4.11. `tests/` — тесты
 
+> **Статус:** реализованы юнит-тесты модели `ScheduleImage`. Интеграционные тесты — планируются.
+
 ```python
 # conftest.py:
+#   - Добавляет src/ в sys.path (для импорта src.*)
+
+# unit/test_config.py:        настройки Settings
+# unit/test_main.py:          корневой endpoint "/"
+# unit/test_schedule_image.py: модель ScheduleImage (defaults, columns, UUID, repr)
+
+# integration/ (планируется):
 #   - test_db: отдельная SQLite БД для тестов
 #   - test_client: AsyncClient для FastAPI
 #   - seed_test_data: наполнение тестовыми данными
-
-# test_health.py:       GET /health -> 200
-# test_schedule.py:     CRUD расписания
-# test_news.py:         CRUD новостей
-# test_auth.py:         логин, токены, защита роутов
-# test_excel_import.py: импорт Excel
-# test_parsers.py:      парсинг VK и сайта (с моками)
+#   - test_health.py:       GET /health -> 200
+#   - test_schedule.py:     CRUD расписания
+#   - test_news.py:         CRUD новостей
+#   - test_auth.py:         логин, токены, защита роутов
+#   - test_excel_import.py: импорт Excel
+#   - test_parsers.py:      парсинг VK и сайта (с моками)
 ```
 
-### 4.12. `scripts/` — вспомогательные скрипты
+### 4.12. `scripts/` — вспомогательные скрипты (планируется)
 
 ```python
 # seed_data.py:
@@ -620,40 +562,23 @@ class TokenResponse(BaseModel):
 
 ## 5. Модели данных (SQLite)
 
-### schedule (расписание)
+### schedule (расписание) — реализовано: ScheduleImage
 ```mermaid
 erDiagram
-    CLASSES {
-        int id PK
-        string name "10A, 11B..."
-        int grade_level
+    SCHEDULES {
+        uuid id PK
+        string name "Название расписания, default Untitled"
+        string image "Путь к изображению"
+        bool is_active "Активное расписание, default false"
+        enum day_of_week "DayOfWeek 1-7"
+        datetime created_at
+        datetime updated_at
     }
-    SUBJECTS {
-        int id PK
-        string name "Математика, Физика..."
-        string short_name "Мат, Физ..."
-    }
-    TEACHERS {
-        int id PK
-        string full_name
-        string short_name
-    }
-    SCHEDULE_ENTRIES {
-        int id PK
-        int class_id FK
-        int subject_id FK
-        int teacher_id FK
-        int day_of_week "1-5 (пн-пт)"
-        int lesson_number "1-8"
-        int week_type "0=both, 1=числитель, 2=знаменатель"
-        string room "кабинет"
-    }
-    CLASSES ||--o{ SCHEDULE_ENTRIES : has
-    SUBJECTS ||--o{ SCHEDULE_ENTRIES : has
-    TEACHERS ||--o{ SCHEDULE_ENTRIES : has
 ```
 
-### news (новости)
+> **Примечание:** текущая модель `ScheduleImage` хранит расписание как **изображение** (файл), а не как структурированные записи. Модели `Class`, `Subject`, `Teacher`, `ScheduleEntry` из первоначального плана пока не реализованы — они планируются для структурированного расписания.
+
+### news (новости) — планируется
 ```mermaid
 erDiagram
     NEWS {
@@ -669,7 +594,7 @@ erDiagram
     }
 ```
 
-### admin (администраторы)
+### admin (администраторы) — планируется
 ```mermaid
 erDiagram
     ADMINS {
@@ -688,7 +613,14 @@ erDiagram
 
 ## 6. API Endpoints
 
-### Публичные (киоск) - доступны без авторизации
+> **Статус:** реализован только корневой endpoint `GET /`. Остальные endpoint'ы — планируются.
+
+### Реализовано
+| Method | Path | Описание |
+|--------|------|----------|
+| GET | `/` | Корневой endpoint (health-проверка сервиса) |
+
+### Публичные (киоск) - планируются, доступны без авторизации
 | Method | Path | Описание |
 |--------|------|----------|
 | GET | `/api/v1/schedule/today?class_id=X` | Расписание на сегодня |
@@ -697,7 +629,7 @@ erDiagram
 | GET | `/api/v1/news/active` | Активные новости |
 | GET | `/api/v1/kiosk/settings` | Настройки киоска |
 
-### Админ (требуют JWT) - доступны и с киоска, и из локальной сети
+### Админ (требуют JWT) - планируются, доступны и с киоска, и из локальной сети
 | Method | Path | Описание |
 |--------|------|----------|
 | POST | `/api/v1/admin/auth/login` | Вход (логин/пароль -> JWT) |
@@ -757,12 +689,15 @@ struct KioskGuard {
 ## 8. План реализации (поэтапный)
 
 ### Этап 1: Backend (Python FastAPI)
-1. Инициализация Python проекта, структура папок
-2. Модели БД (SQLAlchemy) + миграции (Alembic)
-3. API для расписания (CRUD + Excel import)
-4. API для новостей (CRUD + VK parser + site parser)
-5. Админ API (JWT auth, настройки)
-6. Тестирование API (через Swagger/Postman)
+- [x] 1. Инициализация Python проекта, структура папок (Poetry, src/, core/, apps/, models/, enums/)
+- [x] 2. Модели БД (SQLAlchemy) + миграции (Alembic) — реализована модель `ScheduleImage` + миграция `72ce727e6e24`
+- [x] 3. Менеджер `ScheduleImageManager` (CRUD create) + Pydantic схемы
+- [x] 4. Юнит-тесты модели `ScheduleImage`
+- [ ] 5. Роутеры (API endpoints) — TODO в `src/main.py`
+- [ ] 6. API для расписания (CRUD + Excel import)
+- [ ] 7. API для новостей (CRUD + VK parser + site parser)
+- [ ] 8. Админ API (JWT auth, настройки)
+- [ ] 9. Интеграционные тесты API (через Swagger/Postman)
 
 ### Этап 2: Frontend (React)
 1. Инициализация React + Vite + TypeScript
@@ -800,6 +735,11 @@ struct KioskGuard {
 | **Сеть API** | **0.0.0.0:8765** | **Доступ из локальной сети для админки** |
 | **CORS** | **Разрешён с любых origin** | **Админка открывается с разных устройств** |
 | **Фронтенд админки** | **Отдельный SPA build** | **Можно хостить отдельно или через FastAPI** |
+| **Структура backend** | **Feature-based (src/apps/)** | **Модули приложений (schedule, news, admin) с собственной логикой** |
+| **Бизнес-логика** | **Managers (вместо services)** | **Менеджер = Service/Repository/DAO, живёт внутри модуля приложения** |
+| **ORM-модели** | **Общий слой src/models/** | **Модели вынесены из модулей приложений в общий слой** |
+| **Конфигурация** | **pydantic-settings, env_prefix=BACKEND_** | **Настройки из переменных окружения + .env** |
+| **DI для БД** | **DBDependency (класс-зависимость)** | **Инкапсулирует engine + session factory, легко тестировать** |
 
 ## 10. Диаграмма последовательности (запуск приложения)
 

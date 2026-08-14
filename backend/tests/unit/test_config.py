@@ -1,6 +1,6 @@
 """Unit tests for application configuration."""
 
-from core.config import BASE_DIR, Settings
+from src.core.config import BASE_DIR, Settings
 
 
 def test_settings_defaults():

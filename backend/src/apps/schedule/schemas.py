@@ -218,14 +218,3 @@ class ScheduleTableUpdate(BaseModel):
     day_of_week: DayOfWeek | None = Field(
         default=None, description="День недели", examples=[DayOfWeek.MONDAY]
     )
-    schedule_rows: list[ScheduleRowCreate] | None = Field(
-        None,
-        description="Строки расписания",
-        examples=[
-            ScheduleRowCreate(
-                number=1,
-                header="5 класс",
-                lessons=[LessonCreate(name="Математика", number=1)],
-            )
-        ],
-    )

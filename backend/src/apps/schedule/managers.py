@@ -19,11 +19,45 @@ from src.models import Lesson, ScheduleImage, ScheduleRow, ScheduleTable
 
 
 class ScheduleImageManager:
-    def __init__(self, db: DBDependency = Depends(get_db_dependency)) -> None:
+    """Менеджер операций над расписаниями в виде изображений.
+
+    Отвечает за CRUD-операции над сущностью :class:`ScheduleImage`.
+    Все методы работают в рамках отдельной сессии базы данных,
+    открываемой через ``self.db.db_session()``.
+
+    Raises:
+        HTTPException: с кодом 400 при нарушении целостности данных
+            и с кодом 404, когда запись не найдена.
+    """
+
+    def __init__(
+        self,
+        db: DBDependency = Depends(get_db_dependency),
+        model: type[ScheduleImage] = ScheduleImage,
+    ) -> None:
+        """Инициализирует менеджер.
+
+        Args:
+            db: Зависимость для доступа к сессии базы данных.
+                По умолчанию подставляется через FastAPI.
+            model: Модель, которую менеджер будет обрабатывать.
+        """
         self.db = db
-        self.model = ScheduleImage
+        self.model = model
 
     async def create(self, schedule: ScheduleImageCreate) -> ScheduleImageGet:
+        """Создаёт новое расписание-изображение.
+
+        Args:
+            schedule: Данные для создания расписания.
+
+        Returns:
+            Созданное расписание в виде схемы :class:`ScheduleImageGet`.
+
+        Raises:
+            HTTPException: с кодом 400 при нарушении ограничений
+                целостности базы данных (например, дубликат).
+        """
         async with self.db.db_session() as session:
             query = (
                 insert(self.model)
@@ -40,6 +74,17 @@ class ScheduleImageManager:
             return ScheduleImageGet.model_validate(schedule_data)
 
     async def get(self, id: uuid.UUID) -> ScheduleImageGet:
+        """Возвращает расписание-изображение по идентификатору.
+
+        Args:
+            id: Уникальный идентификатор расписания.
+
+        Returns:
+            Расписание в виде схемы :class:`ScheduleImageGet`.
+
+        Raises:
+            HTTPException: с кодом 404, если запись не найдена.
+        """
         async with self.db.db_session() as session:
             query = select(self.model).where(self.model.id == id)
             result = await session.execute(query)
@@ -52,6 +97,14 @@ class ScheduleImageManager:
             return ScheduleImageGet.model_validate(schedule_data)
 
     async def get_all(self) -> list[ScheduleImageGet]:
+        """Возвращает все расписания-изображения.
+
+        Результат сортируется по дню недели (порядок определяется
+        перечислением :class:`DayOfWeek`).
+
+        Returns:
+            Список всех расписаний в виде схем :class:`ScheduleImageGet`.
+        """
         weekday_order = case(
             {day.name: index for index, day in enumerate(DayOfWeek, start=1)},
             value=self.model.day_of_week,
@@ -65,6 +118,21 @@ class ScheduleImageManager:
     async def update(
         self, id: uuid.UUID, schedule: ScheduleImageUpdate
     ) -> ScheduleImageGet:
+        """Обновляет расписание-изображение по идентификатору.
+
+        Args:
+            id: Уникальный идентификатор расписания.
+            schedule: Поля, подлежащие обновлению (обновляются
+                только переданные значения).
+
+        Returns:
+            Обновлённое расписание в виде схемы :class:`ScheduleImageGet`.
+
+        Raises:
+            HTTPException: с кодом 400, если не передано ни одного поля
+                для обновления или нарушена целостность данных;
+                с кодом 404, если запись не найдена.
+        """
         async with self.db.db_session() as session:
             data = schedule.model_dump(exclude_unset=True)
             if not data:
@@ -90,6 +158,14 @@ class ScheduleImageManager:
             return ScheduleImageGet.model_validate(schedule_data)
 
     async def delete(self, id: uuid.UUID) -> None:
+        """Удаляет расписание-изображение по идентификатору.
+
+        Args:
+            id: Уникальный идентификатор расписания.
+
+        Raises:
+            HTTPException: с кодом 404, если запись не найдена.
+        """
         async with self.db.db_session() as session:
             query = delete(self.model).where(self.model.id == id)
             result: Result = await session.execute(query)
@@ -108,11 +184,47 @@ class ScheduleImageManager:
 
 
 class ScheduleTableManager:
-    def __init__(self, db: DBDependency = Depends(get_db_dependency)) -> None:
+    """Менеджер операций над табличными расписаниями.
+
+    Отвечает за CRUD-операции над сущностью :class:`ScheduleTable`,
+    а также за каскадное создание строк (:class:`ScheduleRow`) и
+    уроков (:class:`Lesson`), входящих в состав расписания.
+
+    Raises:
+        HTTPException: с кодом 404, когда запись не найдена.
+    """
+
+    def __init__(
+        self,
+        db: DBDependency = Depends(get_db_dependency),
+        model: type[ScheduleTable] = ScheduleTable,
+        row_model: type[ScheduleRow] = ScheduleRow,
+        lesson_model: type[Lesson] = Lesson,
+    ) -> None:
+        """Инициализирует менеджер.
+
+        Args:
+            db: Зависимость для доступа к сессии базы данных.
+                По умолчанию подставляется через FastAPI.
+        """
         self.db = db
-        self.model = ScheduleTable
+        self.model = model
+        self.row_model = row_model
+        self.lesson_model = lesson_model
 
     async def create(self, schedule: ScheduleTableCreate) -> ScheduleTableSchema:
+        """Создаёт новое табличное расписание.
+
+        Помимо самой таблицы создаёт связанные строки и уроки,
+        если они переданы во входных данных.
+
+        Args:
+            schedule: Данные для создания расписания, включая строки
+                и уроки.
+
+        Returns:
+            Созданное расписание в виде схемы :class:`ScheduleTableSchema`.
+        """
         async with self.db.db_session() as session:
             query = (
                 insert(self.model)
@@ -142,6 +254,18 @@ class ScheduleTableManager:
             return await self.get(table_id)
 
     async def get(self, id: uuid.UUID) -> ScheduleTableSchema:
+        """Возвращает табличное расписание по идентификатору.
+
+        Args:
+            id: Уникальный идентификатор расписания.
+
+        Returns:
+            Расписание вместе со строками и уроками в виде схемы
+            :class:`ScheduleTableSchema`.
+
+        Raises:
+            HTTPException: с кодом 404, если запись не найдена.
+        """
         async with self.db.db_session() as session:
             query = select(self.model).where(self.model.id == id)
             result = await session.execute(query)
@@ -154,6 +278,14 @@ class ScheduleTableManager:
             return ScheduleTableSchema.model_validate(schedule_data)
 
     async def get_all(self) -> list[ScheduleTableSchema]:
+        """Возвращает все табличные расписания.
+
+        Результат сортируется по дню недели (порядок определяется
+        перечислением :class:`DayOfWeek`).
+
+        Returns:
+            Список всех расписаний в виде схем :class:`ScheduleTableSchema`.
+        """
         weekday_order = case(
             {day.name: index for index, day in enumerate(DayOfWeek, start=1)},
             value=self.model.day_of_week,
@@ -164,14 +296,70 @@ class ScheduleTableManager:
             schedule_data = result.unique().scalars().all()
             return [ScheduleTableSchema.model_validate(item) for item in schedule_data]
 
-    async def update(
+    async def update_metadata(
         self, id: uuid.UUID, schedule: ScheduleTableUpdate
     ) -> ScheduleTableSchema:
-        pass
-        # async with self.db.db_session() as session:
-        # update_data = schedule.model_dump(execute_unset=True)
-        # if not update_data:
-        # raise HTTPException(status_code=400, detail="Нет данных для обновления")
-        # query = select(self.model).where(self.model.id == id)
-        # result = await session.execute(query)
-        # table = result.unique().scalar_one()
+        """Обновляет метаданные табличного расписания.
+
+        Обновляет только скалярные поля расписания (без строк).
+        Если в переданных данных присутствуют строки, инициируется
+        их синхронизация.
+
+        Args:
+            id: Уникальный идентификатор расписания.
+            schedule: Поля, подлежащие обновлению.
+
+        Returns:
+            Обновлённое расписание в виде схемы :class:`ScheduleTableSchema`.
+
+        Raises:
+            HTTPException: с кодом 400, если не передано ни одного поля
+                для обновления; с кодом 404, если запись не найдена.
+        """
+        async with self.db.db_session() as session:
+            update_data = schedule.model_dump(exclude_none=True)
+            if not update_data:
+                raise HTTPException(status_code=400, detail="Нет данных для обновления")
+            query = select(self.model).where(self.model.id == id)
+            result = await session.execute(query)
+            try:
+                table = result.unique().scalar_one()
+            except NoResultFound as e:
+                raise HTTPException(status_code=404, detail="Таблица не найдена") from e
+
+            for key, value in update_data.items():
+                if hasattr(table, key):
+                    setattr(table, key, value)
+
+            await session.commit()
+            return await self.get(id)
+
+    async def delete(self, id: uuid.UUID) -> None:
+        """Удаляет табличное расписание.
+
+        Args:
+            id: Уникальный идентификатор расписания.
+
+        Raises:
+            HTTPException: с кодом 404, если запись не найдена.
+        """
+        async with self.db.db_session() as session:
+            query = delete(self.model).where(self.model.id == id)
+            result = await session.execute(query)
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Таблица не найдена")
+
+
+class ScheduleContentManager:
+    """Менеджер содержимого табличного расписания."""
+
+    def __init__(
+        self,
+        db: DBDependency = Depends(get_db_dependency),
+        table_manager: ScheduleTableManager = Depends(ScheduleTableManager),
+    ) -> None:
+        self.db = db
+        self.model = ScheduleTable
+        self.row_model = ScheduleRow
+        self.lesson_model = Lesson
+        self.table_manager = table_manager

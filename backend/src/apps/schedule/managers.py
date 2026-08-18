@@ -8,6 +8,8 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from src.apps.schedule.schemas import (
     AddColumnToScheduleTable,
+    AddLessonToScheduleColumn,
+    LessonSchema,
     ScheduleColumnSchema,
     ScheduleImageCreate,
     ScheduleImageGet,
@@ -430,3 +432,29 @@ class ScheduleContentManager:
                 header=column_data.header,
                 lessons=[],
             )
+
+    async def create_lesson(self, lesson: AddLessonToScheduleColumn) -> LessonSchema:
+        """Создает новый урок в столбце расписания.
+
+        Args:
+            lesson: Данные для создания урока.
+
+        Returns:
+            Созданный урок в виде схемы :class:`LessonSchema`.
+        """
+        async with self.db.db_session() as session:
+            query = (
+                insert(self.lesson_model)
+                .values(**lesson.model_dump(exclude_none=True))
+                .returning(self.lesson_model)
+            )
+            try:
+                result: Result = await session.execute(query)
+            except IntegrityError as e:
+                logger.warning("Integrity error при создании урока %s", e)
+                raise HTTPException(
+                    status_code=400, detail="Нарушение целостности данных"
+                ) from e
+            await session.commit()
+            lesson_data = result.unique().scalar_one()
+            return LessonSchema.model_validate(lesson_data)

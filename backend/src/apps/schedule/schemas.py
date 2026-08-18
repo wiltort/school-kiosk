@@ -98,6 +98,9 @@ class LessonBase(BaseModel):
 
 class LessonSchema(LessonBase):
     id: uuid.UUID = Field(..., description="ID урока", examples=[uuid.uuid4()])
+    schedule_column_id: uuid.UUID = Field(
+        ..., description="ID столбца", examples=[uuid.uuid4()]
+    )
     model_config = ConfigDict(
         from_attributes=True,
     )
@@ -120,7 +123,14 @@ class ScheduleColumnSchema(ScheduleColumnBase):
     lessons: list[LessonSchema] = Field(
         default_factory=list,
         description="Уроки",
-        examples=[LessonSchema(id=uuid.uuid4(), name="Математика", number=1)],
+        examples=[
+            LessonSchema(
+                id=uuid.uuid4(),
+                name="Математика",
+                number=1,
+                schedule_column_id=uuid.uuid4(),
+            )
+        ],
     )
     model_config = ConfigDict(
         from_attributes=True,
@@ -146,7 +156,7 @@ class ScheduleTableBase(BaseModel):
 class ScheduleTableSchema(ScheduleTableBase):
     id: uuid.UUID = Field(..., description="ID расписания", examples=[uuid.uuid4()])
     schedule_columns: list[ScheduleColumnSchema] = Field(
-        ...,
+        default_factory=list,
         description="Столбцы расписания",
         examples=[
             ScheduleColumnSchema(
@@ -154,7 +164,14 @@ class ScheduleTableSchema(ScheduleTableBase):
                 schedule_table_id=uuid.uuid4(),
                 number=1,
                 header="5 класс",
-                lessons=[LessonSchema(id=uuid.uuid4(), name="Математика", number=1)],
+                lessons=[
+                    LessonSchema(
+                        id=uuid.uuid4(),
+                        name="Математика",
+                        number=1,
+                        schedule_column_id=uuid.uuid4(),
+                    )
+                ],
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
             )

@@ -7,6 +7,8 @@ from sqlalchemy.engine import Result
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from src.apps.schedule.schemas import (
+    ScheduleColumnCreate,
+    ScheduleColumnSchema,
     ScheduleImageCreate,
     ScheduleImageGet,
     ScheduleImageUpdate,
@@ -16,7 +18,7 @@ from src.apps.schedule.schemas import (
 )
 from src.core.database import DBDependency, get_db_dependency
 from src.enums.schedule import DayOfWeek
-from src.models import Lesson, ScheduleImage, ScheduleRow, ScheduleTable
+from src.models import Lesson, ScheduleColumn, ScheduleImage, ScheduleTable
 
 logger = getLogger(__name__)
 
@@ -187,7 +189,7 @@ class ScheduleTableManager:
     """Менеджер операций над табличными расписаниями.
 
     Отвечает за CRUD-операции над сущностью :class:`ScheduleTable`,
-    а также за каскадное создание строк (:class:`ScheduleRow`) и
+    а также за каскадное создание столбцов (:class:`ScheduleColumn`) и
     уроков (:class:`Lesson`), входящих в состав расписания.
 
     Raises:
@@ -198,7 +200,7 @@ class ScheduleTableManager:
         self,
         db: DBDependency = Depends(get_db_dependency),
         model: type[ScheduleTable] = ScheduleTable,
-        row_model: type[ScheduleRow] = ScheduleRow,
+        column_model: type[ScheduleColumn] = ScheduleColumn,
         lesson_model: type[Lesson] = Lesson,
     ) -> None:
         """Инициализирует менеджер.
@@ -207,22 +209,22 @@ class ScheduleTableManager:
             db: Зависимость для доступа к сессии базы данных.
                 По умолчанию подставляется через FastAPI.
             model: Модель табличного расписания.
-            row_model: Модель строки табличного расписания.
+            column_model: Модель столбца табличного расписания.
             lesson_model: Модель урока табличного расписания.
         """
         self.db = db
         self.model = model
-        self.row_model = row_model
+        self.column_model = column_model
         self.lesson_model = lesson_model
 
     async def create(self, schedule: ScheduleTableCreate) -> ScheduleTableSchema:
         """Создаёт новое табличное расписание.
 
-        Помимо самой таблицы создаёт связанные строки и уроки,
+        Помимо самой таблицы создаёт связанные столбцы и уроки,
         если они переданы во входных данных.
 
         Args:
-            schedule: Данные для создания расписания, включая строки
+            schedule: Данные для создания расписания, включая столбцы
                 и уроки.
 
         Returns:
@@ -232,7 +234,9 @@ class ScheduleTableManager:
             query = (
                 insert(self.model)
                 .values(
-                    **schedule.model_dump(exclude_none=True, exclude={"schedule_rows"})
+                    **schedule.model_dump(
+                        exclude_none=True, exclude={"schedule_columns"}
+                    )
                 )
                 .returning(self.model.id)
             )
@@ -244,18 +248,20 @@ class ScheduleTableManager:
                     status_code=400, detail="Нарушение целостности данных"
                 ) from e
             table_id = result.scalar_one()
-            if schedule.schedule_rows:
-                for row_data in schedule.schedule_rows:
-                    row = row_data.model_dump(exclude_none=True, exclude={"lessons"})
-                    row["schedule_table_id"] = table_id
-                    row = self.row_model(**row)
-                    session.add(row)
+            if schedule.schedule_columns:
+                for column_data in schedule.schedule_columns:
+                    column = column_data.model_dump(
+                        exclude_none=True, exclude={"lessons"}
+                    )
+                    column["schedule_table_id"] = table_id
+                    column = self.column_model(**column)
+                    session.add(column)
                     await session.flush()
 
-                    if row_data.lessons:
-                        for lesson_data in row_data.lessons:
+                    if column_data.lessons:
+                        for lesson_data in column_data.lessons:
                             lesson_data = lesson_data.model_dump()
-                            lesson_data["schedule_row_id"] = row.id
+                            lesson_data["schedule_column_id"] = column.id
                             lesson = self.lesson_model(**lesson_data)
                             session.add(lesson)
             await session.flush()
@@ -269,7 +275,7 @@ class ScheduleTableManager:
             id: Уникальный идентификатор расписания.
 
         Returns:
-            Расписание вместе со строками и уроками в виде схемы
+            Расписание вместе со столбцами и уроками в виде схемы
             :class:`ScheduleTableSchema`.
 
         Raises:
@@ -310,7 +316,7 @@ class ScheduleTableManager:
     ) -> ScheduleTableSchema:
         """Обновляет метаданные табличного расписания.
 
-        Обновляет только скалярные поля расписания (без строк).
+        Обновляет только скалярные поля расписания (без столбцов).
 
         Args:
             id: Уникальный идентификатор расписания.
@@ -367,8 +373,25 @@ class ScheduleTableManager:
 class ScheduleContentManager:
     """Менеджер содержимого табличного расписания."""
 
-    def __init__(self, db: DBDependency = Depends(get_db_dependency)) -> None:
+    def __init__(
+        self,
+        db: DBDependency = Depends(get_db_dependency),
+        model: type[ScheduleTable] = ScheduleTable,
+        column_model: type[ScheduleColumn] = ScheduleColumn,
+        lesson_model: type[Lesson] = Lesson,
+    ) -> None:
         self.db = db
-        self.model = ScheduleTable
-        self.row_model = ScheduleRow
-        self.lesson_model = Lesson
+        self.model = model
+        self.column_model = column_model
+        self.lesson_model = lesson_model
+
+    async def create_column(self, column: ScheduleColumnCreate) -> ScheduleColumnSchema:
+        """Создает новый столбец в таблице расписания.
+
+        Args:
+            column: Данные для создания столбца.
+
+        Returns:
+            Созданный столбец в виде схемы :class:`ScheduleColumnSchema`.
+        """
+        pass

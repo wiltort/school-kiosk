@@ -15,7 +15,7 @@ def _sample_create(**overrides) -> ScheduleTableCreate:
         "name": "Расписание 1",
         "is_active": True,
         "day_of_week": DayOfWeek.MONDAY,
-        "schedule_rows": [
+        "schedule_columns": [
             {
                 "number": 1,
                 "header": "1 class",
@@ -51,14 +51,14 @@ async def test_create_schedule_image(manager_factory):
     assert created.created_at is not None
     assert created.updated_at is not None
 
-    assert isinstance(created.schedule_rows, list)
-    assert len(created.schedule_rows) == 2
-    assert created.schedule_rows[0].number == 1
-    assert created.schedule_rows[0].header == "1 class"
-    assert created.schedule_rows[0].lessons[0].name == "Math"
-    assert created.schedule_rows[0].lessons[0].number == 1
-    assert created.schedule_rows[0].lessons[1].name == "English"
-    assert created.schedule_rows[0].lessons[1].number == 2
+    assert isinstance(created.schedule_columns, list)
+    assert len(created.schedule_columns) == 2
+    assert created.schedule_columns[0].number == 1
+    assert created.schedule_columns[0].header == "1 class"
+    assert created.schedule_columns[0].lessons[0].name == "Math"
+    assert created.schedule_columns[0].lessons[0].number == 1
+    assert created.schedule_columns[0].lessons[1].name == "English"
+    assert created.schedule_columns[0].lessons[1].number == 2
 
 
 @pytest.mark.asyncio

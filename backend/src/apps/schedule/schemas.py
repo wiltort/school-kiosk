@@ -107,13 +107,13 @@ class LessonCreate(LessonBase):
     pass
 
 
-class ScheduleRowBase(BaseModel):
-    number: int = Field(..., description="Номер строки", examples=[1])
-    header: str = Field(..., description="Заголовок строки", examples=["5 класс"])
+class ScheduleColumnBase(BaseModel):
+    number: int = Field(..., description="Номер столбца", examples=[1])
+    header: str = Field(..., description="Заголовок столбца", examples=["5 класс"])
 
 
-class ScheduleRowSchema(ScheduleRowBase):
-    id: uuid.UUID = Field(..., description="ID строки", examples=[uuid.uuid4()])
+class ScheduleColumnSchema(ScheduleColumnBase):
+    id: uuid.UUID = Field(..., description="ID столбца", examples=[uuid.uuid4()])
     lessons: list[LessonSchema] = Field(
         ...,
         description="Уроки",
@@ -124,7 +124,7 @@ class ScheduleRowSchema(ScheduleRowBase):
     )
 
 
-class ScheduleRowCreate(ScheduleRowBase):
+class ScheduleColumnCreate(ScheduleColumnBase):
     lessons: list[LessonCreate] = Field(
         ..., description="Уроки", examples=[LessonCreate(name="Математика", number=1)]
     )
@@ -140,11 +140,11 @@ class ScheduleTableBase(BaseModel):
 
 class ScheduleTableSchema(ScheduleTableBase):
     id: uuid.UUID = Field(..., description="ID расписания", examples=[uuid.uuid4()])
-    schedule_rows: list[ScheduleRowSchema] = Field(
+    schedule_columns: list[ScheduleColumnSchema] = Field(
         ...,
         description="Столбцы расписания",
         examples=[
-            ScheduleRowSchema(
+            ScheduleColumnSchema(
                 id=uuid.uuid4(),
                 number=1,
                 header="5 класс",
@@ -178,11 +178,11 @@ class ScheduleTableCreate(BaseModel):
     day_of_week: DayOfWeek | None = Field(
         default=None, description="День недели", examples=[DayOfWeek.MONDAY]
     )
-    schedule_rows: list[ScheduleRowCreate] = Field(
+    schedule_columns: list[ScheduleColumnCreate] = Field(
         ...,
-        description="Строки расписания",
+        description="Столбцы расписания",
         examples=[
-            ScheduleRowCreate(
+            ScheduleColumnCreate(
                 number=1,
                 header="5 класс",
                 lessons=[LessonCreate(name="Математика", number=1)],
@@ -198,10 +198,10 @@ class LessonUpdate(BaseModel):
     number: int | None = Field(None, description="Номер урока", examples=[1])
 
 
-class ScheduleRowUpdate(BaseModel):
-    number: int | None = Field(None, description="Номер строки", examples=[1])
+class ScheduleColumnUpdate(BaseModel):
+    number: int | None = Field(None, description="Номер столбца", examples=[1])
     header: str | None = Field(
-        None, description="Заголовок строки", examples=["5 класс"]
+        None, description="Заголовок столбца", examples=["5 класс"]
     )
     lessons: list[LessonUpdate] | None = Field(
         None, description="Уроки", examples=[LessonCreate(name="Математика", number=1)]
@@ -218,3 +218,10 @@ class ScheduleTableUpdate(BaseModel):
     day_of_week: DayOfWeek | None = Field(
         default=None, description="День недели", examples=[DayOfWeek.MONDAY]
     )
+
+
+class AddColumnToScheduleTable(BaseModel):
+    schedule_table_id: uuid.UUID = Field(
+        ..., description="ID расписания", examples=[uuid.uuid4()]
+    )
+    number: int = Field(..., description="Номер столбца", examples=[1])

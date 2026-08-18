@@ -15,17 +15,17 @@ class ScheduleImage(ScheduleMixin, Base):
 class ScheduleTable(ScheduleMixin, Base):
     __tablename__ = "schedule_tables"
 
-    schedule_rows: Mapped[list[ScheduleRow]] = relationship(
-        "ScheduleRow",
+    schedule_columns: Mapped[list[ScheduleColumn]] = relationship(
+        "ScheduleColumn",
         back_populates="schedule_table",
         lazy="joined",
         cascade="all, delete-orphan",
-        order_by="ScheduleRow.number",
+        order_by="ScheduleColumn.number",
     )
 
 
-class ScheduleRow(IDMixin, Base):
-    __tablename__ = "schedule_rows"
+class ScheduleColumn(IDMixin, Base):
+    __tablename__ = "schedule_columns"
     number: Mapped[int] = mapped_column(Integer, nullable=False)
     header: Mapped[str] = mapped_column(String(255), nullable=False)
     schedule_table_id: Mapped[uuid.UUID] = mapped_column(
@@ -34,14 +34,14 @@ class ScheduleRow(IDMixin, Base):
 
     lessons: Mapped[list[Lesson]] = relationship(
         "Lesson",
-        back_populates="schedule_row",
+        back_populates="schedule_column",
         lazy="joined",
         cascade="all, delete-orphan",
         order_by="Lesson.number",
     )
     schedule_table: Mapped[ScheduleTable] = relationship(
         "ScheduleTable",
-        back_populates="schedule_rows",
+        back_populates="schedule_columns",
         lazy="joined",
     )
 
@@ -50,12 +50,12 @@ class Lesson(IDMixin, Base):
     __tablename__ = "lessons"
     number: Mapped[int] = mapped_column(Integer, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    schedule_row_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("schedule_rows.id", ondelete="CASCADE")
+    schedule_column_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("schedule_columns.id", ondelete="CASCADE")
     )
 
-    schedule_row: Mapped[ScheduleRow] = relationship(
-        "ScheduleRow", back_populates="lessons", lazy="joined"
+    schedule_column: Mapped[ScheduleColumn] = relationship(
+        "ScheduleColumn", back_populates="lessons", lazy="joined"
     )
 
     def __repr__(self):

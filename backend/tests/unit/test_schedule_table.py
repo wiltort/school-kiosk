@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 import pytest
-from src.models import ScheduleRow
+from src.models import ScheduleColumn
 
 
 @pytest.mark.asyncio
@@ -17,10 +17,10 @@ async def test_schedule_table_model(schedule_table_sample):
     assert isinstance(schedule.created_at, datetime)
     assert schedule.updated_at is not None
     assert isinstance(schedule.updated_at, datetime)
-    assert schedule.schedule_rows is not None
-    assert isinstance(schedule.schedule_rows, list)
-    assert len(schedule.schedule_rows) == 2
-    assert isinstance(schedule.schedule_rows[0], ScheduleRow)
+    assert schedule.schedule_columns is not None
+    assert isinstance(schedule.schedule_columns, list)
+    assert len(schedule.schedule_columns) == 2
+    assert isinstance(schedule.schedule_columns[0], ScheduleColumn)
 
-    row = schedule.schedule_rows[0]
-    assert row.id is not None
+    column = schedule.schedule_columns[0]
+    assert column.id is not None

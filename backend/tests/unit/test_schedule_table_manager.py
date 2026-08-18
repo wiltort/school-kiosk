@@ -184,3 +184,45 @@ async def test_delete_missing_raises_404(manager_factory):
         await manager.delete(uuid.uuid4())
 
     assert excinfo.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_add_column_with_nonunique_number(manager_factory):
+    """Проверка создания колонки с неуникальным номером."""
+    manager = manager_factory(ScheduleTableManager)
+
+    with pytest.raises(Exception) as excinfo:
+        await manager.create(
+            _sample_create(
+                schedule_columns=[
+                    {"number": 1, "header": "test_column1"},
+                    {"number": 1, "header": "test_column2"},
+                ]
+            )
+        )
+    assert excinfo.value.status_code == 400
+    assert excinfo.value.detail == "Нарушение целостности данных"
+
+
+@pytest.mark.asyncio
+async def test_add_lesson_with_nonunique_number(manager_factory):
+    """Проверка создания урока с неуникальным номером."""
+    manager = manager_factory(ScheduleTableManager)
+
+    with pytest.raises(Exception) as excinfo:
+        await manager.create(
+            _sample_create(
+                schedule_columns=[
+                    {
+                        "number": 1,
+                        "header": "test_column1",
+                        "lessons": [
+                            {"number": 1, "name": "test_lesson1"},
+                            {"number": 1, "name": "test_lesson2"},
+                        ],
+                    },
+                ]
+            )
+        )
+    assert excinfo.value.status_code == 400
+    assert excinfo.value.detail == "Нарушение целостности данных"

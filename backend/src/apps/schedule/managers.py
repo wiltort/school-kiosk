@@ -7,7 +7,7 @@ from sqlalchemy.engine import Result
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from src.apps.schedule.schemas import (
-    ScheduleColumnCreate,
+    AddColumnToScheduleTable,
     ScheduleColumnSchema,
     ScheduleImageCreate,
     ScheduleImageGet,
@@ -255,8 +255,14 @@ class ScheduleTableManager:
                     )
                     column["schedule_table_id"] = table_id
                     column = self.column_model(**column)
-                    session.add(column)
-                    await session.flush()
+                    try:
+                        session.add(column)
+                        await session.flush()
+                    except IntegrityError as e:
+                        logger.warning("Integrity error при создании столбца %s", e)
+                        raise HTTPException(
+                            status_code=400, detail="Нарушение целостности данных"
+                        ) from e
 
                     if column_data.lessons:
                         for lesson_data in column_data.lessons:
@@ -264,7 +270,13 @@ class ScheduleTableManager:
                             lesson_data["schedule_column_id"] = column.id
                             lesson = self.lesson_model(**lesson_data)
                             session.add(lesson)
-            await session.flush()
+            try:
+                await session.flush()
+            except IntegrityError as e:
+                logger.warning("Integrity error при создании столбца %s", e)
+                raise HTTPException(
+                    status_code=400, detail="Нарушение целостности данных"
+                ) from e
             await session.commit()
             return await self.get(table_id)
 
@@ -385,7 +397,9 @@ class ScheduleContentManager:
         self.column_model = column_model
         self.lesson_model = lesson_model
 
-    async def create_column(self, column: ScheduleColumnCreate) -> ScheduleColumnSchema:
+    async def create_column(
+        self, column: AddColumnToScheduleTable
+    ) -> ScheduleColumnSchema:
         """Создает новый столбец в таблице расписания.
 
         Args:
@@ -394,4 +408,25 @@ class ScheduleContentManager:
         Returns:
             Созданный столбец в виде схемы :class:`ScheduleColumnSchema`.
         """
-        pass
+        async with self.db.db_session() as session:
+            query = (
+                insert(self.column_model)
+                .values(**column.model_dump(exclude_none=True))
+                .returning(self.column_model)
+            )
+            try:
+                result: Result = await session.execute(query)
+            except IntegrityError as e:
+                logger.warning("Integrity error при создании колонки %s", e)
+                raise HTTPException(
+                    status_code=400, detail="Нарушение целостности данных"
+                ) from e
+            await session.commit()
+            column_data = result.unique().scalar_one()
+            return ScheduleColumnSchema(
+                id=column_data.id,
+                schedule_table_id=column_data.schedule_table_id,
+                number=column_data.number,
+                header=column_data.header,
+                lessons=[],
+            )

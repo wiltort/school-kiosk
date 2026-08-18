@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
@@ -44,6 +44,7 @@ class ScheduleColumn(IDMixin, Base):
         back_populates="schedule_columns",
         lazy="joined",
     )
+    __table_args__ = (UniqueConstraint("number", "schedule_table_id"),)
 
 
 class Lesson(IDMixin, Base):
@@ -57,6 +58,7 @@ class Lesson(IDMixin, Base):
     schedule_column: Mapped[ScheduleColumn] = relationship(
         "ScheduleColumn", back_populates="lessons", lazy="joined"
     )
+    __table_args__ = (UniqueConstraint("number", "schedule_column_id"),)
 
     def __repr__(self):
         return f"Lesson(id={self.id}, name={self.name})"

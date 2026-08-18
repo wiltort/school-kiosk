@@ -1,8 +1,8 @@
-"""Add all tables
+"""Create all tables
 
-Revision ID: b4192e9fef81
+Revision ID: 68b6052c3c03
 Revises:
-Create Date: 2026-08-18 13:00:19.720526
+Create Date: 2026-08-18 15:21:38.403444
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "b4192e9fef81"
+revision: str = "68b6052c3c03"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -80,6 +80,7 @@ def upgrade() -> None:
             ["schedule_table_id"], ["schedule_tables.id"], ondelete="CASCADE"
         ),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("number", "schedule_table_id"),
     )
     op.create_table(
         "lessons",
@@ -91,6 +92,7 @@ def upgrade() -> None:
             ["schedule_column_id"], ["schedule_columns.id"], ondelete="CASCADE"
         ),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("number", "schedule_column_id"),
     )
     # ### end Alembic commands ###
 

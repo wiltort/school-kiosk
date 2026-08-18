@@ -114,8 +114,11 @@ class ScheduleColumnBase(BaseModel):
 
 class ScheduleColumnSchema(ScheduleColumnBase):
     id: uuid.UUID = Field(..., description="ID столбца", examples=[uuid.uuid4()])
+    schedule_table_id: uuid.UUID = Field(
+        ..., description="ID расписания", examples=[uuid.uuid4()]
+    )
     lessons: list[LessonSchema] = Field(
-        ...,
+        default_factory=list,
         description="Уроки",
         examples=[LessonSchema(id=uuid.uuid4(), name="Математика", number=1)],
     )
@@ -126,7 +129,9 @@ class ScheduleColumnSchema(ScheduleColumnBase):
 
 class ScheduleColumnCreate(ScheduleColumnBase):
     lessons: list[LessonCreate] = Field(
-        ..., description="Уроки", examples=[LessonCreate(name="Математика", number=1)]
+        default_factory=list,
+        description="Уроки",
+        examples=[LessonCreate(name="Математика", number=1)],
     )
 
 
@@ -146,6 +151,7 @@ class ScheduleTableSchema(ScheduleTableBase):
         examples=[
             ScheduleColumnSchema(
                 id=uuid.uuid4(),
+                schedule_table_id=uuid.uuid4(),
                 number=1,
                 header="5 класс",
                 lessons=[LessonSchema(id=uuid.uuid4(), name="Математика", number=1)],
@@ -220,8 +226,13 @@ class ScheduleTableUpdate(BaseModel):
     )
 
 
-class AddColumnToScheduleTable(BaseModel):
+class AddColumnToScheduleTable(ScheduleColumnBase):
     schedule_table_id: uuid.UUID = Field(
         ..., description="ID расписания", examples=[uuid.uuid4()]
     )
-    number: int = Field(..., description="Номер столбца", examples=[1])
+
+
+class AddLessonToScheduleColumn(LessonBase):
+    schedule_column_id: uuid.UUID = Field(
+        ..., description="ID столбца", examples=[uuid.uuid4()]
+    )

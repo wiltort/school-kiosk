@@ -215,6 +215,7 @@ class ScheduleTableCreate(BaseModel):
 
 
 class LessonUpdate(BaseModel):
+    id: uuid.UUID = Field(..., description="ID урока", examples=[uuid.uuid4()])
     name: str | None = Field(
         None, description="Название урока", examples=["Математика"]
     )
@@ -222,12 +223,10 @@ class LessonUpdate(BaseModel):
 
 
 class ScheduleColumnUpdate(BaseModel):
+    id: uuid.UUID = Field(..., description="ID столбца", examples=[uuid.uuid4()])
     number: int | None = Field(None, description="Номер столбца", examples=[1])
     header: str | None = Field(
         None, description="Заголовок столбца", examples=["5 класс"]
-    )
-    lessons: list[LessonUpdate] | None = Field(
-        None, description="Уроки", examples=[LessonCreate(name="Математика", number=1)]
     )
 
 

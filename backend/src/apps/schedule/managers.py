@@ -11,6 +11,7 @@ from src.apps.schedule.schemas import (
     AddLessonToScheduleColumn,
     LessonSchema,
     ScheduleColumnSchema,
+    ScheduleColumnUpdate,
     ScheduleImageCreate,
     ScheduleImageGet,
     ScheduleImageUpdate,
@@ -328,7 +329,7 @@ class ScheduleTableManager:
     async def update(
         self, id: uuid.UUID, schedule: ScheduleTableUpdate
     ) -> ScheduleTableSchema:
-        """Обновляет метаданные табличного расписания.
+        """Обновляет данные табличного расписания.
 
         Обновляет только скалярные поля расписания (без столбцов).
 
@@ -348,23 +349,24 @@ class ScheduleTableManager:
             if not update_data:
                 raise HTTPException(status_code=400, detail="Нет данных для обновления")
             query = select(self.model).where(self.model.id == id)
-            try:
-                result: Result = await session.execute(query)
-            except IntegrityError as e:
-                logger.warning("Integrity error при создании расписания %s", e)
-                raise HTTPException(
-                    status_code=400, detail="Нарушение целостности данных"
-                ) from e
-            try:
-                table = result.unique().scalar_one()
-            except NoResultFound as e:
-                raise HTTPException(status_code=404, detail="Таблица не найдена") from e
+
+            result: Result = await session.execute(query)
+
+            table = result.unique().scalar_one_or_none()
+            if not table:
+                raise HTTPException(status_code=404, detail="Таблица не найдена")
 
             for key, value in update_data.items():
                 if hasattr(table, key):
                     setattr(table, key, value)
-
-            await session.commit()
+            try:
+                await session.commit()
+            except IntegrityError as e:
+                logger.warning("Integrity error при обновлении расписания: %s", e)
+                logger.warning("Rollback")
+                raise HTTPException(
+                    status_code=400, detail="Нарушение целостности данных"
+                ) from e
             return await self.get(id)
 
     async def delete(self, id: uuid.UUID) -> None:
@@ -458,3 +460,41 @@ class ScheduleContentManager:
             await session.commit()
             lesson_data = result.unique().scalar_one()
             return LessonSchema.model_validate(lesson_data)
+
+    async def update_column(self, column: ScheduleColumnUpdate) -> ScheduleColumnSchema:
+        """Обновляет столбец в таблице расписания.
+
+        Args:
+            column: Данные для обновления столбца.
+
+        Returns:
+            Обновленный столбец в виде схемы :class:`ScheduleColumnSchema`.
+        """
+        async with self.db.db_session() as session:
+            update_data = column.model_dump(exclude_unset=True, exclude={"id"})
+            if not update_data:
+                raise HTTPException(
+                    status_code=400, detail="Не указаны данные для обновления"
+                )
+            query = select(self.column_model).where(self.column_model.id == column.id)
+            result: Result = await session.execute(query)
+
+            column = result.unique().scalar_one_or_none()
+            if not column:
+                raise HTTPException(status_code=404, detail="Столбец не найден")
+            for key, value in update_data.items():
+                if hasattr(column, key):
+                    setattr(column, key, value)
+            try:
+                await session.commit()
+            except IntegrityError as e:
+                logger.warning("Integrity error при обновлении столбца %s", e)
+                logger.warning("Rollback")
+                raise HTTPException(
+                    status_code=400, detail="Нарушение целостности данных"
+                ) from e
+            result: Result = await session.execute(
+                select(self.column_model).where(self.column_model.id == column.id)
+            )
+            column = result.unique().scalar_one()
+            return ScheduleColumnSchema.model_validate(column)

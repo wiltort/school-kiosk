@@ -3,7 +3,7 @@
 import uuid
 
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import select
 from src.apps.schedule.managers import ScheduleImageManager
 from src.apps.schedule.schemas import (
     ScheduleImageCreate,
@@ -147,11 +147,16 @@ async def test_delete_removes_record(manager_factory, async_session_maker):
 
     await manager.delete(created.id)
 
+    with pytest.raises(Exception) as excinfo:
+        await manager.get(created.id)
+
+    assert excinfo.value.status_code == 404
+
     async with async_session_maker() as session:
         result = await session.execute(
-            delete(ScheduleImage).where(ScheduleImage.id == created.id)
+            select(ScheduleImage).where(ScheduleImage.id == created.id)
         )
-        assert result.rowcount == 0
+    assert result.scalar_one_or_none() is None
 
 
 @pytest.mark.asyncio

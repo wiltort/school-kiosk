@@ -3,9 +3,11 @@
 import uuid
 
 import pytest
+from sqlalchemy import select
 from src.apps.schedule.managers import ScheduleTableManager
-from src.apps.schedule.schemas import ScheduleTableCreate
+from src.apps.schedule.schemas import ScheduleTableCreate, ScheduleTableUpdate
 from src.enums.schedule import DayOfWeek
+from src.models.schedule import ScheduleTable
 
 
 def _sample_create(**overrides) -> ScheduleTableCreate:
@@ -121,29 +123,27 @@ async def test_get_all_orders_by_day_of_week(manager_factory):
     assert [r.name for r in records] == ["early", "late"]
 
 
-'''
-
 @pytest.mark.asyncio
 async def test_update_partial_fields(manager_factory):
     """Тест частичного обновления полей."""
-    manager = manager_factory(ScheduleImageManager)
+    manager = manager_factory(ScheduleTableManager)
 
     created = await manager.create(_sample_create(name="Before"))
 
-    updated = await manager.update(created.id, ScheduleImageUpdate(name="After"))
+    updated = await manager.update(created.id, ScheduleTableUpdate(name="After"))
 
     assert updated.id == created.id
     assert updated.name == "After"
-    assert updated.image == created.image  # unchanged
+    assert updated.day_of_week == created.day_of_week  # unchanged
     assert updated.is_active == created.is_active  # unchanged
 
 
 @pytest.mark.asyncio
 async def test_update_missing_raises_404(manager_factory):
-    """Тест выброса HTTP 404 при редактировании изображения с несуществующим ID."""
-    manager = manager_factory(ScheduleImageManager)
+    """Тест выброса HTTP 404 при редактировании расписания с несуществующим ID."""
+    manager = manager_factory(ScheduleTableManager)
     with pytest.raises(Exception) as excinfo:
-        await manager.update(uuid.uuid4(), ScheduleImageUpdate(name="X"))
+        await manager.update(uuid.uuid4(), ScheduleTableUpdate(name="X"))
 
     assert excinfo.value.status_code == 404
 
@@ -151,11 +151,11 @@ async def test_update_missing_raises_404(manager_factory):
 @pytest.mark.asyncio
 async def test_update_with_empty_payload_raises_400(manager_factory):
     """Тест выброса HTTP 400 при пустом payload."""
-    manager = manager_factory(ScheduleImageManager)
+    manager = manager_factory(ScheduleTableManager)
     created = await manager.create(_sample_create())
 
     with pytest.raises(Exception) as excinfo:
-        await manager.update(created.id, ScheduleImageUpdate())
+        await manager.update(created.id, ScheduleTableUpdate())
 
     assert excinfo.value.status_code == 400
 
@@ -163,25 +163,24 @@ async def test_update_with_empty_payload_raises_400(manager_factory):
 @pytest.mark.asyncio
 async def test_delete_removes_record(manager_factory, async_session_maker):
     """Тест удаления записи."""
-    manager = manager_factory(ScheduleImageManager)
+    manager = manager_factory(ScheduleTableManager)
     created = await manager.create(_sample_create())
 
     await manager.delete(created.id)
 
     async with async_session_maker() as session:
         result = await session.execute(
-            delete(ScheduleImage).where(ScheduleImage.id == created.id)
+            select(ScheduleTable).where(ScheduleTable.id == created.id)
         )
-        assert result.rowcount == 0
+    assert result.unique().scalar_one_or_none() is None
 
 
 @pytest.mark.asyncio
 async def test_delete_missing_raises_404(manager_factory):
     """Тест выброса HTTP 404 при удалении несуществующего изображения."""
-    manager = manager_factory(ScheduleImageManager)
+    manager = manager_factory(ScheduleTableManager)
 
     with pytest.raises(Exception) as excinfo:
         await manager.delete(uuid.uuid4())
 
     assert excinfo.value.status_code == 404
-'''

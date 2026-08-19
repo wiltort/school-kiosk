@@ -10,6 +10,7 @@ from src.apps.schedule.schemas import (
     AddColumnToScheduleTable,
     AddLessonToScheduleColumn,
     LessonSchema,
+    LessonUpdate,
     ScheduleColumnSchema,
     ScheduleColumnUpdate,
     ScheduleImageCreate,
@@ -498,3 +499,40 @@ class ScheduleContentManager:
             )
             column = result.unique().scalar_one()
             return ScheduleColumnSchema.model_validate(column)
+
+    async def update_lesson(self, lesson: LessonUpdate) -> LessonSchema:
+        """Обновляет урок в столбце расписания.
+
+        Args:
+            lesson: Данные для обновления урока.
+
+        Returns:
+            Обновленный урок в виде схемы :class:`LessonSchema`.
+        """
+        async with self.db.db_session() as session:
+            update_data = lesson.model_dump(exclude_unset=True, exclude={"id"})
+            if not update_data:
+                raise HTTPException(
+                    status_code=400, detail="Не указаны данные для обновления"
+                )
+            query = select(self.lesson_model).where(self.lesson_model.id == lesson.id)
+            result: Result = await session.execute(query)
+
+            lesson = result.unique().scalar_one_or_none()
+            if not lesson:
+                raise HTTPException(status_code=404, detail="Урок не найден")
+            for key, value in update_data.items():
+                if hasattr(lesson, key):
+                    setattr(lesson, key, value)
+            try:
+                await session.commit()
+            except IntegrityError as e:
+                logger.warning("Integrity error при обновлении урока %s", e)
+                raise HTTPException(
+                    status_code=400, detail="Нарушение целостности данных"
+                ) from e
+            result: Result = await session.execute(
+                select(self.lesson_model).where(self.lesson_model.id == lesson.id)
+            )
+            lesson = result.unique().scalar_one()
+            return LessonSchema.model_validate(lesson)

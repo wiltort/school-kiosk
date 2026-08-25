@@ -2,12 +2,12 @@ import uuid
 
 from fastapi import APIRouter, Depends, status
 
+from src.apps.schedule.managers import ScheduleImageManager
 from src.apps.schedule.schemas import (
     ScheduleImageCreate,
     ScheduleImageGet,
     ScheduleImageUpdate,
 )
-from src.apps.schedule.services import ScheduleImageService
 
 schedule_image_router = APIRouter(prefix="/schedule_images", tags=["schedule_images"])
 
@@ -17,29 +17,29 @@ schedule_image_router = APIRouter(prefix="/schedule_images", tags=["schedule_ima
 )
 async def create_schedule(
     schedule: ScheduleImageCreate,
-    service: ScheduleImageService = Depends(ScheduleImageService),
+    manager: ScheduleImageManager = Depends(),
 ) -> ScheduleImageGet:
-    return await service.create(schedule)
+    return await manager.create(schedule)
 
 
 @schedule_image_router.get("/{id}", response_model=ScheduleImageGet)
 async def get_schedule(
-    id: uuid.UUID, service: ScheduleImageService = Depends(ScheduleImageService)
+    id: uuid.UUID, manager: ScheduleImageManager = Depends()
 ) -> ScheduleImageGet | None:
-    return await service.get(id)
+    return await manager.get(id)
 
 
 @schedule_image_router.patch("/{id}", response_model=ScheduleImageGet)
 async def update_schedule(
     id: uuid.UUID,
     schedule: ScheduleImageUpdate,
-    service: ScheduleImageService = Depends(ScheduleImageService),
+    manager: ScheduleImageManager = Depends(),
 ) -> ScheduleImageGet:
-    return await service.update(id, schedule)
+    return await manager.update(id, schedule)
 
 
 @schedule_image_router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_schedule(
-    id: uuid.UUID, service: ScheduleImageService = Depends(ScheduleImageService)
+    id: uuid.UUID, manager: ScheduleImageManager = Depends()
 ) -> None:
-    return await service.delete(id)
+    return await manager.delete(id)

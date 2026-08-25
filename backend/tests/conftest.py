@@ -123,10 +123,10 @@ async def schedule_table_sample(async_session_maker):
 def manager_factory(async_session_maker):
     """Фабрика менеджеров для тестирования."""
 
-    def _create_manager(manager_cls):
+    def _create_manager(manager_cls, *args, **kwargs):
         """Создаёт экземпляр менеджера с подменённой зависимостью БД."""
         db_dependency = DBDependency(async_session_maker)
-        return manager_cls(db=db_dependency)
+        return manager_cls(*args, db=db_dependency, **kwargs)
 
     return _create_manager
 

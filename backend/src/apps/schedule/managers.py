@@ -2,7 +2,7 @@ import uuid
 from logging import getLogger
 
 from fastapi import Depends, HTTPException
-from sqlalchemy import case, delete, insert, select, update
+from sqlalchemy import case, delete, insert, select
 from sqlalchemy.engine import Result
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
@@ -20,9 +20,11 @@ from src.apps.schedule.schemas import (
     ScheduleTableSchema,
     ScheduleTableUpdate,
 )
+from src.apps.schedule.services import ScheduleImageRepositoryService
 from src.core.database import DBDependency, get_db_dependency
 from src.enums.schedule import DayOfWeek
-from src.models import Lesson, ScheduleColumn, ScheduleImage, ScheduleTable
+from src.models import Lesson, ScheduleColumn, ScheduleTable
+from src.utils.decorators import handle_db_errors
 
 logger = getLogger(__name__)
 
@@ -42,18 +44,20 @@ class ScheduleImageManager:
     def __init__(
         self,
         db: DBDependency = Depends(get_db_dependency),
-        model: type[ScheduleImage] = ScheduleImage,
+        image_repo: ScheduleImageRepositoryService = Depends(),
     ) -> None:
         """Инициализирует менеджер.
 
         Args:
             db: Зависимость для доступа к сессии базы данных.
                 По умолчанию подставляется через FastAPI.
-            model: Модель, которую менеджер будет обрабатывать.
+            image_repo: Репозиторий для выполнения CRUD-операций
+                над сущностью :class:`ScheduleImage`.
         """
         self.db = db
-        self.model = model
+        self.image_repo = image_repo
 
+    @handle_db_errors
     async def create(self, schedule: ScheduleImageCreate) -> ScheduleImageGet:
         """Создаёт новое расписание-изображение.
 
@@ -68,23 +72,13 @@ class ScheduleImageManager:
                 целостности базы данных (например, дубликат).
         """
         async with self.db.db_session() as session:
-            query = (
-                insert(self.model)
-                .values(**schedule.model_dump(exclude_none=True))
-                .returning(self.model)
+            image = await self.image_repo.create(
+                session, schedule.model_dump(exclude_none=True)
             )
-
-            try:
-                result: Result = await session.execute(query)
-            except IntegrityError as e:
-                logger.warning("Integrity error при создании расписания %s", e)
-                raise HTTPException(
-                    status_code=400, detail="Нарушение целостности данных"
-                ) from e
             await session.commit()
-            schedule_data = result.scalar_one()
-            return ScheduleImageGet.model_validate(schedule_data)
+            return ScheduleImageGet.model_validate(image)
 
+    @handle_db_errors
     async def get(self, id: uuid.UUID) -> ScheduleImageGet:
         """Возвращает расписание-изображение по идентификатору.
 
@@ -98,16 +92,13 @@ class ScheduleImageManager:
             HTTPException: с кодом 404, если запись не найдена.
         """
         async with self.db.db_session() as session:
-            query = select(self.model).where(self.model.id == id)
-            result: Result = await session.execute(query)
-            try:
-                schedule_data = result.scalar_one()
-            except NoResultFound:
-                raise HTTPException(
-                    status_code=404, detail="Расписание не найдено"
-                ) from None
-            return ScheduleImageGet.model_validate(schedule_data)
+            image = await self.image_repo.get(session, id)
 
+            if not image:
+                raise HTTPException(status_code=404, detail="Расписание не найдено")
+            return ScheduleImageGet.model_validate(image)
+
+    @handle_db_errors
     async def get_all(self) -> list[ScheduleImageGet]:
         """Возвращает все расписания-изображения.
 
@@ -117,16 +108,11 @@ class ScheduleImageManager:
         Returns:
             Список всех расписаний в виде схем :class:`ScheduleImageGet`.
         """
-        weekday_order = case(
-            {day.name: index for index, day in enumerate(DayOfWeek, start=1)},
-            value=self.model.day_of_week,
-        )
         async with self.db.db_session() as session:
-            query = select(self.model).order_by(weekday_order)
-            result: Result = await session.execute(query)
-            schedule_data = result.scalars().all()
-            return [ScheduleImageGet.model_validate(item) for item in schedule_data]
+            images = await self.image_repo.get_all(session)
+            return [ScheduleImageGet.model_validate(item) for item in images]
 
+    @handle_db_errors
     async def update(
         self, id: uuid.UUID, schedule: ScheduleImageUpdate
     ) -> ScheduleImageGet:
@@ -149,28 +135,9 @@ class ScheduleImageManager:
             data = schedule.model_dump(exclude_unset=True)
             if not data:
                 raise HTTPException(status_code=400, detail="Нет данных для обновления")
-
-            query = (
-                update(self.model)
-                .where(self.model.id == id)
-                .values(**data)
-                .returning(self.model)
-            )
-            try:
-                result: Result = await session.execute(query)
-            except IntegrityError as e:
-                logger.warning("Integrity error при создании расписания %s", e)
-                raise HTTPException(
-                    status_code=400, detail="Нарушение целостности данных"
-                ) from e
-            try:
-                schedule_data = result.scalar_one()
-            except NoResultFound:
-                raise HTTPException(
-                    status_code=404, detail="Расписание не найдено"
-                ) from None
+            result = await self.image_repo.update(session, id, data)
             await session.commit()
-            return ScheduleImageGet.model_validate(schedule_data)
+            return ScheduleImageGet.model_validate(result)
 
     async def delete(self, id: uuid.UUID) -> None:
         """Удаляет расписание-изображение по идентификатору.
@@ -182,8 +149,7 @@ class ScheduleImageManager:
             HTTPException: с кодом 404, если запись не найдена.
         """
         async with self.db.db_session() as session:
-            query = delete(self.model).where(self.model.id == id)
-            result: Result = await session.execute(query)
+            result = await self.image_repo.delete(session, id)
             if result.rowcount == 0:
                 raise HTTPException(status_code=404, detail="Расписание не найдено")
             await session.commit()
@@ -388,7 +354,18 @@ class ScheduleTableManager:
 
 
 class ScheduleContentManager:
-    """Менеджер содержимого табличного расписания."""
+    """Менеджер содержимого табличного расписания.
+
+    Отвечает за CRUD-операции над столбцами (:class:`ScheduleColumn`)
+    и уроками (:class:`Lesson`) внутри табличного расписания.
+    Отдельные операции (создание столбца/урока, обновление столбца/урока)
+    выполняются независимо от самого расписания.
+
+    Raises:
+        HTTPException: с кодом 400 при нарушении целостности данных
+            или отсутствии данных для обновления; с кодом 404, когда
+            столбец или урок не найден.
+    """
 
     def __init__(
         self,
@@ -397,6 +374,15 @@ class ScheduleContentManager:
         column_model: type[ScheduleColumn] = ScheduleColumn,
         lesson_model: type[Lesson] = Lesson,
     ) -> None:
+        """Инициализирует менеджер.
+
+        Args:
+            db: Зависимость для доступа к сессии базы данных.
+                По умолчанию подставляется через FastAPI.
+            model: Модель табличного расписания.
+            column_model: Модель столбца табличного расписания.
+            lesson_model: Модель урока табличного расписания.
+        """
         self.db = db
         self.model = model
         self.column_model = column_model

@@ -1,29 +1,17 @@
-"""Unit tests for the ScheduleImage model."""
+"""Юнит-тесты для модели ScheduleImage."""
 
 import uuid
 
-import pytest
-from sqlalchemy import Boolean, String, create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy import Boolean, String
 from src.enums.schedule import DayOfWeek
-from src.models.base import Base
 from src.models.schedule import ScheduleImage
 
 
-@pytest.fixture()
-def session():
-    """Provide an in-memory SQLite session with the schema created."""
-    engine = create_engine("sqlite://")
-    Base.metadata.create_all(engine)
-    with Session(engine) as db_session:
-        yield db_session
-
-
-def test_schedule_image_defaults(session):
-    """Test that ScheduleImage applies default values on flush."""
+def test_schedule_image_defaults(sync_session):
+    """Тест, что ScheduleImage применяет значения по умолчанию при flush."""
     image = ScheduleImage(image="schedule.png")
-    session.add(image)
-    session.flush()
+    sync_session.add(image)
+    sync_session.flush()
 
     assert image.name == "Untitled"
     assert image.image == "schedule.png"
@@ -31,16 +19,16 @@ def test_schedule_image_defaults(session):
     assert image.day_of_week.value == 1
 
 
-def test_schedule_image_custom_values(session):
-    """Test that ScheduleImage stores explicitly provided values."""
+def test_schedule_image_custom_values(sync_session):
+    """Тест, что ScheduleImage применяет пользовательские значения при flush."""
     image = ScheduleImage(
         name="Weekday schedule",
         image="weekday.png",
         is_active=True,
         day_of_week=DayOfWeek.THURSDAY,
     )
-    session.add(image)
-    session.flush()
+    sync_session.add(image)
+    sync_session.flush()
 
     assert image.name == "Weekday schedule"
     assert image.image == "weekday.png"
@@ -49,32 +37,32 @@ def test_schedule_image_custom_values(session):
     assert image.created_at is not None
 
 
-def test_schedule_image_id_is_uuid(session):
-    """Test that ScheduleImage generates a UUID primary key on flush."""
+def test_schedule_image_id_is_uuid(sync_session):
+    """Тест, что ScheduleImage.id является UUID."""
     image = ScheduleImage(image="schedule.png")
-    session.add(image)
-    session.flush()
+    sync_session.add(image)
+    sync_session.flush()
 
     assert isinstance(image.id, uuid.UUID)
 
 
-def test_schedule_image_id_unique_per_instance(session):
-    """Test that each ScheduleImage instance gets a distinct id."""
+def test_schedule_image_id_unique_per_instance(sync_session):
+    """Тест, что ScheduleImage.id уникальный для каждого объекта."""
     first = ScheduleImage(image="a.png")
     second = ScheduleImage(image="b.png")
-    session.add_all([first, second])
-    session.flush()
+    sync_session.add_all([first, second])
+    sync_session.flush()
 
     assert first.id != second.id
 
 
 def test_schedule_image_table_name():
-    """Test that ScheduleImage maps to the expected table name."""
-    assert ScheduleImage.__tablename__ == "schedules"
+    """Проверка названия таблицы ScheduleImage."""
+    assert ScheduleImage.__tablename__ == "schedule_images"
 
 
 def test_schedule_image_columns():
-    """Test that ScheduleImage declares the expected columns."""
+    """Проверка наличия в таблице колонок ScheduleImage."""
     columns = ScheduleImage.__table__.columns
 
     assert "id" in columns
@@ -87,7 +75,7 @@ def test_schedule_image_columns():
 
 
 def test_schedule_image_name_column():
-    """Test the name column definition."""
+    """Тест свойств колонки name."""
     column = ScheduleImage.__table__.columns["name"]
 
     assert isinstance(column.type, String)
@@ -97,7 +85,7 @@ def test_schedule_image_name_column():
 
 
 def test_schedule_image_image_column():
-    """Test the image column definition."""
+    """Тест свойств колонки image."""
     column = ScheduleImage.__table__.columns["image"]
 
     assert isinstance(column.type, String)
@@ -106,7 +94,7 @@ def test_schedule_image_image_column():
 
 
 def test_schedule_image_is_active_column():
-    """Test the is_active column definition."""
+    """Tест свойств колонки is_active."""
     column = ScheduleImage.__table__.columns["is_active"]
 
     assert isinstance(column.type, Boolean)
@@ -115,13 +103,13 @@ def test_schedule_image_is_active_column():
 
 
 def test_schedule_image_id_is_primary_key():
-    """Test that the id column is the primary key."""
+    """Наличие первичного ключа и вхождение поля ID."""
     primary_key_columns = list(ScheduleImage.__table__.primary_key)
     assert [column.name for column in primary_key_columns] == ["id"]
 
 
 def test_schedule_image_repr():
-    """Test the string representation of ScheduleImage."""
+    """Тест строкового представления объекта ScheduleImage."""
     image = ScheduleImage(id=uuid.uuid4(), name="Weekday schedule")
 
-    assert repr(image) == f"Schedule(id={image.id}, name=Weekday schedule)"
+    assert repr(image) == f"ScheduleImage(id={image.id}, name=Weekday schedule)"

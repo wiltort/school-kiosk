@@ -4,18 +4,18 @@ from fastapi import FastAPI
 
 from src.apps import apps_router
 from src.core.config import settings
-from src.core.database import db
+from src.core.database import get_db_dependency
 from src.models import Base
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001 — required by FastAPI lifespan signature
-    async_engine = db.db_engine
-    async with async_engine.begin() as conn:
+    db = get_db_dependency()
+    async with db.db_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     yield
-    await async_engine.dispose()
+    await db.db_engine.dispose()
 
 
 def create_app() -> FastAPI:

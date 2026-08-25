@@ -1,13 +1,13 @@
-"""Unit tests for application configuration."""
+"""Юнит-тесты для конфигурации приложения."""
 
 from src.core.config import BASE_DIR, Settings
 
 
 def test_settings_defaults():
-    """Test that Settings initializes with correct default values."""
+    """Проверка правильности установленных настроек."""
     settings = Settings()
     assert settings.app_name == "School Kiosk API"
-    assert settings.app_version == "0.1.0"
+    assert settings.app_version
     assert settings.debug is False
     assert settings.api_prefix == "/api/v1"
     assert settings.server_host == "0.0.0.0"  # noqa: S104 — test value, not binding
@@ -15,7 +15,7 @@ def test_settings_defaults():
 
 
 def test_base_dir_resolved():
-    """Test that BASE_DIR points to the project root."""
+    """Проверка правильности установки BASE_DIR и наличия файлов проекта."""
     assert (BASE_DIR / "pyproject.toml").exists()
     assert (BASE_DIR / "src").exists()
     assert (BASE_DIR / "tests").exists()

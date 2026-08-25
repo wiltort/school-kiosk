@@ -9,10 +9,10 @@ from src.apps.schedule.schemas import (
 )
 from src.apps.schedule.services import ScheduleImageService
 
-schedule_router = APIRouter(prefix="/schedule", tags=["schedule"])
+schedule_image_router = APIRouter(prefix="/schedule_images", tags=["schedule_images"])
 
 
-@schedule_router.post(
+@schedule_image_router.post(
     "/", response_model=ScheduleImageGet, status_code=status.HTTP_201_CREATED
 )
 async def create_schedule(
@@ -22,14 +22,14 @@ async def create_schedule(
     return await service.create(schedule)
 
 
-@schedule_router.get("/{id}", response_model=ScheduleImageGet)
+@schedule_image_router.get("/{id}", response_model=ScheduleImageGet)
 async def get_schedule(
     id: uuid.UUID, service: ScheduleImageService = Depends(ScheduleImageService)
 ) -> ScheduleImageGet | None:
     return await service.get(id)
 
 
-@schedule_router.patch("/{id}", response_model=ScheduleImageGet)
+@schedule_image_router.patch("/{id}", response_model=ScheduleImageGet)
 async def update_schedule(
     id: uuid.UUID,
     schedule: ScheduleImageUpdate,
@@ -38,7 +38,7 @@ async def update_schedule(
     return await service.update(id, schedule)
 
 
-@schedule_router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+@schedule_image_router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_schedule(
     id: uuid.UUID, service: ScheduleImageService = Depends(ScheduleImageService)
 ) -> None:

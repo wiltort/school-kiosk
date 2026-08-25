@@ -13,7 +13,8 @@ dependencies = [
     "pydantic-settings (>=2.14.2,<3.0.0)",
     "sqlalchemy (>=2.0.51,<3.0.0)",
     "uvicorn (>=0.52.1,<0.53.0)",
-    "alembic (>=1.18.5,<2.0.0)"
+    "alembic (>=1.18.5,<2.0.0)",
+    "pytest-asyncio (>=1.4.0,<2.0.0)"
 ]
 
 [tool.poetry]
@@ -55,7 +56,6 @@ select = [
     "B",    # flake8-bugbear
     "SIM",  # flake8-simplify
     "ARG",  # flake8-unused-arguments
-    "RUF",  # ruff-specific rules
 ]
 ignore = [
     "E501",  # line-too-long — handled by formatter

@@ -1,4 +1,4 @@
-from src.apps.schedule.services.repository_services import (
+from src.apps.schedule.repositories.schedule_image import (
     ScheduleImageRepositoryService,
 )
 

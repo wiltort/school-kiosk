@@ -6,6 +6,7 @@ from sqlalchemy import case, delete, insert, select
 from sqlalchemy.engine import Result
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
+from src.apps.schedule.repositories import ScheduleImageRepository
 from src.apps.schedule.schemas import (
     AddColumnToScheduleTable,
     AddLessonToScheduleColumn,
@@ -20,7 +21,6 @@ from src.apps.schedule.schemas import (
     ScheduleTableSchema,
     ScheduleTableUpdate,
 )
-from src.apps.schedule.services import ScheduleImageRepositoryService
 from src.core.database import DBDependency, get_db_dependency
 from src.enums.schedule import DayOfWeek
 from src.models import Lesson, ScheduleColumn, ScheduleTable
@@ -44,7 +44,7 @@ class ScheduleImageManager:
     def __init__(
         self,
         db: DBDependency = Depends(get_db_dependency),
-        image_repo: ScheduleImageRepositoryService = Depends(),
+        image_repo: ScheduleImageRepository = Depends(),
     ) -> None:
         """Инициализирует менеджер.
 

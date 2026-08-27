@@ -5,11 +5,11 @@ import uuid
 import pytest
 from sqlalchemy import select
 from src.apps.schedule.managers import ScheduleImageManager
+from src.apps.schedule.repositories import ScheduleImageRepository
 from src.apps.schedule.schemas import (
     ScheduleImageCreate,
     ScheduleImageUpdate,
 )
-from src.apps.schedule.services import ScheduleImageRepositoryService
 from src.enums.schedule import DayOfWeek
 from src.models import ScheduleImage
 
@@ -29,7 +29,7 @@ def _sample_create(**overrides) -> ScheduleImageCreate:
 async def test_create_schedule_image(manager_factory):
     """Проверка создания изображения расписания."""
     manager = manager_factory(
-        ScheduleImageManager, image_repo=ScheduleImageRepositoryService()
+        ScheduleImageManager, image_repo=ScheduleImageRepository()
     )
     created = await manager.create(_sample_create())
 
@@ -46,7 +46,7 @@ async def test_create_schedule_image(manager_factory):
 async def test_create_applies_model_defaults_for_none_fields(manager_factory):
     """Проверка применения значений по умолчанию для полей."""
     manager = manager_factory(
-        ScheduleImageManager, image_repo=ScheduleImageRepositoryService()
+        ScheduleImageManager, image_repo=ScheduleImageRepository()
     )
     created = await manager.create(
         _sample_create(name=None, is_active=None, day_of_week=None)
@@ -61,7 +61,7 @@ async def test_create_applies_model_defaults_for_none_fields(manager_factory):
 async def test_get_schedule_image(manager_factory):
     """Тест получения изображния из бд."""
     manager = manager_factory(
-        ScheduleImageManager, image_repo=ScheduleImageRepositoryService()
+        ScheduleImageManager, image_repo=ScheduleImageRepository()
     )
     created = await manager.create(_sample_create())
 
@@ -76,7 +76,7 @@ async def test_get_missing_raises_404(manager_factory):
     """Тест выброса HTTP 404 при вызове несуществующего ID."""
     missing_id = uuid.uuid4()
     manager = manager_factory(
-        ScheduleImageManager, image_repo=ScheduleImageRepositoryService()
+        ScheduleImageManager, image_repo=ScheduleImageRepository()
     )
 
     with pytest.raises(Exception) as excinfo:
@@ -89,7 +89,7 @@ async def test_get_missing_raises_404(manager_factory):
 async def test_get_all_returns_created_records(manager_factory):
     """Тест получения всех созданных записей."""
     manager = manager_factory(
-        ScheduleImageManager, image_repo=ScheduleImageRepositoryService()
+        ScheduleImageManager, image_repo=ScheduleImageRepository()
     )
     await manager.create(_sample_create(name="A", day_of_week=DayOfWeek.MONDAY))
     await manager.create(_sample_create(name="B", day_of_week=DayOfWeek.TUESDAY))
@@ -104,7 +104,7 @@ async def test_get_all_returns_created_records(manager_factory):
 async def test_get_all_orders_by_day_of_week(manager_factory):
     """Тест получения всех записей по дню недели."""
     manager = manager_factory(
-        ScheduleImageManager, image_repo=ScheduleImageRepositoryService()
+        ScheduleImageManager, image_repo=ScheduleImageRepository()
     )
 
     await manager.create(_sample_create(name="late", day_of_week=DayOfWeek.FRIDAY))
@@ -119,7 +119,7 @@ async def test_get_all_orders_by_day_of_week(manager_factory):
 async def test_update_partial_fields(manager_factory):
     """Тест частичного обновления полей."""
     manager = manager_factory(
-        ScheduleImageManager, image_repo=ScheduleImageRepositoryService()
+        ScheduleImageManager, image_repo=ScheduleImageRepository()
     )
 
     created = await manager.create(_sample_create(name="Before"))
@@ -136,7 +136,7 @@ async def test_update_partial_fields(manager_factory):
 async def test_update_missing_raises_404(manager_factory):
     """Тест выброса HTTP 404 при редактировании изображения с несуществующим ID."""
     manager = manager_factory(
-        ScheduleImageManager, image_repo=ScheduleImageRepositoryService()
+        ScheduleImageManager, image_repo=ScheduleImageRepository()
     )
     with pytest.raises(Exception) as excinfo:
         await manager.update(uuid.uuid4(), ScheduleImageUpdate(name="X"))
@@ -148,7 +148,7 @@ async def test_update_missing_raises_404(manager_factory):
 async def test_update_with_empty_payload_raises_400(manager_factory):
     """Тест выброса HTTP 400 при пустом payload."""
     manager = manager_factory(
-        ScheduleImageManager, image_repo=ScheduleImageRepositoryService()
+        ScheduleImageManager, image_repo=ScheduleImageRepository()
     )
     created = await manager.create(_sample_create())
 
@@ -162,7 +162,7 @@ async def test_update_with_empty_payload_raises_400(manager_factory):
 async def test_delete_removes_record(manager_factory, async_session_maker):
     """Тест удаления записи."""
     manager = manager_factory(
-        ScheduleImageManager, image_repo=ScheduleImageRepositoryService()
+        ScheduleImageManager, image_repo=ScheduleImageRepository()
     )
     created = await manager.create(_sample_create())
 
@@ -184,7 +184,7 @@ async def test_delete_removes_record(manager_factory, async_session_maker):
 async def test_delete_missing_raises_404(manager_factory):
     """Тест выброса HTTP 404 при удалении несуществующего изображения."""
     manager = manager_factory(
-        ScheduleImageManager, image_repo=ScheduleImageRepositoryService()
+        ScheduleImageManager, image_repo=ScheduleImageRepository()
     )
 
     with pytest.raises(Exception) as excinfo:

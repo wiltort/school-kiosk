@@ -16,6 +16,7 @@ schedule_image_router = APIRouter(prefix="/schedule_images", tags=["schedule_ima
     "/", response_model=ScheduleImageGet, status_code=status.HTTP_201_CREATED
 )
 async def create_schedule(
+    # image: UploadFile,
     schedule: ScheduleImageCreate,
     manager: ScheduleImageManager = Depends(),
 ) -> ScheduleImageGet:

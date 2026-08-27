@@ -8,20 +8,15 @@ from src.enums.schedule import DayOfWeek
 from src.models import ScheduleImage
 
 
-class ScheduleImageRepositoryService:
+class ScheduleImageRepository:
     """Репозиторий для работы с изображениями расписания.
 
     Инкапсулирует низкоуровневые SQL-операции над сущностью
     :class:`ScheduleImage`. Методы не управляют транзакциями —
     commit/rollback выполняет вызывающий код (например, менеджер).
-
-    Args:
-        model: Модель SQLAlchemy, с которой работает репозиторий.
-            По умолчанию :class:`ScheduleImage`.
     """
 
-    def __init__(self, model: type[ScheduleImage] = ScheduleImage):
-        self.model = model
+    model = ScheduleImage
 
     async def get(self, session: AsyncSession, id: uuid.UUID) -> ScheduleImage | None:
         """Возвращает изображение расписания по идентификатору.

@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from src.apps import apps_router
 from src.core.config import settings
@@ -40,6 +41,11 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(apps_router)
+    app.mount(
+        settings.upload_url,
+        StaticFiles(directory=str(settings.upload_dir)),
+        name="uploads",
+    )
 
     @app.get("/", tags=["root"])
     def root():

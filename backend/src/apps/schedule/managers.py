@@ -22,6 +22,7 @@ from src.apps.schedule.schemas import (
     ScheduleTableUpdate,
 )
 from src.core.database import DBDependency, get_db_dependency
+from src.core.storage import ImageStorage
 from src.enums.schedule import DayOfWeek
 from src.models import Lesson, ScheduleColumn, ScheduleTable
 from src.utils.decorators import handle_db_errors
@@ -45,6 +46,7 @@ class ScheduleImageManager:
         self,
         db: DBDependency = Depends(get_db_dependency),
         image_repo: ScheduleImageRepository = Depends(),
+        storage: ImageStorage = Depends(),
     ) -> None:
         """Инициализирует менеджер.
 
@@ -56,13 +58,18 @@ class ScheduleImageManager:
         """
         self.db = db
         self.image_repo = image_repo
+        self.storage = storage
 
     @handle_db_errors
-    async def create(self, schedule: ScheduleImageCreate) -> ScheduleImageGet:
+    async def create(
+        self, schedule: ScheduleImageCreate, data: bytes, filename: str
+    ) -> ScheduleImageGet:
         """Создаёт новое расписание-изображение.
 
         Args:
             schedule: Данные для создания расписания.
+            data: Изображение.
+            filename: имя файла изображения.
 
         Returns:
             Созданное расписание в виде схемы :class:`ScheduleImageGet`.
@@ -71,12 +78,15 @@ class ScheduleImageManager:
             HTTPException: с кодом 400 при нарушении ограничений
                 целостности базы данных (например, дубликат).
         """
+        stored_path = await self.storage.save(data, filename)
+
         async with self.db.db_session() as session:
-            image = await self.image_repo.create(
-                session, schedule.model_dump(exclude_none=True)
-            )
+            schedule_data = schedule.model_dump(exclude_none=True)
+            schedule_data["image"] = stored_path
+
+            schedule_image = await self.image_repo.create(session, schedule_data)
             await session.commit()
-            return ScheduleImageGet.model_validate(image)
+            return ScheduleImageGet.model_validate(schedule_image)
 
     @handle_db_errors
     async def get(self, id: uuid.UUID) -> ScheduleImageGet:

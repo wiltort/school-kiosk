@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     debug: bool = False
     log_level: str = "INFO"
-    log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    log_format: str = "%(asctime)s | %(name)s | %(levelname)s | %(message)s"
     date_format: str = "%Y-%m-%d %H:%M:%S"
     api_prefix: str = "/api/v1"
 
@@ -29,6 +29,7 @@ class Settings(BaseSettings):
 
     upload_dir: Path = BASE_DIR / "uploads"
     upload_url: str = "/uploads"
+    max_image_size: int = 10 * 1024 * 1024
 
 
 settings = Settings()

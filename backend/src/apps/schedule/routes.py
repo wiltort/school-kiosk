@@ -45,6 +45,15 @@ async def create_schedule(
     return await manager.create(schedule, content, image.filename)
 
 
+@schedule_image_router.get(
+    "/", response_model=list[ScheduleImageGet], status_code=status.HTTP_200_OK
+)
+async def get_all_schedules(
+    manager: Annotated[ScheduleImageManager, Depends()],
+) -> list[ScheduleImageGet]:
+    return await manager.get_all()
+
+
 @schedule_image_router.get("/{id}", response_model=ScheduleImageGet)
 async def get_schedule(
     id: uuid.UUID, manager: ScheduleImageManager = Depends()

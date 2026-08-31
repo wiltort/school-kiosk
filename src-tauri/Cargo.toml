@@ -1,0 +1,48 @@
+[package]
+name = "school-kiosk"
+version = "0.1.0"
+description = "School Kiosk — desktop shell (Tauri v2)"
+edition = "2021"
+
+# Точка входа: src/main.rs, вся логика в библиотеке (src/lib.rs) —
+# это стандартная структура Tauri v2, которая нужна для мобильных
+# целей и позволяет тестировать логику без окна.
+[lib]
+name = "school_kiosk_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+
+# Сериализация для IPC-команд (admin.rs)
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Хеширование админ-пароля для обхода киоска (используем только в dev).
+# Для продакшена пароль хранится на стороне Python-бэкенда.
+sha2 = "0.10"
+
+# Работа с процессами (запуск/остановка Python-бэкенда)
+sysinfo = "0.30"
+
+# Windows API — только для целевой платформы Windows.
+# Используется kiosk.rs (блокировка клавиш, fullscreen, topmost).
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_Graphics_Gdi",
+] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

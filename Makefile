@@ -1,13 +1,32 @@
 BACKEND := backend
 POETRY  := cd $(BACKEND) && poetry run
 FEATURE_BRANCH_FROM := dev
+TAURI := src-tauri
+FRONTEND := frontend
+NPM := cd $(FRONTEND) && npm run
 
-.PHONY: install
+.PHONY: help
+help: ## Показать все доступные команды
+	@python -X utf8 scripts/make_help.py
+
+.PHONY: build
+build: ## Собрать проект
+	cd $(TAURI) && cargo tauri build
+
+.PHONY: run
+run: ## Запустить проект
+	cd $(TAURI) && cargo tauri dev
+
+.PHONY: run-frontend
+run-frontend: ## Запустить frontend (dev-сервер)
+	$(NPM) dev
+
+.PHONY: install-backend
 install: ## Установить все зависимости (включая dev)
 	cd $(BACKEND) && poetry install
 
-.PHONY: run
-run: ## Запустить сервер (uvicorn с hot-reload)
+.PHONY: run-backend
+run-backend: ## Запустить сервер backend (uvicorn с hot-reload)
 	$(POETRY) app
 
 .PHONY: test
@@ -62,10 +81,6 @@ pre-commit-install: ## Установить pre-commit
 .PHONY: pre-commit
 pre-commit: ## Запустить pre-commit для всех файлов
 	$(POETRY) pre-commit run --all-files
-
-.PHONY: help
-help: ## Показать все доступные команды
-	@python -X utf8 scripts/make_help.py
 
 .PHONY: new-branch
 new-branch: ## Создать новую ветку (использование: make new-branch n="Имя-ветки")

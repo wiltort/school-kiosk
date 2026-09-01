@@ -1,3 +1,4 @@
+import datetime
 import uuid
 from typing import Annotated
 
@@ -75,3 +76,24 @@ async def delete_schedule(
     id: uuid.UUID, manager: ScheduleImageManager = Depends()
 ) -> None:
     return await manager.delete(id)
+
+
+local_schedule_image_router = APIRouter(
+    prefix="/schedule_images_local", tags=["local_schedule_images"]
+)
+
+
+@local_schedule_image_router.get(
+    "/", response_model=ScheduleImageGet, status_code=status.HTTP_200_OK
+)
+async def get_local_schedule() -> ScheduleImageGet:
+    schedule = ScheduleImageGet(
+        id=uuid.uuid4(),
+        name="Локальное расписание",
+        image="1.jpg",
+        is_active=True,
+        day_of_week=1,
+        created_at=datetime.datetime.now(),
+        updated_at=datetime.datetime.now(),
+    )
+    return schedule

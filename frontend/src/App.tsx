@@ -1,23 +1,54 @@
-// Временная заглушка киоск-экрана.
-// Здесь будет KioskView (расписание, новости, часы) и AdminView.
+import { useCallback, useEffect, useState } from "react";
+import {
+  getKioskConfig,
+  loadKioskConfig,
+  type KioskConfig,
+} from "./config/kioskConfig";
+import { useIdleTimeout } from "./hooks/useIdleTimeout";
+import HomeView from "./views/HomeView";
+import ScheduleView from "./views/ScheduleView";
+import WeatherView from "./views/WeatherView";
+
+type View = "home" | "schedule" | "weather";
+
+/**
+ * Корневой компонент киоск-режима.
+ *
+ * Управляет навигацией между экранами и возвратом на главный экран
+ * при бездействии пользователя (таймаут настраивается в конфиге киоска).
+ */
 export default function App() {
+  const [view, setView] = useState<View>("home");
+  const [config, setConfig] = useState<KioskConfig>(getKioskConfig());
+
+  // Загружаем актуальные настройки (пока значения по умолчанию;
+  // в дальнейшем — из админки).
+  useEffect(() => {
+    let cancelled = false;
+    loadKioskConfig().then((loaded) => {
+      if (!cancelled) {
+        setConfig(loaded);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const goHome = useCallback(() => setView("home"), []);
+  const openSchedule = useCallback(() => setView("schedule"), []);
+  const openWeather = useCallback(() => setView("weather"), []);
+
+  // При бездействии дольше inactivityTimeoutMs возвращаемся домой.
+  useIdleTimeout(goHome, config.inactivityTimeoutMs);
+
   return (
-    <main
-      style={{
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#0f172a",
-        color: "#e2e8f0",
-        fontFamily: "system-ui, sans-serif",
-      }}
-    >
-      <h1 style={{ margin: 0, fontSize: "3rem" }}>School Kiosk</h1>
-      <p style={{ opacity: 0.7, marginTop: "0.5rem" }}>
-        Desktop-оболочка Tauri v2 (placeholder)
-      </p>
-    </main>
+    <div className="app">
+      {view === "home" && (
+        <HomeView onSchedule={openSchedule} onWeather={openWeather} />
+      )}
+      {view === "schedule" && <ScheduleView onHome={goHome} />}
+      {view === "weather" && <WeatherView onHome={goHome} />}
+    </div>
   );
 }

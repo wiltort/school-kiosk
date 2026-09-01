@@ -8,11 +8,13 @@ MAKEFILE = Path(__file__).resolve().parent.parent / "Makefile"
 
 # (заголовок, список имён целей / None = все оставшиеся) — секции справки
 SECTIONS = [
+    ("Project", ["build", "run"]),
+    ("Frontend", ["run-frontend"]),
     (
         "Backend",
         [
-            "install",
-            "run",
+            "install-backend",
+            "run-backend",
             "test",
             "test-integration",
             "test-coverage",

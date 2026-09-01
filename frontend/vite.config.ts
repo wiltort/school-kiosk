@@ -12,5 +12,16 @@ export default defineConfig({
     watch: {
       ignored: ["**/src-tauri/**"],
     },
+    proxy: {
+      // Проксируем API-запросы и статику на бэкенд (FastAPI).
+      "/api": {
+        target: "http://localhost:8765",
+        changeOrigin: true,
+      },
+      "/uploads": {
+        target: "http://localhost:8765",
+        changeOrigin: true,
+      },
+    },
   },
 });

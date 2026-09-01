@@ -25,7 +25,6 @@ async def lifespan(app: FastAPI):  # noqa: ARG001 — required by FastAPI lifesp
     db = get_db_dependency()
     async with db.db_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    settings.upload_dir.mkdir(parents=True, exist_ok=True)
     _init_logging()
     yield
     await db.db_engine.dispose()
@@ -41,6 +40,8 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(apps_router)
+
+    settings.upload_dir.mkdir(parents=True, exist_ok=True)
     app.mount(
         settings.upload_url,
         StaticFiles(directory=str(settings.upload_dir)),

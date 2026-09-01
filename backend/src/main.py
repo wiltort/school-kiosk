@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.apps import apps_router
@@ -37,6 +38,18 @@ def create_app() -> FastAPI:
         version=settings.app_version,
         description=settings.app_description,
         lifespan=lifespan,
+    )
+
+    # CORS: собранное приложение (Tauri WebView) обращается к бэкенду по
+    # абсолютному URL из origin "http://tauri.localhost". Это локальный киоск,
+    # поэтому разрешаем все origin. В dev-режиме запросы идут через Vite-прокси
+    # (same-origin) и CORS не требуется, но middleware не мешает.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     app.include_router(apps_router)

@@ -37,7 +37,7 @@ export function useIdleTimeout(callback: () => void, timeoutMs: number): void {
     };
 
     ACTIVITY_EVENTS.forEach((eventName) =>
-      window.addEventListener(eventName, resetTimer),
+      window.addEventListener(eventName, resetTimer)
     );
     resetTimer();
 
@@ -46,7 +46,7 @@ export function useIdleTimeout(callback: () => void, timeoutMs: number): void {
         clearTimeout(timerId);
       }
       ACTIVITY_EVENTS.forEach((eventName) =>
-        window.removeEventListener(eventName, resetTimer),
+        window.removeEventListener(eventName, resetTimer)
       );
     };
   }, [timeoutMs]);

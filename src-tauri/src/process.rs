@@ -75,24 +75,21 @@ fn spawn_backend() -> io::Result<Child> {
 
     if !backend_command_override() {
         // default (dev через Poetry)
-        cmd.current_dir(&backend_dir)
-            .args([
-                "run",
-                "uvicorn",
-                "src.main:app",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                &BACKEND_PORT.to_string(),
-            ]);
+        cmd.current_dir(&backend_dir).args([
+            "run",
+            "uvicorn",
+            "src.main:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            &BACKEND_PORT.to_string(),
+        ]);
     } else {
         // user-переопределённая команда (аргументы уже в строке)
         cmd.args(backend_args());
     }
 
-    cmd.stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()
 }
 
 /// Путь к папке бэкенда (корень репозитория + `backend`).

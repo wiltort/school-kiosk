@@ -32,7 +32,7 @@ pub fn run() {
 
             // 3. Киоск-режим (Windows API).
             #[cfg(target_os = "windows")]
-            kiosk::activate(&app)?;
+            kiosk::activate(app)?;
 
             Ok(())
         })

@@ -6,7 +6,10 @@ interface HomeButtonProps {
 }
 
 /** Кнопка возврата на главный экран киоска. */
-export default function HomeButton({ onHome, label = "Домой" }: HomeButtonProps) {
+export default function HomeButton({
+  onHome,
+  label = "Домой",
+}: HomeButtonProps) {
   return (
     <button type="button" className="home-button" onClick={onHome}>
       <svg

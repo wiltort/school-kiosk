@@ -35,7 +35,11 @@ export default function HomeView({ onSchedule, onWeather }: HomeViewProps) {
       </header>
 
       <div className="home__grid">
-        <AppIcon label="Расписание" icon={<ScheduleIcon />} onClick={onSchedule} />
+        <AppIcon
+          label="Расписание"
+          icon={<ScheduleIcon />}
+          onClick={onSchedule}
+        />
         <AppIcon label="Погода" icon={<WeatherIcon />} onClick={onWeather} />
       </div>
     </section>

@@ -21,7 +21,7 @@ const DEFAULT_CONFIG: KioskConfig = {
   apiBaseUrl: "/api/v1",
 };
 
-let config: KioskConfig = { ...DEFAULT_CONFIG };
+const config: KioskConfig = { ...DEFAULT_CONFIG };
 
 export function getKioskConfig(): KioskConfig {
   return config;

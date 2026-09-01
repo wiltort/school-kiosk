@@ -38,9 +38,7 @@ export default function ScheduleView({ onHome }: ScheduleViewProps) {
     };
   }, []);
 
-  const activeSchedule = state.status === "ready"
-    ? state.schedule
-    : null;
+  const activeSchedule = state.status === "ready" ? state.schedule : null;
 
   const renderBody = useCallback(() => {
     if (state.status === "loading") {
@@ -64,14 +62,16 @@ export default function ScheduleView({ onHome }: ScheduleViewProps) {
 
     return (
       <div className="schedule__images">
-          <figure key={activeSchedule.id} className="schedule__figure">
-            <img
-              className="schedule__image"
-              src={scheduleImageUrl(activeSchedule.image)}
-              alt={activeSchedule.name}
-            />
-            <figcaption className="schedule__caption">{activeSchedule.name}</figcaption>
-          </figure>
+        <figure key={activeSchedule.id} className="schedule__figure">
+          <img
+            className="schedule__image"
+            src={scheduleImageUrl(activeSchedule.image)}
+            alt={activeSchedule.name}
+          />
+          <figcaption className="schedule__caption">
+            {activeSchedule.name}
+          </figcaption>
+        </figure>
       </div>
     );
   }, [state, activeSchedule]);

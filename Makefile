@@ -29,6 +29,21 @@ install: ## Установить все зависимости (включая d
 run-backend: ## Запустить сервер backend (uvicorn с hot-reload)
 	$(POETRY) app
 
+.PHONY: lint-frontend
+lint-frontend: ## Линт + проверка типов + форматирования frontend
+	cd $(FRONTEND) && npm run lint
+	cd $(FRONTEND) && npm run typecheck
+	cd $(FRONTEND) && npm run format:check
+
+.PHONY: format-frontend
+format-frontend: ## Автофикс форматирования frontend (prettier)
+	cd $(FRONTEND) && npm run format
+
+.PHONY: lint-rust
+lint-rust: ## Формат + clippy для Rust (src-tauri)
+	cd $(TAURI) && cargo fmt --check
+	cd $(TAURI) && cargo clippy --all-targets -- -D warnings
+
 .PHONY: test
 test: ## Запустить все тесты
 	$(POETRY) pytest
@@ -75,12 +90,12 @@ db-current: ## Показать текущую миграцию
 	$(POETRY) alembic current
 
 .PHONY: pre-commit-install
-pre-commit-install: ## Установить pre-commit
-	$(POETRY) pre-commit install
+pre-commit-install: ## Установить pre-commit (конфиг в корне репозитория)
+	poetry -C $(BACKEND) run pre-commit install
 
 .PHONY: pre-commit
 pre-commit: ## Запустить pre-commit для всех файлов
-	$(POETRY) pre-commit run --all-files
+	poetry -C $(BACKEND) run pre-commit run --all-files
 
 .PHONY: new-branch
 new-branch: ## Создать новую ветку (использование: make new-branch n="Имя-ветки")

@@ -32,10 +32,14 @@ pub fn activate(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     apply_window_state(&window)?;
     start_keyboard_hook();
 
-    println!("Kiosk guard active. Admin: {} , Exit: {}", {
-        let (c, k) = ADMIN_SHORTCUT;
-        format!("{c}+{k}")
-    }, EXIT_SHORTCUT);
+    println!(
+        "Kiosk guard active. Admin: {} , Exit: {}",
+        {
+            let (c, k) = ADMIN_SHORTCUT;
+            format!("{c}+{k}")
+        },
+        EXIT_SHORTCUT
+    );
 
     Ok(())
 }
@@ -73,7 +77,7 @@ fn apply_window_state(window: &WebviewWindow) -> tauri::Result<()> {
 mod hook {
     use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetMessageW, KBDLLHOOKSTRUCT, MSG, SetWindowsHookExW, WH_KEYBOARD_LL,
+        GetMessageW, SetWindowsHookExW, KBDLLHOOKSTRUCT, MSG, WH_KEYBOARD_LL,
     };
 
     /// Код-сообщения хука — не перехватывать (пропустить дальше).
@@ -83,12 +87,7 @@ mod hook {
         // TODO(kiosk): низкоуровневый хук должен быть установлен из потока
         // с активным циклом сообщений. Здесь заглушка, чтобы структура была
         // готова к доработке.
-        let _hook = SetWindowsHookExW(
-            WH_KEYBOARD_LL,
-            Some(hook_proc),
-            None,
-            0,
-        )?;
+        let _hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(hook_proc), None, 0)?;
         // Держим поток живым (GetMessage) — TODO.
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).into() {
@@ -98,11 +97,7 @@ mod hook {
         Ok(())
     }
 
-    extern "system" fn hook_proc(
-        _code: i32,
-        _wparam: WPARAM,
-        _lparam: LPARAM,
-    ) -> LRESULT {
+    extern "system" fn hook_proc(_code: i32, _wparam: WPARAM, _lparam: LPARAM) -> LRESULT {
         if _code == HC_ACTION {
             // TODO(kiosk): реализовать разбор нажатий.
             let _kb = _lparam.0 as *const KBDLLHOOKSTRUCT;

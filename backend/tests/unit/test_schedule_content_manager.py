@@ -1,5 +1,7 @@
 """Юнит-тесты для ScheduleContentManager операций."""
 
+import uuid
+
 import pytest
 from src.apps.schedule.managers import ScheduleContentManager
 from src.apps.schedule.schemas import (
@@ -116,3 +118,85 @@ async def test_update_column(manager_factory, schedule_table_sample):
             },
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_partial_update_column(manager_factory, schedule_table_sample):
+    """Проверка неполного обновления колонки."""
+    manager = manager_factory(ScheduleContentManager)
+
+    column = await manager.update_column(
+        ScheduleColumnUpdate(
+            id=schedule_table_sample.schedule_columns[0].id,
+            header="test_column",
+        )
+    )
+    assert column.model_dump() == {
+        "id": schedule_table_sample.schedule_columns[0].id,
+        "number": 1,
+        "header": "test_column",
+        "schedule_table_id": schedule_table_sample.id,
+        "lessons": [
+            {
+                "number": 1,
+                "name": "History",
+                "id": schedule_table_sample.schedule_columns[0].lessons[0].id,
+                "schedule_column_id": schedule_table_sample.schedule_columns[0].id,
+            },
+            {
+                "number": 2,
+                "name": "Math",
+                "id": schedule_table_sample.schedule_columns[0].lessons[1].id,
+                "schedule_column_id": schedule_table_sample.schedule_columns[0].id,
+            },
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_empty_update_column(manager_factory, schedule_table_sample):
+    """Проверка пустого обновления колонки (нет данных для обновления)."""
+    manager = manager_factory(ScheduleContentManager)
+
+    with pytest.raises(Exception) as excinfo:
+        await manager.update_column(
+            ScheduleColumnUpdate(
+                id=schedule_table_sample.schedule_columns[0].id,
+            )
+        )
+
+    assert excinfo.value.status_code == 400
+    assert excinfo.value.detail == "Не указаны данные для обновления"
+
+
+@pytest.mark.asyncio
+async def test_update_column_with_wrong_id(manager_factory):
+    """Проверка обновления колонки с неверным id."""
+    manager = manager_factory(ScheduleContentManager)
+
+    with pytest.raises(Exception) as excinfo:
+        await manager.update_column(
+            ScheduleColumnUpdate(id=uuid.uuid4(), header="test_column")
+        )
+
+    assert excinfo.value.status_code == 404
+    assert excinfo.value.detail == "Столбец не найден"
+
+
+@pytest.mark.asyncio
+async def test_nonunique_column_number_update_column(
+    manager_factory, schedule_table_sample
+):
+    """Проверка обновления колонки с неуникальным номером."""
+    manager = manager_factory(ScheduleContentManager)
+
+    with pytest.raises(Exception) as excinfo:
+        await manager.update_column(
+            ScheduleColumnUpdate(
+                id=schedule_table_sample.schedule_columns[0].id,
+                number=schedule_table_sample.schedule_columns[1].number,
+            )
+        )
+
+    assert excinfo.value.status_code == 400
+    assert excinfo.value.detail == "Нарушение целостности данных"

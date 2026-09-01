@@ -150,3 +150,7 @@ htmlcov/
 .coverage.*
 *.lcov
 .nyc_output/
+
+.plans/
+plans/
+uploads/

@@ -32,12 +32,6 @@ class ScheduleImageCreate(BaseModel):
         examples=["Расписание 1"],
         max_length=255,
     )
-    image: str = Field(
-        ...,
-        description="Изображение расписания",
-        examples=["image.png"],
-        max_length=255,
-    )
     is_active: bool | None = Field(
         default=None, description="Активное расписание", examples=[True]
     )

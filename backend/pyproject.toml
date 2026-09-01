@@ -14,7 +14,8 @@ dependencies = [
     "sqlalchemy (>=2.0.51,<3.0.0)",
     "uvicorn (>=0.52.1,<0.53.0)",
     "alembic (>=1.18.5,<2.0.0)",
-    "pytest-asyncio (>=1.4.0,<2.0.0)"
+    "pytest-asyncio (>=1.4.0,<2.0.0)",
+    "python-multipart (>=0.0.32,<0.0.33)"
 ]
 
 [tool.poetry]

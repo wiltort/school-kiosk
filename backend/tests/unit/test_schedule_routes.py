@@ -5,11 +5,12 @@ import uuid
 from src.apps.schedule.routes import schedule_image_router
 from src.enums.schedule import DayOfWeek
 
+CREATE_URL = "/api/v1/schedule_images/"
+
 
 def schedule_image_valid_payload(**overrides) -> dict:
     payload = {
         "name": "Расписание 1",
-        "image": "schedule.png",
         "is_active": True,
         "day_of_week": DayOfWeek.MONDAY.value,
     }
@@ -17,11 +18,19 @@ def schedule_image_valid_payload(**overrides) -> dict:
     return payload
 
 
+def _post_schedule_image(client, **overrides):
+    """Отправляет multipart-запрос на создание расписания."""
+    data = schedule_image_valid_payload(**overrides)
+    return client.post(
+        CREATE_URL,
+        data=data,
+        files={"image": ("schedule.png", b"image-bytes", "image/png")},
+    )
+
+
 def _create_schedule_image_record(client) -> dict:
     """Создание записи в базе данных."""
-    response = client.post(
-        "/api/v1/schedule_images", json=schedule_image_valid_payload()
-    )
+    response = _post_schedule_image(client)
     assert response.status_code == 201
     return response.json()
 
@@ -31,7 +40,7 @@ def test_create_returns_201_and_record(client):
     body = _create_schedule_image_record(client)
 
     assert body["name"] == "Расписание 1"
-    assert body["image"] == "schedule.png"
+    assert body["image"]  # путь к сохранённому файлу
     assert body["is_active"] is True
     assert body["day_of_week"] == DayOfWeek.MONDAY.value
     uuid.UUID(body["id"])
@@ -40,21 +49,39 @@ def test_create_returns_201_and_record(client):
 
 
 def test_create_with_omitted_optional_fields(client):
-    """Тест создания расписания с опущенными опциональными полями."""
-    payload = {"image": "image.png"}
-
-    response = client.post("/api/v1/schedule_images", json=payload)
+    """Тест создания расписания с опущенным опциональным полем is_active."""
+    response = client.post(
+        CREATE_URL,
+        data={
+            "name": "Расписание 1",
+            "day_of_week": DayOfWeek.MONDAY.value,
+        },
+        files={"image": ("image.png", b"x", "image/png")},
+    )
 
     assert response.status_code == 201
     body = response.json()
-    assert body["name"] == "Untitled"
-    assert body["is_active"] is False
-    assert body["day_of_week"] == DayOfWeek.MONDAY.value
+    assert body["name"] == "Расписание 1"
+    assert body["is_active"] is True  # дефолт формы
 
 
 def test_create_without_required_image_returns_422(client):
-    """Тест создания расписания без обязательного поля image."""
-    response = client.post("/api/v1/schedule_images", json={"name": "No image"})
+    """Тест создания расписания без обязательного файла image."""
+    response = client.post(
+        CREATE_URL,
+        data=schedule_image_valid_payload(),
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_missing_required_form_field_returns_422(client):
+    """Тест создания расписания без обязательного поля day_of_week."""
+    response = client.post(
+        CREATE_URL,
+        data={"name": "Расписание 1"},
+        files={"image": ("image.png", b"x", "image/png")},
+    )
 
     assert response.status_code == 422
 

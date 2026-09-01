@@ -11,12 +11,30 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 from src.core.database import DBDependency, get_db_dependency
+from src.core.storage import ImageStorage
 from src.main import app
 from src.models.base import Base
 
 SRC_DIR = Path(__file__).resolve().parent.parent
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
+
+
+class FakeImageStorage:
+    """Заглушка хранилища изображений для тестов (без работы с диском)."""
+
+    saved_path = "stored/schedule.png"
+
+    def __init__(self) -> None:
+        self.saved: list[tuple[bytes, str]] = []
+        self.deleted: list[str] = []
+
+    async def save(self, data: bytes, filename: str) -> str:
+        self.saved.append((data, filename))
+        return self.saved_path
+
+    def delete(self, path: str) -> None:
+        self.deleted.append(path)
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -63,7 +81,12 @@ async def client(async_session_maker):
         """Возвращает зависимость БД с асинхронной фабрикой сессий."""
         return DBDependency(async_session_maker)
 
+    def override_image_storage():
+        """Подменяет хранилище файлов заглушкой."""
+        return FakeImageStorage()
+
     app.dependency_overrides[get_db_dependency] = override_get_db
+    app.dependency_overrides[ImageStorage] = override_image_storage
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -123,12 +146,18 @@ async def schedule_table_sample(async_session_maker):
 def manager_factory(async_session_maker):
     """Фабрика менеджеров для тестирования."""
 
-    def _create_manager(manager_cls):
+    def _create_manager(manager_cls, *args, **kwargs):
         """Создаёт экземпляр менеджера с подменённой зависимостью БД."""
         db_dependency = DBDependency(async_session_maker)
-        return manager_cls(db=db_dependency)
+        return manager_cls(*args, db=db_dependency, **kwargs)
 
     return _create_manager
+
+
+@pytest.fixture()
+def fake_image_storage() -> FakeImageStorage:
+    """Возвращает новый экземпляр заглушки хранилища изображений."""
+    return FakeImageStorage()
 
 
 @pytest.fixture()

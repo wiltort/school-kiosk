@@ -10,6 +10,7 @@ pub mod admin;
 #[cfg(target_os = "windows")]
 pub mod kiosk;
 pub mod process;
+pub mod settings;
 
 use tauri::Manager;
 
@@ -39,6 +40,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             admin::exit_app,
             admin::restart_app,
+            admin::get_settings,
+            admin::set_static_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running School Kiosk");

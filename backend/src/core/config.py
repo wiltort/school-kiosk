@@ -57,14 +57,28 @@ class Settings(BaseSettings):
         return _resolve_data_dir()
 
     @property
+    def static_dir(self) -> Path:
+        """Каталог статики (загруженные изображения).
+
+        Переопределяется переменной окружения `SCHOOL_KIOSK_STATIC_DIR` —
+        её задаёт Rust-оболочка Tauri из файла настроек (см. src-tauri/src/settings.rs).
+        Если не задана — используется каталог загрузок внутри каталога данных.
+        """
+        env = os.environ.get("SCHOOL_KIOSK_STATIC_DIR")
+        if env:
+            return Path(env).expanduser()
+        return self.data_dir / "uploads"
+
+    @property
+    def upload_dir(self) -> Path:
+        """Каталог, из которого раздаётся статика (`upload_url`)."""
+        return self.static_dir
+
+    @property
     def database_url(self) -> str:
         """SQLite-файл лежит внутри каталога данных, а не рядом с кодом."""
         db_path = self.data_dir / "school_kiosk.db"
         return f"sqlite+aiosqlite:///{db_path.as_posix()}"
-
-    @property
-    def upload_dir(self) -> Path:
-        return self.data_dir / "uploads"
 
 
 settings = Settings()

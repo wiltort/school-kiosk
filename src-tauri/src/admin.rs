@@ -3,7 +3,11 @@
 //! Вызываются из React через `@tauri-apps/api/core` (invoke).
 //! Доступны только когда активен админ-режим (см. kiosk.rs / хеш).
 
+use std::path::PathBuf;
+
 use tauri::AppHandle;
+
+use crate::settings::{self, SettingsDto};
 
 /// Выход из приложения. Вызывается командой `exit_app` из WebView.
 #[tauri::command]
@@ -34,4 +38,21 @@ pub fn is_admin_active() -> bool {
     {
         false
     }
+}
+
+/// Возвращает текущие настройки приложения (для админ-панели).
+#[tauri::command]
+pub fn get_settings(app: AppHandle) -> Result<SettingsDto, String> {
+    let s = settings::load_for(&app);
+    Ok(SettingsDto::from(&s))
+}
+
+/// Устанавливает каталог статики и сохраняет настройки в файл.
+/// Если `path == None`, каталог сбрасывается на значение по умолчанию.
+#[tauri::command]
+pub fn set_static_dir(app: AppHandle, path: Option<String>) -> Result<SettingsDto, String> {
+    let mut s = settings::load_for(&app);
+    s.static_dir = path.map(PathBuf::from);
+    settings::save_for(&app, &s).map_err(|e| e.to_string())?;
+    Ok(SettingsDto::from(&s))
 }

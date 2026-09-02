@@ -68,6 +68,9 @@ impl Drop for BackendProcess {
 ///   3. Release: собранный PyInstaller-ем `python-backend.exe`, лежащий рядом
 ///      с `kiosk.exe`.
 fn spawn_backend(app: &AppHandle) -> io::Result<Child> {
+    // Настройки приложения из файла (каталог статики и т.п.).
+    let settings = crate::settings::load_for(app);
+
     // user-переопределённая команда (аргументы уже в строке)
     if backend_command_override() {
         let mut cmd = Command::new(backend_command());
@@ -77,7 +80,6 @@ fn spawn_backend(app: &AppHandle) -> io::Result<Child> {
 
     #[cfg(debug_assertions)]
     {
-        let _ = app;
         let mut cmd = Command::new("poetry");
         cmd.current_dir(backend_dir()).args([
             "run",
@@ -88,12 +90,21 @@ fn spawn_backend(app: &AppHandle) -> io::Result<Child> {
             "--port",
             &BACKEND_PORT.to_string(),
         ]);
+        apply_static_dir_env(&mut cmd, &settings);
         cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()
     }
 
     #[cfg(not(debug_assertions))]
     {
-        spawn_packaged_backend(app)
+        spawn_packaged_backend(app, &settings)
+    }
+}
+
+/// Прокидывает выбранный каталог статики в переменную окружения бэкенда
+/// (`SCHOOL_KIOSK_STATIC_DIR`), если он задан в настройках.
+fn apply_static_dir_env(cmd: &mut Command, settings: &crate::settings::AppSettings) {
+    if let Some(dir) = settings.resolved_static_dir() {
+        cmd.env("SCHOOL_KIOSK_STATIC_DIR", dir);
     }
 }
 
@@ -101,7 +112,10 @@ fn spawn_backend(app: &AppHandle) -> io::Result<Child> {
 /// который лежит рядом с `kiosk.exe`. Каталог данных и сетевые параметры
 /// передаются через переменные окружения.
 #[cfg(not(debug_assertions))]
-fn spawn_packaged_backend(app: &AppHandle) -> io::Result<Child> {
+fn spawn_packaged_backend(
+    app: &AppHandle,
+    settings: &crate::settings::AppSettings,
+) -> io::Result<Child> {
     let exe_dir = std::env::current_exe()?
         .parent()
         .map(PathBuf::from)
@@ -115,14 +129,13 @@ fn spawn_packaged_backend(app: &AppHandle) -> io::Result<Child> {
         exe_dir.join("python-backend")
     };
 
-    Command::new(backend_exe)
-        .env("SCHOOL_KIOSK_DATA_DIR", data_dir(app))
+    let mut cmd = Command::new(backend_exe);
+    cmd.env("SCHOOL_KIOSK_DATA_DIR", data_dir(app))
         .env("BACKEND_SERVER_HOST", "127.0.0.1")
         .env("BACKEND_SERVER_PORT", BACKEND_PORT.to_string())
-        .env("BACKEND_DEBUG", "false")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
+        .env("BACKEND_DEBUG", "false");
+    apply_static_dir_env(&mut cmd, settings);
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()
 }
 
 /// Каталог данных приложения (БД и загрузки изображений) — используется в

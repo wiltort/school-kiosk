@@ -3,6 +3,14 @@
   "productName": "School Kiosk",
   "version": "0.1.0",
   "identifier": "com.schoolkiosk.app",
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "windows": {
+        "installMode": "quiet"
+      }
+    }
+  },
   "build": {
     "beforeDevCommand": {
       "script": "npm run dev",
@@ -39,12 +47,14 @@
     "active": true,
     "targets": "all",
     "externalBin": ["binaries/python-backend"],
+    "createUpdaterArtifacts": false,
     "windows": {
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
       },
       "nsis": {
-        "installerHooks": "./windows/hooks.nsh"
+        "installerHooks": "./windows/hooks.nsh",
+        "installMode": "currentUser"
       }
     },
     "icon": [

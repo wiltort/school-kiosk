@@ -156,3 +156,4 @@ plans/
 uploads/
 
 src-tauri/binaries/
+*.key

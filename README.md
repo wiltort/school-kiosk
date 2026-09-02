@@ -79,3 +79,58 @@ make build-backend
   [`tauri.conf.json`](src-tauri/tauri.conf.json)).
 - Перед первым `make build` должен быть установлен Tauri CLI
   (`make install-tauri`) и зависимости (`make install`).
+
+> Как поставить dev/main версию на другой компьютер — см.
+> [docs/INSTALLATION.md](docs/INSTALLATION.md).
+
+## Автообновление
+
+Приложение обновляется из своей ветки: сборка из `dev` проверяет только канал
+`dev`, из `main` — только канал `main`. Обновление скачивается тихо в фоне и
+устанавливается при следующем запуске (NSIS, per-user, без UAC). Так как
+Python-бэкенд упакован внутрь установщика (`externalBin`), обновляется всё сразу.
+
+Архитектура (см. [`src-tauri/src/updater.rs`](src-tauri/src/updater.rs)):
+
+- **Канал** запекается на этапе сборки через `KIOSK_CHANNEL` (`dev`/`main`),
+  который выставляет CI.
+- **Фид** `latest.json` на канал лежит в ветке `update-feed` репозитория по
+  пути `<channel>/latest.json` и отдаётся через raw.githubusercontent.com.
+- **Установщики** публикуются в GitHub Releases с тегом `<channel>-v<version>`.
+- **Версия** монотонна внутри канала: `0.1.0-<channel>.<build_number>`.
+- Подпись minisign: публичный ключ зашит в
+  [`tauri.conf.json`](src-tauri/tauri.conf.json) (`plugins.updater.pubkey`),
+  приватный хранится в секретах GitHub (`MINISIGN_PRIVATE_KEY`).
+
+### Подготовка (один раз)
+
+1. Сгенерировать ключи:
+
+   ```bash
+   make update-keys
+   ```
+
+   Скрипт создаст пару файлов и подскажет шаги.
+
+2. Скопировать **публичный** ключ (строка `RWR...`) из `<name>.pub` в
+   [`tauri.conf.json`](src-tauri/tauri.conf.json) → `plugins.updater.pubkey`
+   (пока там пусто — автообновление не работает и релизная сборка требует ключа).
+
+3. В секреты GitHub добавить:
+   - `MINISIGN_PRIVATE_KEY` — содержимое приватного ключа;
+   - `MINISIGN_PRIVATE_KEY_PASSWORD` — пароль, заданный при генерации.
+
+4. Убедиться, что приватный ключ не попал в git (он в `.gitignore`).
+
+### Публикация обновления
+
+Достаточно запушить в `dev` или `main` — workflow
+[`.github/workflows/release-build.yml`](.github/workflows/release-build.yml)
+соберёт установщик, подпишет его, создаст релиз и обновит фид нужного канала.
+Приложение само подтянет и установит новую версию при следующем запуске.
+
+Локальная простановка версии (если нужно вручную):
+
+```bash
+make update-version v="0.1.0-dev.42"
+```

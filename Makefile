@@ -96,6 +96,14 @@ check: ## Полная проверка: линт + проверка форма�
 	$(POETRY) ruff check src tests
 	$(POETRY) ruff format --check src tests
 
+.PHONY: update-keys
+update-keys: ## Сгенерировать minisign-ключи для автообновления (обязательный шаг перед сборкой)
+	powershell -ExecutionPolicy Bypass -File scripts/gen_update_keys.ps1
+
+.PHONY: update-version
+update-version: ## Проставить версию релиза (исп.: make update-version v="0.1.0-dev.42")
+	python scripts/set_release_version.py --version "$(v)"
+
 .PHONY: db-migration
 db-migration: ## Создать новую миграцию (использование: make migration m="описание")
 	$(POETRY) alembic revision --autogenerate -m "$(m)"

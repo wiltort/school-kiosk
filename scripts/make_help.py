@@ -28,6 +28,7 @@ SECTIONS = [
         ],
     ),
     ("Tauri (Rust)", ["install-tauri", "lint-rust"]),
+    ("Updater", ["update-keys", "update-version"]),
     ("Database", ["db-migration", "db-migrate", "db-migrate-downgrade", "db-current"]),
     ("GitFlow", ["pre-commit-install", "pre-commit", "new-branch"]),
     ("Help", ["help"]),

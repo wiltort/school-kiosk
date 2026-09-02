@@ -11,6 +11,7 @@ pub mod admin;
 pub mod kiosk;
 pub mod process;
 pub mod settings;
+pub mod updater;
 
 use tauri::Manager;
 
@@ -23,6 +24,16 @@ pub const HEALTH_URL: &str = "http://127.0.0.1:8765/";
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            // 0. Автообновление из своей ветки (только в релизной сборке под
+            // конкретный канал). В dev и локальных сборках не запускается:
+            // это и не мешает разработке, и не требует настроенного pubkey.
+            #[cfg(not(debug_assertions))]
+            if updater::is_enabled() {
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+                updater::spawn_auto_update(app.handle().clone());
+            }
+
             // 1. Запускаем Python-бэкенд как child process.
             process::BackendProcess::spawn_and_wait(app.handle())?;
 
@@ -42,6 +53,7 @@ pub fn run() {
             admin::restart_app,
             admin::get_settings,
             admin::set_static_dir,
+            admin::get_update_channel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running School Kiosk");

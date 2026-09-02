@@ -56,3 +56,10 @@ pub fn set_static_dir(app: AppHandle, path: Option<String>) -> Result<SettingsDt
     settings::save_for(&app, &s).map_err(|e| e.to_string())?;
     Ok(SettingsDto::from(&s))
 }
+
+/// Возвращает канал автообновления текущей сборки (`dev` / `main`).
+/// Позволяет админ-панели показать, из какой ветки обновляется киоск.
+#[tauri::command]
+pub fn get_update_channel() -> String {
+    crate::updater::channel().to_string()
+}

@@ -26,8 +26,8 @@ pub struct BackendProcess {
 impl BackendProcess {
     /// Спавнит бэкенд в фоне и блокирует поток до тех пор, пока тот не ответит
     /// на health-check (или не истечёт таймаут).
-    pub fn spawn_and_wait(_app: &AppHandle) -> io::Result<Self> {
-        let child = spawn_backend()?;
+    pub fn spawn_and_wait(app: &AppHandle) -> io::Result<Self> {
+        let child = spawn_backend(app)?;
         let mut proc = Self { child };
 
         let deadline = Instant::now() + STARTUP_TIMEOUT;
@@ -61,21 +61,25 @@ impl Drop for BackendProcess {
 
 /// Запускает Python-бэкенд.
 ///
-/// В dev-режиме бэкенд запускается через Poetry из папки `backend/`:
-/// `poetry run uvicorn src.main:app --host 127.0.0.1 --port 8765`.
-///
-/// В продакшене здесь будет запускаться собранный `python-backend.exe`
-/// (PyInstaller), который Tauri кладёт рядом с `kiosk.exe`.
-fn spawn_backend() -> io::Result<Child> {
-    let backend_dir = backend_dir();
+/// Приоритет:
+///   1. Явное переопределение через `SCHOOL_KIOSK_BACKEND_CMD` (для тестов).
+///   2. Dev (`debug_assertions`): через Poetry из папки `backend/`,
+///      `poetry run uvicorn src.main:app --host 127.0.0.1 --port 8765`.
+///   3. Release: собранный PyInstaller-ем `python-backend.exe`, лежащий рядом
+///      с `kiosk.exe`.
+fn spawn_backend(app: &AppHandle) -> io::Result<Child> {
+    // user-переопределённая команда (аргументы уже в строке)
+    if backend_command_override() {
+        let mut cmd = Command::new(backend_command());
+        cmd.args(backend_args());
+        return cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn();
+    }
 
-    // Позволяет переопределить команду запуска через переменную окружения,
-    // например для тестов: SCHOOL_KIOSK_BACKEND_CMD="python -m uvicorn src.main:app".
-    let mut cmd = Command::new(backend_command());
-
-    if !backend_command_override() {
-        // default (dev через Poetry)
-        cmd.current_dir(&backend_dir).args([
+    #[cfg(debug_assertions)]
+    {
+        let _ = app;
+        let mut cmd = Command::new("poetry");
+        cmd.current_dir(backend_dir()).args([
             "run",
             "uvicorn",
             "src.main:app",
@@ -84,15 +88,56 @@ fn spawn_backend() -> io::Result<Child> {
             "--port",
             &BACKEND_PORT.to_string(),
         ]);
-    } else {
-        // user-переопределённая команда (аргументы уже в строке)
-        cmd.args(backend_args());
+        cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()
     }
 
-    cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()
+    #[cfg(not(debug_assertions))]
+    {
+        spawn_packaged_backend(app)
+    }
 }
 
-/// Путь к папке бэкенда (корень репозитория + `backend`).
+/// Запускает standalone-бэкенд (`python-backend.exe` от PyInstaller),
+/// который лежит рядом с `kiosk.exe`. Каталог данных и сетевые параметры
+/// передаются через переменные окружения.
+#[cfg(not(debug_assertions))]
+fn spawn_packaged_backend(app: &AppHandle) -> io::Result<Child> {
+    let exe_dir = std::env::current_exe()?
+        .parent()
+        .map(PathBuf::from)
+        .ok_or_else(|| {
+            io::Error::new(io::ErrorKind::NotFound, "нет каталога исполняемого файла")
+        })?;
+
+    let backend_exe = if cfg!(windows) {
+        exe_dir.join("python-backend.exe")
+    } else {
+        exe_dir.join("python-backend")
+    };
+
+    Command::new(backend_exe)
+        .env("SCHOOL_KIOSK_DATA_DIR", data_dir(app))
+        .env("BACKEND_SERVER_HOST", "127.0.0.1")
+        .env("BACKEND_SERVER_PORT", BACKEND_PORT.to_string())
+        .env("BACKEND_DEBUG", "false")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+}
+
+/// Каталог данных приложения (БД и загрузки изображений) — используется в
+/// продакшене и передаётся бэкенду через `SCHOOL_KIOSK_DATA_DIR`.
+#[cfg(not(debug_assertions))]
+fn data_dir(app: &AppHandle) -> PathBuf {
+    use tauri::Manager;
+    app.path()
+        .app_data_dir()
+        .unwrap_or_else(|_| std::env::temp_dir().join("school-kiosk"))
+}
+
+/// Путь к папке бэкенда (корень репозитория + `backend`). Нужен только в dev,
+/// где бэкенд запускается через Poetry; в release его заменяет packaged-бэкенд.
+#[cfg(debug_assertions)]
 fn backend_dir() -> PathBuf {
     std::env::var_os("SCHOOL_KIOSK_BACKEND_DIR")
         .map(PathBuf::from)

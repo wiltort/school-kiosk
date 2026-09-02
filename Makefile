@@ -9,8 +9,31 @@ NPM := cd $(FRONTEND) && npm run
 help: ## Показать все доступные команды
 	@python -X utf8 scripts/make_help.py
 
+.PHONY: install
+install: install-backend install-frontend install-tauri ## Установить всё (backend+frontend+Tauri)
+
+.PHONY: install-frontend
+install-frontend: ## Установить зависимости frontend (npm)
+	cd $(FRONTEND) && npm install
+
+.PHONY: install-tauri
+install-tauri: ## Установить Tauri CLI (cargo install tauri-cli)
+	cargo install tauri-cli
+
+.PHONY: build-backend
+build-backend: ## Собрать Python-бэкенд в standalone .exe (PyInstaller)
+	$(POETRY) pyinstaller --noconfirm --clean --onefile --name python-backend \
+		--collect-submodules uvicorn \
+		--hidden-import aiosqlite \
+		run_backend.py
+	mkdir -p $(TAURI)/binaries
+	@host=$$(rustc -vV | sed -n 's/^host: //p'); \
+	rm -f $(TAURI)/binaries/python-backend-*.exe; \
+	echo "Tauri externalBin target: $$host"; \
+	cp $(BACKEND)/dist/python-backend.exe $(TAURI)/binaries/python-backend-$${host}.exe
+
 .PHONY: build
-build: ## Собрать проект
+build: build-backend ## Собрать установщик (frontend + backend exe + Tauri)
 	cd $(TAURI) && cargo tauri build
 
 .PHONY: run
@@ -22,7 +45,7 @@ run-frontend: ## Запустить frontend (dev-сервер)
 	$(NPM) dev
 
 .PHONY: install-backend
-install: ## Установить все зависимости (включая dev)
+install-backend: ## Установить все зависимости (включая dev)
 	cd $(BACKEND) && poetry install
 
 .PHONY: run-backend

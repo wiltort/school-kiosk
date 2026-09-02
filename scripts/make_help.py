@@ -8,14 +8,15 @@ MAKEFILE = Path(__file__).resolve().parent.parent / "Makefile"
 
 # (заголовок, список имён целей / None = все оставшиеся) — секции справки
 SECTIONS = [
-    ("Project", ["build", "run"]),
+    ("Project", ["build", "run", "install"]),
     (
         "Frontend",
-        ["run-frontend", "lint-frontend", "format-frontend"],
+        ["install-frontend", "run-frontend", "lint-frontend", "format-frontend"],
     ),
     (
         "Backend",
         [
+            "build-backend",
             "install-backend",
             "run-backend",
             "test",
@@ -26,7 +27,7 @@ SECTIONS = [
             "check",
         ],
     ),
-    ("Tauri (Rust)", ["lint-rust"]),
+    ("Tauri (Rust)", ["install-tauri", "lint-rust"]),
     ("Database", ["db-migration", "db-migrate", "db-migrate-downgrade", "db-current"]),
     ("GitFlow", ["pre-commit-install", "pre-commit", "new-branch"]),
     ("Help", ["help"]),

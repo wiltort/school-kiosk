@@ -38,6 +38,12 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "externalBin": ["binaries/python-backend"],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

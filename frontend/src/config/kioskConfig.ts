@@ -29,17 +29,23 @@ const DEFAULT_CONFIG: KioskConfig = {
 
 const config: KioskConfig = { ...DEFAULT_CONFIG };
 
-/** Истинно, если фронтенд раздаётся протоколом Tauri (собранное приложение). */
-function isTauriProduction(): boolean {
+/**
+ * Истинно, если фронтенд раздаётся протоколом Tauri (`tauri://`).
+ * Это устаревший режим: после перехода на единый HTTP-origin и WebView киоска,
+ * и браузеры по LAN грузят SPA с того же сервера, что и API.
+ */
+function isTauriProtocol(): boolean {
   const origin = window.location.origin;
   return origin.startsWith("tauri:") || origin.includes("tauri.localhost");
 }
 
 export function getKioskConfig(): KioskConfig {
-  // В собранном приложении относительный путь попал бы в SPA-fallback Tauri,
-  // а не на бэкенд — используем абсолютный URL. В dev остаётся префикс,
-  // который проксирует Vite.
-  const apiBaseUrl = isTauriProduction() ? PROD_API_BASE_URL : DEV_API_PREFIX;
+  // В штатном режиме страница и API отдаются одним HTTP-сервером (бэкенд),
+  // поэтому используем относительные пути — они работают и для WebView киоска,
+  // и для браузера по LAN (одинаковый origin, CORS не нужен).
+  // Фолбэк на абсолютный URL — только для легаси WebView с протокола tauri://,
+  // где относительный путь ушёл бы в SPA-fallback Tauri, а не на бэкенд.
+  const apiBaseUrl = isTauriProtocol() ? PROD_API_BASE_URL : DEV_API_PREFIX;
   return { ...config, apiBaseUrl };
 }
 

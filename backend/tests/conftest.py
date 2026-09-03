@@ -1,7 +1,17 @@
 """Общие фикстуры для тестирования бэкенда."""
 
+import os
 import sys
 from pathlib import Path
+
+# Чтобы юнит-тесты не зависели от наличия собранного фронтенда локально,
+# указываем несуществующий каталог SPA: корень тогда отдаёт JSON-health,
+# а не index.html. Ставим ДО импорта `src.main`, т.к. модуль `app` создаётся
+# при импорте и решает про SPA-раздачу в этот момент.
+os.environ.setdefault(
+    "SCHOOL_KIOSK_FRONTEND_DIR",
+    str(Path(__file__).resolve().parent / "__no_frontend_build__"),
+)
 
 import pytest
 import pytest_asyncio

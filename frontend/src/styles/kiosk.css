@@ -251,3 +251,44 @@ body {
   color: var(--color-text-muted);
   margin: 0;
 }
+
+/* ===================== Панель «подключиться по сети» ===================== */
+.lan-panel {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 18px 26px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(6px);
+}
+
+.lan-panel svg {
+  background: #fff;
+  padding: 8px;
+  border-radius: 12px;
+}
+
+.lan-panel__text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lan-panel__label {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.lan-panel__url {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.lan-panel__alt {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}

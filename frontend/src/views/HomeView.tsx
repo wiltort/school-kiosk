@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import AppIcon from "../components/AppIcon";
+import LanInfoPanel from "../components/LanInfoPanel";
 
 interface HomeViewProps {
   onSchedule: () => void;
@@ -42,6 +43,8 @@ export default function HomeView({ onSchedule, onWeather }: HomeViewProps) {
         />
         <AppIcon label="Погода" icon={<WeatherIcon />} onClick={onWeather} />
       </div>
+
+      <LanInfoPanel />
     </section>
   );
 }

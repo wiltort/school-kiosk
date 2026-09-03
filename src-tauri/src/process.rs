@@ -129,11 +129,16 @@ fn spawn_packaged_backend(
         exe_dir.join("python-backend")
     };
 
+    let frontend_dir = exe_dir.join("web").join("dist");
+
     let mut cmd = Command::new(backend_exe);
     cmd.env("SCHOOL_KIOSK_DATA_DIR", data_dir(app))
-        .env("BACKEND_SERVER_HOST", "127.0.0.1")
+        // Слушаем на всех интерфейсах, чтобы киоск был доступен по LAN.
+        .env("BACKEND_SERVER_HOST", "0.0.0.0")
         .env("BACKEND_SERVER_PORT", BACKEND_PORT.to_string())
-        .env("BACKEND_DEBUG", "false");
+        .env("BACKEND_DEBUG", "false")
+        // Каталог собранного SPA, который бэкенд раздаёт по HTTP (см. config.py).
+        .env("SCHOOL_KIOSK_FRONTEND_DIR", &frontend_dir);
     apply_static_dir_env(&mut cmd, settings);
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()
 }

@@ -19,6 +19,9 @@ use tauri::Manager;
 pub const BACKEND_PORT: u16 = 8765;
 /// Endpoint для проверки, что бэкенд готов.
 pub const HEALTH_URL: &str = "http://127.0.0.1:8765/";
+/// URL, по которому WebView загружает SPA. Теперь это тот же HTTP-сервер,
+/// который раздаёт приложение и по локальной сети (один origin).
+pub const FRONTEND_URL: &str = "http://127.0.0.1:8765/";
 
 /// Точка входа приложения (вызывается из `main.rs`).
 pub fn run() {
@@ -37,8 +40,12 @@ pub fn run() {
             // 1. Запускаем Python-бэкенд как child process.
             process::BackendProcess::spawn_and_wait(app.handle())?;
 
-            // 2. Показываем окно после того, как бэкенд готов.
+            // 2. Направляем WebView на SPA, раздаваемый бэкендом (одна точка
+            // входа и для киоска, и для браузеров по LAN). Затем показываем окно.
             if let Some(window) = app.get_webview_window("main") {
+                let url =
+                    tauri::Url::parse(FRONTEND_URL).expect("static frontend URL must be valid");
+                window.navigate(url)?;
                 window.show()?;
             }
 

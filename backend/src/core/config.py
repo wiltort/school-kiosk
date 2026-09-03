@@ -70,6 +70,20 @@ class Settings(BaseSettings):
         return self.data_dir / "uploads"
 
     @property
+    def frontend_dir(self) -> Path:
+        """Каталог собранного фронтенда (SPA), который раздаётся по HTTP.
+
+        Переопределяется переменной окружения `SCHOOL_KIOSK_FRONTEND_DIR` —
+        её задаёт Rust-оболочка Tauri в продакшене (каталог `web/dist`
+        рядом с `kiosk.exe`). Если не задана — используется `frontend/dist`
+        в корне репозитория (dev-режим).
+        """
+        env = os.environ.get("SCHOOL_KIOSK_FRONTEND_DIR")
+        if env:
+            return Path(env).expanduser()
+        return BASE_DIR.parent / "frontend" / "dist"
+
+    @property
     def upload_dir(self) -> Path:
         """Каталог, из которого раздаётся статика (`upload_url`)."""
         return self.static_dir

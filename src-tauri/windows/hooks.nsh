@@ -120,4 +120,16 @@
     DetailPrint "Каталог статики сохранён: $R4"
 
   sk_done_write:
+
+    ; ------------------------------------------------------------------------
+    ; Windows Firewall: разрешаем входящие TCP-соединения на порт бэкенда,
+    ; чтобы киоск был доступен по локальной сети. Правило добавляется только
+    ; на профиле "Частная" (Private) — "Общедоступная" остаётся закрытой.
+    ; netsh выполняется от имени установщика, поэтому прав администратора
+    ; не требуется.
+    ; ------------------------------------------------------------------------
+    nsExec::Exec 'netsh advfirewall firewall add rule name="School Kiosk (TCP 8765)" dir=in action=allow protocol=TCP localport=8765 profile=private'
+    Pop $0
+    DetailPrint "Firewall rule (exit code): $0"
+
 !macroend

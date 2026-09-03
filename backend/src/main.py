@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.apps import apps_router
@@ -61,11 +62,48 @@ def create_app() -> FastAPI:
         name="uploads",
     )
 
-    @app.get("/", tags=["root"])
-    def root():
-        return {"message": "Backend service is running."}
+    _mount_spa(app)
 
     return app
+
+
+def _mount_spa(app: FastAPI) -> None:
+    """Раздаёт собранный фронтенд (SPA) по HTTP, если он собран.
+
+    Каталог фронтенда берётся из `settings.frontend_dir` (см. config.py).
+    Если `index.html` отсутствует — считаем, что фронтенд не собран
+    (например, чистый dev-бэкенд за Vite), и оставляем корень как
+    health-ответ JSON.
+    """
+    index_file = settings.frontend_dir / "index.html"
+    if not index_file.is_file():
+
+        @app.get("/", tags=["root"])
+        def root():
+            return {"message": "Backend service is running."}
+
+        return
+
+    assets_dir = settings.frontend_dir / "assets"
+    if assets_dir.is_dir():
+        app.mount(
+            "/assets",
+            StaticFiles(directory=str(assets_dir)),
+            name="assets",
+        )
+
+    @app.get("/", include_in_schema=False)
+    def root_spa():
+        return FileResponse(index_file)
+
+    # SPA-fallback: любой не-API путь (история/клиентская навигация) отдаёт
+    # index.html. Монтированные ранее маршруты (API, uploads, assets) имеют
+    # приоритет и обрабатываются раньше этого catch-all.
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa_fallback(full_path: str):
+        if full_path.startswith("api/"):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        return FileResponse(index_file)
 
 
 app = create_app()

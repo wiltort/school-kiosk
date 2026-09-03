@@ -19,7 +19,7 @@
     },
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": {
-      "script": "npm run build",
+      "script": "npm run build && node ../scripts/copy-web.mjs",
       "cwd": "../frontend",
       "wait": true
     },
@@ -47,6 +47,7 @@
     "active": true,
     "targets": "all",
     "externalBin": ["binaries/python-backend"],
+    "resources": ["web/dist"],
     "createUpdaterArtifacts": false,
     "windows": {
       "webviewInstallMode": {

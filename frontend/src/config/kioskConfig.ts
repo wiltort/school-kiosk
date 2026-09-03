@@ -30,6 +30,18 @@ const DEFAULT_CONFIG: KioskConfig = {
 const config: KioskConfig = { ...DEFAULT_CONFIG };
 
 /**
+ * Истинно, если приложение запущено внутри Tauri (десктопный киоск).
+ *
+ * Tauri v2 всегда инжектит `window.__TAURI_INTERNALS__`, независимо от того,
+ * из какого origin грузится SPA (WebView киоска и браузеры по LAN используют
+ * один HTTP-сервер). Поэтому это — надёжный признак десктопа, в отличие от
+ * проверки origin на префикс `tauri:`.
+ */
+export function isDesktopApp(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+/**
  * Истинно, если фронтенд раздаётся протоколом Tauri (`tauri://`).
  * Это устаревший режим: после перехода на единый HTTP-origin и WebView киоска,
  * и браузеры по LAN грузят SPA с того же сервера, что и API.

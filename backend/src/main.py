@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.apps import apps_router
+from src.apps.admin import autostart
 from src.core.config import settings
 from src.core.database import get_db_dependency
 from src.models import Base
@@ -61,6 +62,11 @@ def create_app() -> FastAPI:
         StaticFiles(directory=str(settings.upload_dir)),
         name="uploads",
     )
+
+    # Самовосстановление автозагрузки: если в настройках она включена,
+    # применяем её и после перезапуска бэкенда (ключ в реестре Windows).
+    if autostart.is_supported() and settings.app_settings.autostart():
+        autostart.set_enabled(True)
 
     _mount_spa(app)
 

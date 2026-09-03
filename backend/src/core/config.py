@@ -4,6 +4,8 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings
 
+from src.core.app_settings import AppSettingsStore
+
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 
@@ -25,6 +27,24 @@ def _resolve_data_dir() -> Path:
         base = os.environ.get("LOCALAPPDATA") or str(Path.home())
         return Path(base) / "SchoolKiosk"
     return BASE_DIR / "data"
+
+
+def _resolve_legacy_settings_file() -> Path | None:
+    """Путь к legacy-файлу настроек Tauri (seed от установщика).
+
+    Используется только для миграции ``static_dir`` при первом запуске,
+    пока у бэкенда нет своего файла настроек. Переопределяется переменной
+    окружения `SCHOOL_KIOSK_LEGACY_SETTINGS_FILE` (её задаёт Rust-оболочка,
+    а также удобно задавать в тестах).
+    """
+    env = os.environ.get("SCHOOL_KIOSK_LEGACY_SETTINGS_FILE")
+    if env:
+        return Path(env).expanduser()
+    if sys.platform.startswith("win"):
+        base = os.environ.get("APPDATA")
+        if base:
+            return Path(base) / "com.schoolkiosk.app" / "settings.json"
+    return None
 
 
 class Settings(BaseSettings):
@@ -57,13 +77,29 @@ class Settings(BaseSettings):
         return _resolve_data_dir()
 
     @property
+    def app_settings(self) -> AppSettingsStore:
+        """Хранилище настроек приложения (settings.json в каталоге данных).
+
+        Владелец настроек — бэкенд (см. src/core/app_settings.py). Создаётся
+        на лету и перечитывает файл при каждом обращении — это дёшево и
+        позволяет сразу видеть изменения, сделанные из админ-панели.
+        """
+        return AppSettingsStore(self.data_dir, _resolve_legacy_settings_file())
+
+    @property
     def static_dir(self) -> Path:
         """Каталог статики (загруженные изображения).
 
-        Переопределяется переменной окружения `SCHOOL_KIOSK_STATIC_DIR` —
-        её задаёт Rust-оболочка Tauri из файла настроек (см. src-tauri/src/settings.rs).
-        Если не задана — используется каталог загрузок внутри каталога данных.
+        Приоритет:
+          1. Настройки приложения (settings.json в каталоге данных) — основной
+             источник, им управляет админ-панель;
+          2. Переменная окружения `SCHOOL_KIOSK_STATIC_DIR` (legacy, для
+             обратной совместимости);
+          3. Каталог загрузок внутри каталога данных (`<data_dir>/uploads`).
         """
+        stored = self.app_settings.static_dir()
+        if stored:
+            return Path(stored).expanduser()
         env = os.environ.get("SCHOOL_KIOSK_STATIC_DIR")
         if env:
             return Path(env).expanduser()

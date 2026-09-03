@@ -33,6 +33,9 @@ def test_upload_dir_defaults_under_data_dir(monkeypatch):
 def test_static_dir_from_env(monkeypatch, tmp_path):
     """Переменная SCHOOL_KIOSK_STATIC_DIR переопределяет каталог статики."""
     target = tmp_path / "kiosk-static"
+    # Изолируем data_dir, чтобы локальный settings.json не влиял на приоритет:
+    # без файла настроек значение берётся из env.
+    monkeypatch.setenv("SCHOOL_KIOSK_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("SCHOOL_KIOSK_STATIC_DIR", str(target))
     settings = Settings()
     assert settings.static_dir == target

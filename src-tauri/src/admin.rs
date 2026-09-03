@@ -1,13 +1,14 @@
 //! IPC-команды для админ-режима.
 //!
-//! Вызываются из React через `@tauri-apps/api/core` (invoke).
-//! Доступны только когда активен админ-режим (см. kiosk.rs / хеш).
-
-use std::path::PathBuf;
+//! Вызываются из React через `@tauri-apps/api/core` (invoke). Доступны только
+//! когда активен админ-режим (см. kiosk.rs).
+//!
+//! Настройки (папка изображений, автозагрузка) здесь НЕ живут: их владелец —
+//! бэкенд, и админ-панель работает с ними через тот же HTTP-API, что и браузер
+//! (см. backend/src/apps/admin). Здесь остаются только команды управления
+//! жизненным циклом приложения и проверка админ-режима.
 
 use tauri::AppHandle;
-
-use crate::settings::{self, SettingsDto};
 
 /// Выход из приложения. Вызывается командой `exit_app` из WebView.
 #[tauri::command]
@@ -22,12 +23,8 @@ pub fn restart_app(app: AppHandle) {
     app.restart();
 }
 
-/// Проверка, что админ-режим активен. Может вызываться фронтендом,
-/// чтобы скрывать/показывать панель управления.
-///
-/// TODO: в реальной системе проверять по-настоящему — это заглушка,
-/// которая читает состояние из kiosk.rs. Пока всегда false, пока не
-/// реализован KioskGuard.
+/// Проверка, что админ-режим активен. Вызывается фронтендом, чтобы
+/// открыть панель управления на десктопе (после Ctrl+Shift+A).
 #[tauri::command]
 pub fn is_admin_active() -> bool {
     #[cfg(target_os = "windows")]
@@ -38,23 +35,6 @@ pub fn is_admin_active() -> bool {
     {
         false
     }
-}
-
-/// Возвращает текущие настройки приложения (для админ-панели).
-#[tauri::command]
-pub fn get_settings(app: AppHandle) -> Result<SettingsDto, String> {
-    let s = settings::load_for(&app);
-    Ok(SettingsDto::from(&s))
-}
-
-/// Устанавливает каталог статики и сохраняет настройки в файл.
-/// Если `path == None`, каталог сбрасывается на значение по умолчанию.
-#[tauri::command]
-pub fn set_static_dir(app: AppHandle, path: Option<String>) -> Result<SettingsDto, String> {
-    let mut s = settings::load_for(&app);
-    s.static_dir = path.map(PathBuf::from);
-    settings::save_for(&app, &s).map_err(|e| e.to_string())?;
-    Ok(SettingsDto::from(&s))
 }
 
 /// Возвращает канал автообновления текущей сборки (`dev` / `main`).

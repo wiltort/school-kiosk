@@ -9,7 +9,7 @@ use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::{BACKEND_PORT, HEALTH_URL};
 
@@ -68,9 +68,6 @@ impl Drop for BackendProcess {
 ///   3. Release: собранный PyInstaller-ем `python-backend.exe`, лежащий рядом
 ///      с `kiosk.exe`.
 fn spawn_backend(app: &AppHandle) -> io::Result<Child> {
-    // Настройки приложения из файла (каталог статики и т.п.).
-    let settings = crate::settings::load_for(app);
-
     // user-переопределённая команда (аргументы уже в строке)
     if backend_command_override() {
         let mut cmd = Command::new(backend_command());
@@ -90,32 +87,43 @@ fn spawn_backend(app: &AppHandle) -> io::Result<Child> {
             "--port",
             &BACKEND_PORT.to_string(),
         ]);
-        apply_static_dir_env(&mut cmd, &settings);
+        apply_runtime_env(&mut cmd, app);
         cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()
     }
 
     #[cfg(not(debug_assertions))]
     {
-        spawn_packaged_backend(app, &settings)
+        spawn_packaged_backend(app)
     }
 }
 
-/// Прокидывает выбранный каталог статики в переменную окружения бэкенда
-/// (`SCHOOL_KIOSK_STATIC_DIR`), если он задан в настройках.
-fn apply_static_dir_env(cmd: &mut Command, settings: &crate::settings::AppSettings) {
-    if let Some(dir) = settings.resolved_static_dir() {
-        cmd.env("SCHOOL_KIOSK_STATIC_DIR", dir);
+/// Прокидывает бэкенду переменные окружения, связанные с runtime-настройками.
+///
+/// Собственник настроек — бэкенд (`settings.json` в каталоге данных), поэтому
+/// каталог статики сюда больше не передаётся. Здесь только:
+///   - `SCHOOL_KIOSK_APP_EXE` — путь к `kiosk.exe` для автозагрузки (winreg);
+///   - `SCHOOL_KIOSK_LEGACY_SETTINGS_FILE` — legacy-файл настроек Tauri,
+///     из которого бэкенд на первом запуске переносит `static_dir` (seed).
+fn apply_runtime_env(cmd: &mut Command, app: &AppHandle) {
+    if let Ok(exe) = std::env::current_exe() {
+        cmd.env("SCHOOL_KIOSK_APP_EXE", exe);
     }
+    if let Some(legacy) = legacy_settings_file(app) {
+        cmd.env("SCHOOL_KIOSK_LEGACY_SETTINGS_FILE", legacy);
+    }
+}
+
+/// Путь к legacy-файлу настроек Tauri (`app_config_dir/settings.json`).
+fn legacy_settings_file(app: &AppHandle) -> Option<PathBuf> {
+    let cfg_dir = app.path().app_config_dir().ok()?;
+    Some(crate::settings::settings_file_path(&cfg_dir))
 }
 
 /// Запускает standalone-бэкенд (`python-backend.exe` от PyInstaller),
 /// который лежит рядом с `kiosk.exe`. Каталог данных и сетевые параметры
 /// передаются через переменные окружения.
 #[cfg(not(debug_assertions))]
-fn spawn_packaged_backend(
-    app: &AppHandle,
-    settings: &crate::settings::AppSettings,
-) -> io::Result<Child> {
+fn spawn_packaged_backend(app: &AppHandle) -> io::Result<Child> {
     let exe_dir = std::env::current_exe()?
         .parent()
         .map(PathBuf::from)
@@ -139,7 +147,7 @@ fn spawn_packaged_backend(
         .env("BACKEND_DEBUG", "false")
         // Каталог собранного SPA, который бэкенд раздаёт по HTTP (см. config.py).
         .env("SCHOOL_KIOSK_FRONTEND_DIR", &frontend_dir);
-    apply_static_dir_env(&mut cmd, settings);
+    apply_runtime_env(&mut cmd, app);
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()
 }
 

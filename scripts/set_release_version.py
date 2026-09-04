@@ -13,6 +13,15 @@ import argparse
 import json
 import pathlib
 import re
+import sys
+
+# На Windows CI поток stdout может быть в кодировке cp1252 и не сможет
+# закодировать кириллицу. Переключаем его на UTF-8, чтобы скрипт работал
+# независимо от кодовой страницы раннера.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except (AttributeError, ValueError):  # pragma: no cover - старые интерпретаторы
+    pass
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CARGO = ROOT / "src-tauri" / "Cargo.toml"

@@ -28,6 +28,9 @@ def test_creates_and_removes_shortcut_on_windows(tmp_path, monkeypatch):
         return _FakeCompleted()
 
     monkeypatch.setattr(autostart.subprocess, "run", _fake_run)
+    # `shutil.which` on a non-Windows host with sys.platform mocked to win32
+    # crashes in Python 3.14 (`_winapi` is None on Linux), so stub it too.
+    monkeypatch.setattr(autostart.shutil, "which", lambda _name: "powershell.exe")
 
     assert autostart.is_supported() is True
     assert autostart.set_enabled(True) is True

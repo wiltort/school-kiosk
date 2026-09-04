@@ -318,7 +318,86 @@ body {
 .admin-icon-button:hover {
   color: var(--color-accent);
   border-color: var(--color-accent);
-  transform: rotate(45deg);
+}
+
+/* ======================= Строка меню админки ======================= */
+.admin-menu {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(6px);
+}
+
+.admin-menu__nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  overflow-x: auto;
+}
+
+.admin-menu__item {
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.admin-menu__item:hover {
+  color: var(--color-text);
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.admin-menu__item--active {
+  color: #0b1220;
+  background: var(--color-accent);
+}
+
+.admin-menu__item--active:hover {
+  color: #0b1220;
+  background: var(--color-accent);
+}
+
+/* Кнопка выхода из режима админа — цветная иконка человечка в фуражке, прижата вправо. */
+.admin-menu__exit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-left: auto;
+  border: 1px solid var(--color-accent);
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--color-accent);
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.admin-menu__exit:hover {
+  transform: scale(1.08);
+  background: var(--color-accent);
+  color: #0b1220;
+}
+
+.admin-menu__exit:active {
+  transform: scale(0.94);
 }
 
 /* ============================= Админ-панель ============================= */
@@ -449,4 +528,22 @@ body {
   margin: 0;
   color: #34d399;
   font-size: 0.9rem;
+}
+
+/* ============================= Строка версии ============================= */
+.version-badge {
+  position: fixed;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  padding: 4px 14px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  z-index: 100;
 }

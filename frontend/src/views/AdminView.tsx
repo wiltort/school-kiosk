@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import AdminPersonIcon from "../components/AdminPersonIcon";
 import HomeButton from "../components/HomeButton";
 import {
   fetchAdminSettings,
@@ -13,6 +14,9 @@ interface AdminViewProps {
   onHome: () => void;
 }
 
+/** Пункты строки меню админки. Пока доступна только «Настройки», список расширится. */
+type AdminPanel = "settings";
+
 /** Экран админ-панели: вход по логину/паролю и настройки приложения. */
 export default function AdminView({ onHome }: AdminViewProps) {
   const [login, setLogin] = useState("");
@@ -20,6 +24,8 @@ export default function AdminView({ onHome }: AdminViewProps) {
   const [token, setToken] = useState<string | null>(() => getStoredToken());
   const [authError, setAuthError] = useState<string | null>(null);
   const [loggingIn, setLoggingIn] = useState(false);
+
+  const [activePanel, setActivePanel] = useState<AdminPanel>("settings");
 
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [staticDir, setStaticDir] = useState("");
@@ -94,103 +100,174 @@ export default function AdminView({ onHome }: AdminViewProps) {
     }
   };
 
-  const handleLogout = async () => {
+  /** Выход из режима админа: инвалидируем токен и возвращаемся на главный экран киоска. */
+  const handleExit = async () => {
     await logoutAdmin();
     clearToken();
     setToken(null);
     setSettings(null);
+    onHome();
   };
 
   return (
     <div className="admin-view">
-      <div className="admin-header">
-        <HomeButton onHome={onHome} label="Киоск" />
-        <h1 className="admin-title">Админ-панель</h1>
-      </div>
-
       {!token ? (
-        <form className="admin-login" onSubmit={handleLogin}>
-          <h2 className="admin-subtitle">Вход в админку</h2>
-          <label className="admin-field">
-            <span>Логин</span>
-            <input
-              type="text"
-              value={login}
-              autoComplete="username"
-              onChange={(e) => setLogin(e.target.value)}
-              required
-            />
-          </label>
-          <label className="admin-field">
-            <span>Пароль</span>
-            <input
-              type="password"
-              value={password}
-              autoComplete="current-password"
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </label>
-          {authError && <p className="admin-error">{authError}</p>}
-          <button type="submit" className="admin-button" disabled={loggingIn}>
-            {loggingIn ? "Вход..." : "Войти"}
-          </button>
-        </form>
-      ) : (
-        <form className="admin-settings" onSubmit={handleSave}>
-          <h2 className="admin-subtitle">Настройки</h2>
+        <>
+          <div className="admin-header">
+            <HomeButton onHome={onHome} label="Киоск" />
+            <h1 className="admin-title">Админ-панель</h1>
+          </div>
 
-          <label className="admin-field">
-            <span>Папка для изображений расписания</span>
-            <input
-              type="text"
-              value={staticDir}
-              placeholder="Оставьте пустым — используется папка по умолчанию"
-              onChange={(e) => setStaticDir(e.target.value)}
-            />
-            <small>
-              Путь на диске киоска, например <code>D:\KioskStatic</code>. Пустое
-              поле — значение по умолчанию.
-            </small>
-          </label>
-
-          <label className="admin-check">
-            <input
-              type="checkbox"
-              checked={autostart}
-              disabled={!settings?.autostart_supported}
-              onChange={(e) => setAutostart(e.target.checked)}
-            />
-            <span>Автозапуск программы при входе в систему</span>
-          </label>
-          {!settings?.autostart_supported && (
-            <small className="admin-hint">
-              Автозагрузка не поддерживается на этой системе.
-            </small>
-          )}
-
-          {error && <p className="admin-error">{error}</p>}
-          {notice && <p className="admin-notice">{notice}</p>}
-
-          <div className="admin-actions">
-            <button
-              type="submit"
-              className="admin-button"
-              disabled={saving || loading}
-            >
-              {saving ? "Сохранение..." : "Сохранить"}
+          <form className="admin-login" onSubmit={handleLogin}>
+            <h2 className="admin-subtitle">Вход в админку</h2>
+            <label className="admin-field">
+              <span>Логин</span>
+              <input
+                type="text"
+                value={login}
+                autoComplete="username"
+                onChange={(e) => setLogin(e.target.value)}
+                required
+              />
+            </label>
+            <label className="admin-field">
+              <span>Пароль</span>
+              <input
+                type="password"
+                value={password}
+                autoComplete="current-password"
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </label>
+            {authError && <p className="admin-error">{authError}</p>}
+            <button type="submit" className="admin-button" disabled={loggingIn}>
+              {loggingIn ? "Вход..." : "Войти"}
             </button>
+          </form>
+        </>
+      ) : (
+        <>
+          {/* Строка меню админки. Пункты добавляются слева, кнопка выхода прижата вправо. */}
+          <nav className="admin-menu">
+            <div className="admin-menu__nav">
+              <button
+                type="button"
+                className={
+                  activePanel === "settings"
+                    ? "admin-menu__item admin-menu__item--active"
+                    : "admin-menu__item"
+                }
+                onClick={() => setActivePanel("settings")}
+              >
+                Настройки
+              </button>
+              {/* В дальнейшем сюда добавятся новые пункты меню */}
+            </div>
             <button
               type="button"
-              className="admin-button admin-button-ghost"
-              onClick={handleLogout}
+              className="admin-menu__exit"
+              aria-label="Выйти из админки"
+              title="Выйти из админки"
+              onClick={handleExit}
             >
-              Выйти
+              <AdminPersonIcon size={30} title="Выйти из админки" />
             </button>
-          </div>
-        </form>
+          </nav>
+
+          <SettingsPanel
+            loading={loading}
+            saving={saving}
+            staticDir={staticDir}
+            autostart={autostart}
+            autostartSupported={settings?.autostart_supported ?? false}
+            error={error}
+            notice={notice}
+            onStaticDirChange={setStaticDir}
+            onAutostartChange={setAutostart}
+            onSave={handleSave}
+          />
+        </>
       )}
     </div>
+  );
+}
+
+// ============================================================================
+// Панель настроек (рендерится под строкой меню при активном пункте «Настройки»)
+// ============================================================================
+
+interface SettingsPanelProps {
+  loading: boolean;
+  saving: boolean;
+  staticDir: string;
+  autostart: boolean;
+  autostartSupported: boolean;
+  error: string | null;
+  notice: string | null;
+  onStaticDirChange: (value: string) => void;
+  onAutostartChange: (checked: boolean) => void;
+  onSave: (event: React.FormEvent) => void;
+}
+
+function SettingsPanel({
+  loading,
+  saving,
+  staticDir,
+  autostart,
+  autostartSupported,
+  error,
+  notice,
+  onStaticDirChange,
+  onAutostartChange,
+  onSave,
+}: SettingsPanelProps) {
+  return (
+    <form className="admin-settings" onSubmit={onSave}>
+      <h2 className="admin-subtitle">Настройки</h2>
+
+      <label className="admin-field">
+        <span>Папка для изображений расписания</span>
+        <input
+          type="text"
+          value={staticDir}
+          placeholder="Оставьте пустым — используется папка по умолчанию"
+          onChange={(e) => onStaticDirChange(e.target.value)}
+        />
+        <small>
+          Путь на диске киоска, например <code>D:\KioskStatic</code>. Пустое
+          поле — значение по умолчанию.
+        </small>
+      </label>
+
+      <label className="admin-check">
+        <input
+          type="checkbox"
+          checked={autostart}
+          disabled={!autostartSupported}
+          onChange={(e) => onAutostartChange(e.target.checked)}
+        />
+        <span>Автозапуск программы при входе в систему</span>
+      </label>
+      {!autostartSupported && (
+        <small className="admin-hint">
+          Автозагрузка не поддерживается на этой системе.
+        </small>
+      )}
+
+      {error && <p className="admin-error">{error}</p>}
+      {notice && <p className="admin-notice">{notice}</p>}
+
+      <div className="admin-actions">
+        <button
+          type="submit"
+          className="admin-button"
+          disabled={saving || loading}
+        >
+          {saving ? "Сохранение..." : "Сохранить"}
+        </button>
+      </div>
+    </form>
   );
 }
 

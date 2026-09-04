@@ -102,14 +102,39 @@ jobs:
           TAURI_CONFIG: '{"bundle":{"createUpdaterArtifacts":true}}'
         run: cd src-tauri && cargo tauri build
 
+      - name: Verify updater signatures
+        shell: bash
+        run: |
+          echo "=== NSIS bundle contents ==="
+          ls -la src-tauri/target/release/bundle/nsis/ || true
+          if [ -n "${{ secrets.MINISIGN_PRIVATE_KEY }}" ]; then
+            if ! ls src-tauri/target/release/bundle/nsis/*.sig >/dev/null 2>&1; then
+              echo "::error::MINISIGN_PRIVATE_KEY is set, but no updater artifacts (*.sig) were produced."
+              echo "Likely causes:"
+              echo "  1) TAURI_CONFIG createUpdaterArtifacts=true did not reach the build;"
+              echo "  2) the private key / password is wrong (check for literal '\\n' instead of real newlines);"
+              echo "  3) the secret was added after this run started."
+              exit 1
+            fi
+          else
+            echo "MINISIGN_PRIVATE_KEY secret is NOT set - updater artifacts (.sig) will not be generated."
+          fi
+
       - name: Create GitHub release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Подписи (.sig) появляются только при настроенном секрете
+          # MINISIGN_PRIVATE_KEY; без них релиз всё равно создаём.
+          sigs=""
+          if ls src-tauri/target/release/bundle/nsis/*.sig >/dev/null 2>&1; then
+            sigs=src-tauri/target/release/bundle/nsis/*.sig
+          fi
+          # shellcheck disable=SC2086
           gh release create "${{ steps.meta.outputs.tag }}" \
             src-tauri/target/release/bundle/nsis/*.exe \
-            src-tauri/target/release/bundle/nsis/*.sig \
+            $sigs \
             --title "${{ steps.meta.outputs.version }}" \
             --notes "Release для канала ${{ steps.meta.outputs.channel }}."
 
@@ -118,11 +143,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          bash scripts/publish_feed.sh \
-            "${{ github.repository }}" \
-            "${{ steps.meta.outputs.channel }}" \
-            "${{ steps.meta.outputs.version }}" \
-            "${{ steps.meta.outputs.tag }}" \
-            "src-tauri/target/release/bundle/nsis/"*.exe \
-            "src-tauri/target/release/bundle/nsis/"*.exe.sig \
-            "$GH_TOKEN"
+          if ls src-tauri/target/release/bundle/nsis/*.sig >/dev/null 2>&1; then
+            bash scripts/publish_feed.sh \
+              "${{ github.repository }}" \
+              "${{ steps.meta.outputs.channel }}" \
+              "${{ steps.meta.outputs.version }}" \
+              "${{ steps.meta.outputs.tag }}" \
+              "src-tauri/target/release/bundle/nsis/"*.exe \
+              "src-tauri/target/release/bundle/nsis/"*.exe.sig \
+              "$GH_TOKEN"
+          else
+            echo "Signature (.sig) not found - update feed skipped. Configure the MINISIGN_PRIVATE_KEY secret to enable auto-updates."
+          fi

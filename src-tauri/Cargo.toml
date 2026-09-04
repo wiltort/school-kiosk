@@ -1,6 +1,6 @@
 [package]
 name = "school-kiosk"
-version = "0.1.0"
+version = "0.1.0-dev.1"
 description = "School Kiosk — desktop shell (Tauri v2)"
 edition = "2021"
 

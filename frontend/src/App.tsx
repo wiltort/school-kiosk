@@ -9,6 +9,7 @@ import { useIdleTimeout } from "./hooks/useIdleTimeout";
 import AdminView from "./views/AdminView";
 import HomeView from "./views/HomeView";
 import ScheduleView from "./views/ScheduleView";
+import VersionBadge from "./components/VersionBadge";
 import WeatherView from "./views/WeatherView";
 
 type View = "home" | "schedule" | "weather" | "admin";
@@ -119,6 +120,8 @@ export default function App() {
       {view === "schedule" && <ScheduleView onHome={goHome} />}
       {view === "weather" && <WeatherView onHome={goHome} />}
       {view === "admin" && <AdminView onHome={goHome} />}
+      {/* Строка с версией приложения — видна на всех экранах */}
+      <VersionBadge />
     </div>
   );
 }

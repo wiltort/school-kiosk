@@ -2,9 +2,12 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.apps import apps_router
+from src.apps.admin import autostart
 from src.core.config import settings
 from src.core.database import get_db_dependency
 from src.models import Base
@@ -39,6 +42,18 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # CORS: собранное приложение (Tauri WebView) обращается к бэкенду по
+    # абсолютному URL из origin "http://tauri.localhost". Это локальный киоск,
+    # поэтому разрешаем все origin. В dev-режиме запросы идут через Vite-прокси
+    # (same-origin) и CORS не требуется, но middleware не мешает.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     app.include_router(apps_router)
 
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
@@ -48,11 +63,53 @@ def create_app() -> FastAPI:
         name="uploads",
     )
 
-    @app.get("/", tags=["root"])
-    def root():
-        return {"message": "Backend service is running."}
+    # Самовосстановление автозагрузки: если в настройках она включена,
+    # применяем её и после перезапуска бэкенда (ключ в реестре Windows).
+    if autostart.is_supported() and settings.app_settings.autostart():
+        autostart.set_enabled(True)
+
+    _mount_spa(app)
 
     return app
+
+
+def _mount_spa(app: FastAPI) -> None:
+    """Раздаёт собранный фронтенд (SPA) по HTTP, если он собран.
+
+    Каталог фронтенда берётся из `settings.frontend_dir` (см. config.py).
+    Если `index.html` отсутствует — считаем, что фронтенд не собран
+    (например, чистый dev-бэкенд за Vite), и оставляем корень как
+    health-ответ JSON.
+    """
+    index_file = settings.frontend_dir / "index.html"
+    if not index_file.is_file():
+
+        @app.get("/", tags=["root"])
+        def root():
+            return {"message": "Backend service is running."}
+
+        return
+
+    assets_dir = settings.frontend_dir / "assets"
+    if assets_dir.is_dir():
+        app.mount(
+            "/assets",
+            StaticFiles(directory=str(assets_dir)),
+            name="assets",
+        )
+
+    @app.get("/", include_in_schema=False)
+    def root_spa():
+        return FileResponse(index_file)
+
+    # SPA-fallback: любой не-API путь (история/клиентская навигация) отдаёт
+    # index.html. Монтированные ранее маршруты (API, uploads, assets) имеют
+    # приоритет и обрабатываются раньше этого catch-all.
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa_fallback(full_path: str):
+        if full_path.startswith("api/"):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        return FileResponse(index_file)
 
 
 app = create_app()

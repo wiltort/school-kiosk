@@ -3,6 +3,14 @@
   "productName": "School Kiosk",
   "version": "0.1.0",
   "identifier": "com.schoolkiosk.app",
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEMxNDlCN0Q1NkJBOURBRApSV1N0bmJwV2Zac1VER1I4SXgxQ3pQY3FhRzhEOTlMbnpYSXVYRkNCb2Z6OEVFaWpVdXhrRzhXcQo=",
+      "windows": {
+        "installMode": "quiet"
+      }
+    }
+  },
   "build": {
     "beforeDevCommand": {
       "script": "npm run dev",
@@ -11,7 +19,7 @@
     },
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": {
-      "script": "npm run build",
+      "script": "npm run build && node ../scripts/copy-web.mjs",
       "cwd": "../frontend",
       "wait": true
     },
@@ -38,6 +46,18 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "externalBin": ["binaries/python-backend"],
+    "resources": ["web/dist"],
+    "createUpdaterArtifacts": false,
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "installerHooks": "./windows/hooks.nsh",
+        "installMode": "currentUser"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

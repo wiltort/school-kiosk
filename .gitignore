@@ -154,3 +154,6 @@ htmlcov/
 .plans/
 plans/
 uploads/
+
+src-tauri/binaries/
+*.key

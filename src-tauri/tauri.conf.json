@@ -5,7 +5,7 @@
   "identifier": "com.schoolkiosk.app",
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEMxNDlCN0Q1NkJBOURBRApSV1N0bmJwV2Zac1VER1I4SXgxQ3pQY3FhRzhEOTlMbnpYSXVYRkNCb2Z6OEVFaWpVdXhrRzhXcQo=",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQyQTBCOEFFM0RCODU0ClJXUlV1RDJ1dUtCQ0FLT0hEU29ReUdJZGlKdkRYc2pHTnhqQ3M3NzRZeG5QWmtJc0FrNjRrbUwxCg==",
       "windows": {
         "installMode": "quiet"
       }

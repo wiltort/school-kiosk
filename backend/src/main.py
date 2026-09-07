@@ -98,9 +98,19 @@ def _mount_spa(app: FastAPI) -> None:
             name="assets",
         )
 
+    # index.html не кэшируется: после автообновления WebView должен сразу
+    # получить новый бандл с актуальной версией, а не старый из HTTP-кэша.
+    # Сами ассеты (assets/*) имеют хеши в имени файла, поэтому их кэширование
+    # безопасно — менять его не нужно.
+    spa_headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+
     @app.get("/", include_in_schema=False)
     def root_spa():
-        return FileResponse(index_file)
+        return FileResponse(index_file, headers=spa_headers)
 
     # SPA-fallback: любой не-API путь (история/клиентская навигация) отдаёт
     # index.html. Монтированные ранее маршруты (API, uploads, assets) имеют
@@ -109,7 +119,7 @@ def _mount_spa(app: FastAPI) -> None:
     def spa_fallback(full_path: str):
         if full_path.startswith("api/"):
             return JSONResponse(status_code=404, content={"detail": "Not Found"})
-        return FileResponse(index_file)
+        return FileResponse(index_file, headers=spa_headers)
 
 
 app = create_app()

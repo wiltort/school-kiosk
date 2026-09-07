@@ -190,6 +190,19 @@ fn set_status(app: &AppHandle, status: UpdateStatus) {
 ///
 /// Не блокирует обычный запуск приложения — работает в отдельной задаче.
 pub fn spawn_auto_update(app: AppHandle) {
+    // TODO(diag): какую версию скомпилирован запущенный бинарник и где он лежит.
+    log_line(
+        &app,
+        "DIAG",
+        &format!(
+            "старт процесса: pid={}, package_info.version={}, exe={}",
+            std::process::id(),
+            app.package_info().version,
+            std::env::current_exe()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|_| "?".into())
+        ),
+    );
     log_line(
         &app,
         "INFO",
@@ -357,12 +370,24 @@ async fn check_once(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 /// Возвращает текущий статус обновления (для запроса при загрузке страницы).
 #[tauri::command]
 pub fn get_update_status(app: AppHandle) -> UpdateStatus {
-    match app.try_state::<UpdaterState>() {
+    let status = match app.try_state::<UpdaterState>() {
         Some(state) => state
             .0
             .lock()
             .map(|guard| guard.clone())
             .unwrap_or_else(|_| initial_status(&app)),
         None => initial_status(&app),
-    }
+    };
+    // TODO(diag): что десктоп получает как текущую версию при загрузке.
+    log_line(
+        &app,
+        "DIAG",
+        &format!(
+            "get_update_status -> phase={}, current_version={}, package_info.version={}",
+            serde_json::to_value(status.phase).unwrap_or_default(),
+            status.current_version,
+            app.package_info().version,
+        ),
+    );
+    status
 }

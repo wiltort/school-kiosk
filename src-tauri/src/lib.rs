@@ -30,6 +30,12 @@ pub fn run() {
             // 0. Автообновление из своей ветки (только в релизной сборке под
             // конкретный канал). В dev и локальных сборках не запускается:
             // это и не мешает разработке, и не требует настроенного pubkey.
+            // Состояние статуса регистрируем всегда, чтобы команда
+            // get_update_status работала и в браузерной/локальной версии.
+            app.manage(updater::UpdaterState(std::sync::Mutex::new(
+                updater::initial_status(app.handle()),
+            )));
+
             #[cfg(not(debug_assertions))]
             if updater::is_enabled() {
                 app.handle()
@@ -60,6 +66,7 @@ pub fn run() {
             admin::restart_app,
             admin::is_admin_active,
             admin::get_update_channel,
+            updater::get_update_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running School Kiosk");

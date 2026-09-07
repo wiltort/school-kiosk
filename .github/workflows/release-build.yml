@@ -102,6 +102,47 @@ jobs:
           TAURI_CONFIG: '{"bundle":{"createUpdaterArtifacts":true}}'
         run: cd src-tauri && cargo tauri build
 
+      - name: Diagnose updater signing
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.MINISIGN_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.MINISIGN_PRIVATE_KEY_PASSWORD }}
+        run: |
+          echo "=== 1. Env secret availability ==="
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY}" ]; then
+            echo "KEY: set (chars=${#TAURI_SIGNING_PRIVATE_KEY})"
+          else
+            echo "KEY: NOT SET"
+          fi
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD}" ]; then
+            echo "PASS: set (chars=${#TAURI_SIGNING_PRIVATE_KEY_PASSWORD})"
+          else
+            echo "PASS: NOT SET"
+          fi
+          echo ""
+          echo "=== 2. Literal backslash-n detection in key ==="
+          if printf '%s' "${TAURI_SIGNING_PRIVATE_KEY}" | grep -q '\\n'; then
+            echo "FOUND literal backslash-n sequence in key (real newlines expected)"
+          else
+            echo "OK: no literal backslash-n found"
+          fi
+          echo ""
+          echo "=== 3. Key header (comment lines only) ==="
+          printf '%s' "${TAURI_SIGNING_PRIVATE_KEY}" | head -n 2
+          echo ""
+          echo "=== 4. Test manual minisign signing of the built installer ==="
+          installer=$(ls src-tauri/target/release/bundle/nsis/*.exe 2>/dev/null | head -n1 || true)
+          if [ -z "$installer" ]; then
+            echo "NO INSTALLER FOUND - cannot test signing"
+          else
+            echo "Signing: $installer"
+            (cd src-tauri && cargo tauri signer sign -f "$(pwd)/target/release/bundle/nsis/$(basename "$installer")" 2>&1) || echo "SIGN_EXIT_CODE=$?"
+            ls -la "src-tauri/target/release/bundle/nsis/$(basename "$installer").sig" 2>/dev/null || echo "No .sig produced by manual sign"
+          fi
+          echo ""
+          echo "=== 5. All files in NSIS bundle ==="
+          ls -la src-tauri/target/release/bundle/nsis/ || true
+
       - name: Verify updater signatures
         shell: bash
         run: |

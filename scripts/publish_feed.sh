@@ -25,7 +25,20 @@ TOKEN="$7"
 
 BRANCH="update-feed"
 SIG_CONTENT=$(tr -d '\r\n' < "$SIG")
-INSTALLER_NAME=$(basename "$INSTALLER")
+
+# Фактическое имя ассета в релизе берём из GitHub API: при загрузке GitHub
+# автоматически заменяет пробелы в имени файла на точки (например
+# "School Kiosk_...exe" -> "School.Kiosk_...exe"), поэтому имя из локального
+# basename может не совпадать с реальным URL и давать 404.
+INSTALLER_NAME=$(GH_TOKEN="$TOKEN" gh api \
+  "/repos/${REPO}/releases/tags/${TAG}" \
+  --jq '.assets[].name' | grep -E '\.exe$' | head -n 1)
+
+if [ -z "$INSTALLER_NAME" ]; then
+  # Фолбэк: повторяем замену пробелов на точки, которую делает GitHub.
+  INSTALLER_NAME=$(basename "$INSTALLER" | tr ' ' '.')
+fi
+
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/${INSTALLER_NAME}"
 
 tmpdir=$(mktemp -d)

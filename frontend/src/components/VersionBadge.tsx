@@ -44,8 +44,13 @@ function formatProgress(downloaded: number, total: number | null): string {
 }
 
 export default function VersionBadge() {
-  const version = __APP_VERSION__;
   const [status, setStatus] = useState<UpdateStatus | null>(null);
+
+  // Версия для отображения. На десктопе предпочитаем живую current_version из
+  // Rust (она берётся из package_info() и актуальна сразу после обновления,
+  // даже если бандл ещё не перезагружен). Фолбэк на константу сборки
+  // __APP_VERSION__ — для браузера по LAN и до первого статуса.
+  const version = status?.current_version ?? __APP_VERSION__;
 
   // На десктопе: запрашиваем текущий статус и слушаем событие обновления.
   useEffect(() => {

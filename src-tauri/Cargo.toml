@@ -23,6 +23,10 @@ tauri-plugin-opener = "2"
 # в переменной окружения TAURI_SIGNING_PRIVATE_KEY при сборке.
 tauri-plugin-updater = "2"
 
+# Таймеры для периодической проверки обновлений (tauri::async_runtime::sleep
+# отсутствует, поэтому используем tokio time напрямую).
+tokio = { version = "1", features = ["time"] }
+
 # Разбор URL фида обновлений (updater.endpoints принимает url::Url).
 url = "2"
 

@@ -536,6 +536,10 @@ body {
   left: 50%;
   bottom: 10px;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 24px);
   padding: 4px 14px;
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid var(--color-border);
@@ -546,4 +550,25 @@ body {
   backdrop-filter: blur(4px);
   pointer-events: none;
   z-index: 100;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Статус обновления (добавляется к версии) */
+.version-badge__status {
+  color: var(--color-text-muted);
+  opacity: 0.9;
+}
+
+.version-badge--ok .version-badge__status {
+  color: #34d399;
+}
+
+.version-badge--busy .version-badge__status {
+  color: #fbbf24;
+}
+
+.version-badge--error .version-badge__status {
+  color: #f87171;
 }

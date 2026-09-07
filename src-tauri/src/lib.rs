@@ -48,9 +48,15 @@ pub fn run() {
 
             // 2. Направляем WebView на SPA, раздаваемый бэкендом (одна точка
             // входа и для киоска, и для браузеров по LAN). Затем показываем окно.
+            //
+            // Cache-busting: в URL добавляем версию бинарника (?v=...). При каждом
+            // обновлении URL меняется, поэтому WebView2 считает документ новым и
+            // грузит свежий index.html/assets вместо старого бандла из своего
+            // дискового кэша, который переживает перезапуск процесса.
             if let Some(window) = app.get_webview_window("main") {
-                let url =
+                let mut url =
                     tauri::Url::parse(FRONTEND_URL).expect("static frontend URL must be valid");
+                url.set_query(Some(&format!("v={}", app.package_info().version)));
                 window.navigate(url)?;
                 window.show()?;
             }

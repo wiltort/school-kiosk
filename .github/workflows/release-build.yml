@@ -97,10 +97,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.MINISIGN_PRIVATE_KEY_PASSWORD }}
           KIOSK_CHANNEL: ${{ steps.meta.outputs.channel }}
           KIOSK_REPO: ${{ github.repository }}
-          # Включаем генерацию updater-артефактов только в CI, чтобы локальная
-          # `make build` могла работать и без подписанных артефактов.
-          TAURI_CONFIG: '{"bundle":{"createUpdaterArtifacts":true}}'
-        run: cd src-tauri && cargo tauri build
+          # Включаем генерацию updater-артефактов только в CI через CLI-флаг --config,
+          # который tauri-cli применяет гарантированно (env TAURI_CONFIG не всегда
+          # мержится при `cargo tauri build`). Локальная `make build` без этого
+          # флага может работать и без подписанных артефактов.
+        run: cd src-tauri && cargo tauri build --config '{"bundle":{"createUpdaterArtifacts":true}}'
 
       - name: Diagnose updater signing
         shell: bash
@@ -136,7 +137,12 @@ jobs:
             echo "NO INSTALLER FOUND - cannot test signing"
           else
             echo "Signing: $installer"
-            (cd src-tauri && cargo tauri signer sign -f "$(pwd)/target/release/bundle/nsis/$(basename "$installer")" 2>&1) || echo "SIGN_EXIT_CODE=$?"
+            # Ключ передаём через временный файл, а не аргумент CLI, чтобы не
+            # засветить приватный ключ в списке процессов/логах раннера.
+            tmpkey=$(mktemp)
+            printf '%s' "${TAURI_SIGNING_PRIVATE_KEY}" > "$tmpkey"
+            (cd src-tauri && cargo tauri signer sign --private-key-path "$tmpkey" --password "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD}" "$(pwd)/target/release/bundle/nsis/$(basename "$installer")" 2>&1) || echo "SIGN_EXIT_CODE=$?"
+            rm -f "$tmpkey"
             ls -la "src-tauri/target/release/bundle/nsis/$(basename "$installer").sig" 2>/dev/null || echo "No .sig produced by manual sign"
           fi
           echo ""

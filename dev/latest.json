@@ -1,11 +1,11 @@
 {
-  "version": "0.1.0-dev.7",
+  "version": "0.1.0-dev.8",
   "notes": "",
-  "pub_date": "2026-09-07T06:44:12Z",
+  "pub_date": "2026-09-07T07:15:29Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVXVEMnV1S0JDQUJ4UmVpNXdwUm9nNnVnc28zTU1KakRuc3U4TVlzeEt4dFlVSDlWRHVxNVpUM1d2SWtocUtGaG05N21NVjVEcTVodzNKQXlmNVNIZ2dPajFtRTE2UGcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4NzYzNDQzCWZpbGU6U2Nob29sIEtpb3NrXzAuMS4wLWRldi43X3g2NC1zZXR1cC5leGUKRmFjbURtdGJPWHBPVzBzUWZETUNScVBXMElQVjduVW40d1l6MytlOVppVytCZ3NjUWFQdlFTUHBEZDFCOWJnRlpvNjlWbjZSMmJCS1VndVM2Uy9YQWc9PQo=",
-      "url": "https://github.com/wiltort/school-kiosk/releases/download/dev-v0.1.0-dev.7/School Kiosk_0.1.0-dev.7_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVXVEMnV1S0JDQUhVZUhDdzJYM1IxVjdjbjBXZk1PWHBnckpsRGZMemVwTFVMSjdVTFBFM0k5M2ZsWTRFVzJ1QlY2SGpBSURxbklRYlRxb3JZdEhwTjVScHFMc2FQcXdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4NzY1MzIwCWZpbGU6U2Nob29sIEtpb3NrXzAuMS4wLWRldi44X3g2NC1zZXR1cC5leGUKb2ZISEEyUjZmdmZOVDlQU1U2NVdsbjNNaFJzR1k5SG82WmJ0S2EwcGJnVUxZNzNaamxYWVhXVmNBUG1BRWxOZGozQ01Ud0l6WVNRVlhLMnc3cVFtQ1E9PQo=",
+      "url": "https://github.com/wiltort/school-kiosk/releases/download/dev-v0.1.0-dev.8/School Kiosk_0.1.0-dev.8_x64-setup.exe"
     }
   }
 }

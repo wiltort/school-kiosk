@@ -31,7 +31,7 @@ SIG_CONTENT=$(tr -d '\r\n' < "$SIG")
 # "School Kiosk_...exe" -> "School.Kiosk_...exe"), поэтому имя из локального
 # basename может не совпадать с реальным URL и давать 404.
 INSTALLER_NAME=$(GH_TOKEN="$TOKEN" gh api \
-  "/repos/${REPO}/releases/tags/${TAG}" \
+  "repos/${REPO}/releases/tags/${TAG}" \
   --jq '.assets[].name' | grep -E '\.exe$' | head -n 1)
 
 if [ -z "$INSTALLER_NAME" ]; then

@@ -65,7 +65,10 @@ export default function ScheduleView({ onHome }: ScheduleViewProps) {
         <figure key={activeSchedule.id} className="schedule__figure">
           <img
             className="schedule__image"
-            src={scheduleImageUrl(activeSchedule.image)}
+            src={scheduleImageUrl(
+              activeSchedule.image,
+              activeSchedule.updated_at
+            )}
             alt={activeSchedule.name}
           />
           <figcaption className="schedule__caption">

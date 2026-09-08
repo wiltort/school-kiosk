@@ -2,7 +2,7 @@ import datetime
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Response, UploadFile, status
 
 from src.apps.schedule.managers import ScheduleImageManager
 from src.apps.schedule.schemas import (
@@ -50,15 +50,22 @@ async def create_schedule(
     "/", response_model=list[ScheduleImageGet], status_code=status.HTTP_200_OK
 )
 async def get_all_schedules(
+    response: Response,
     manager: Annotated[ScheduleImageManager, Depends()],
 ) -> list[ScheduleImageGet]:
+    # Метаданные расписания не должны кешироваться: клиент каждый раз должен
+    # видеть актуальное состояние (и, следовательно, свежий файл картинки).
+    response.headers["Cache-Control"] = "no-store"
     return await manager.get_all()
 
 
 @schedule_image_router.get("/{id}", response_model=ScheduleImageGet)
 async def get_schedule(
-    id: uuid.UUID, manager: ScheduleImageManager = Depends()
+    id: uuid.UUID,
+    response: Response,
+    manager: ScheduleImageManager = Depends(),
 ) -> ScheduleImageGet | None:
+    response.headers["Cache-Control"] = "no-store"
     return await manager.get(id)
 
 
@@ -86,7 +93,10 @@ local_schedule_image_router = APIRouter(
 @local_schedule_image_router.get(
     "/", response_model=ScheduleImageGet, status_code=status.HTTP_200_OK
 )
-async def get_local_schedule() -> ScheduleImageGet:
+async def get_local_schedule(response: Response) -> ScheduleImageGet:
+    # Метаданные локального расписания не должны кешироваться, чтобы клиент
+    # каждый раз запрашивал актуальную версию файла изображения.
+    response.headers["Cache-Control"] = "no-store"
     schedule = ScheduleImageGet(
         id=uuid.uuid4(),
         name="Локальное расписание",

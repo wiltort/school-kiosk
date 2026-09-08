@@ -13,7 +13,10 @@ const ADMIN_TOKEN_KEY = "school_kiosk_admin_token";
  */
 export async function fetchScheduleImage(): Promise<ScheduleImage> {
   const { apiBaseUrl } = getKioskConfig();
-  const response = await fetch(`${apiBaseUrl}${SCHEDULE_IMAGES_PATH}`);
+  // Не брать метаданные из кеша: расписание могло измениться.
+  const response = await fetch(`${apiBaseUrl}${SCHEDULE_IMAGES_PATH}`, {
+    cache: "no-store",
+  });
   if (!response.ok) {
     throw new Error(`Ошибка загрузки расписания: HTTP ${response.status}`);
   }
@@ -23,14 +26,27 @@ export async function fetchScheduleImage(): Promise<ScheduleImage> {
 /**
  * Преобразует относительный путь файла из БД в полный URL для отображения.
  *
+ * Локальное расписание всегда живёт под одним и тем же именем (например,
+ * "1.jpg"), поэтому URL сам по себе не меняется при замене файла. Чтобы
+ * браузер/WebView не отдавал устаревшую картинку из HTTP-кеша, добавляем
+ * query-параметр cache-buster (обычно — timestamp `updated_at` расписания).
+ *
  * @param path Относительный путь файла (например, "2026/09/uuid.png").
+ * @param cacheBust Строка/число для инвалидации кеша (например, updated_at).
  * @returns URL изображения под статикой бэкенда (/uploads/...).
  */
-export function scheduleImageUrl(path: string): string {
+export function scheduleImageUrl(
+  path: string,
+  cacheBust?: string | number
+): string {
   const { apiBaseUrl } = getKioskConfig();
   // Статика раздаётся вне api-префикса: убираем "/api/v1" и подставляем "/uploads".
   const staticRoot = apiBaseUrl.replace(/\/api\/v1\/?$/, "") || "";
-  return `${staticRoot}/uploads/${path.replace(/^\/+/, "")}`;
+  const base = `${staticRoot}/uploads/${path.replace(/^\/+/, "")}`;
+  if (cacheBust !== undefined && cacheBust !== null && cacheBust !== "") {
+    return `${base}?v=${encodeURIComponent(String(cacheBust))}`;
+  }
+  return base;
 }
 
 // ============================================================================

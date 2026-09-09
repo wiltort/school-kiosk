@@ -94,6 +94,10 @@ class AppSettingsStore:
         """Включена ли автозагрузка."""
         return bool(self.as_dict().get("autostart"))
 
+    def local_image_dir(self) -> str | None:
+        """Каталог локальных изображений либо ``None`` (значение по умолчанию)."""
+        return self.as_dict().get("local_image_dir")
+
     def update(
         self,
         *,

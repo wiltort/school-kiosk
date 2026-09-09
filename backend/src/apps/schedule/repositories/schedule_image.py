@@ -102,3 +102,20 @@ class ScheduleImageRepository:
         )
         result: Result = await session.execute(query)
         return result.scalar_one()
+
+    async def get_local_by_name(
+        self, session: AsyncSession, name: str
+    ) -> ScheduleImage | None:
+        """Возвращает локальное изображение расписания по идентификатору.
+
+        Args:
+            session: Активная асинхронная сессия базы данных.
+            name: Имя локального изображения.
+        Returns:
+            Найденное локальное изображение :class:`ScheduleImage`.
+        """
+        query = (
+            select(self.model).where(self.model.name == name).where(self.model.is_local)
+        )
+        result: Result = await session.execute(query)
+        return result.scalar_one_or_none()

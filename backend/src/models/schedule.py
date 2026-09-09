@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
@@ -10,6 +10,7 @@ from src.models.mixins import IDMixin, ScheduleMixin
 class ScheduleImage(ScheduleMixin, Base):
     __tablename__ = "schedule_images"
     image: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_local: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class ScheduleTable(ScheduleMixin, Base):

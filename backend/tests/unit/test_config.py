@@ -21,12 +21,14 @@ def test_base_dir_resolved():
     assert (BASE_DIR / "tests").exists()
 
 
-def test_upload_dir_defaults_under_data_dir(monkeypatch):
+def test_upload_dir_defaults_under_data_dir(monkeypatch, tmp_path):
     """По умолчанию статика лежит внутри каталога данных (`data/uploads`)."""
     monkeypatch.delenv("SCHOOL_KIOSK_STATIC_DIR", raising=False)
-    monkeypatch.setenv("SCHOOL_KIOSK_DATA_DIR", str(BASE_DIR / ".tmp-data"))
+    # Изолируем data_dir во временный каталог, чтобы локальный файл
+    # `backend/.tmp-data/settings.json` (созданный локальным запуском) не влиял.
+    monkeypatch.setenv("SCHOOL_KIOSK_DATA_DIR", str(tmp_path))
     settings = Settings()
-    assert settings.static_dir == BASE_DIR / ".tmp-data" / "uploads"
+    assert settings.static_dir == tmp_path / "uploads"
     assert settings.upload_dir == settings.static_dir
 
 

@@ -87,6 +87,11 @@ def test_migrates_static_dir_from_legacy_seed(tmp_path):
     assert store.static_dir() == "Z:/LegacyStatic"
     # Миграция записала бэкенд-файл.
     assert (data_dir / "settings.json").is_file()
+    assert store.as_dict() == {
+        "static_dir": "Z:/LegacyStatic",
+        "autostart": False,
+        "local_image_dir": None,
+    }
 
     # Повторная загрузка больше не трогает legacy и читает свой файл.
     store.update(static_dir="Y:/Changed")

@@ -106,6 +106,25 @@ class Settings(BaseSettings):
         return self.data_dir / "uploads"
 
     @property
+    def local_image_dir(self) -> Path:
+        """Каталог локальных изображений (загруженные изображения).
+
+        Приоритет:
+          1. Настройки приложения (settings.json в каталоге данных) — основной
+             источник, им управляет админ-панель;
+          2. Переменная окружения `SCHOOL_KIOSK_LOCAL_IMAGE_DIR` (legacy, для
+             обратной совместимости);
+           3. Каталог загрузок внутри каталога данных (`<data_dir>/uploads`).
+        """
+        stored = self.app_settings.local_image_dir()
+        if stored:
+            return Path(stored).expanduser()
+        env = os.environ.get("SCHOOL_KIOSK_LOCAL_IMAGE_DIR")
+        if env:
+            return Path(env).expanduser()
+        return self.data_dir / "local_images"
+
+    @property
     def frontend_dir(self) -> Path:
         """Каталог собранного фронтенда (SPA), который раздаётся по HTTP.
 

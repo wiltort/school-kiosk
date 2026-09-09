@@ -159,3 +159,5 @@ src-tauri/binaries/
 *.key
 *.data/
 *.tmp-data/
+data/
+tmp-data/

@@ -1,6 +1,13 @@
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
@@ -11,6 +18,9 @@ class ScheduleImage(ScheduleMixin, Base):
     __tablename__ = "schedule_images"
     image: Mapped[str] = mapped_column(String(255), nullable=False)
     is_local: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    file_hash: Mapped[str | None] = mapped_column(String(64), index=True, default=None)
+    file_size: Mapped[int | None] = mapped_column(Integer, default=None)
+    mtime: Mapped[float | None] = mapped_column(Float, default=None)
 
 
 class ScheduleTable(ScheduleMixin, Base):

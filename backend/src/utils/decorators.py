@@ -3,7 +3,7 @@ from functools import wraps
 from logging import getLogger
 
 from fastapi import HTTPException
-from sqlalchemy.exc import IntegrityError, NoResultFound
+from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 
 logger = getLogger(__name__)
 
@@ -23,6 +23,8 @@ def handle_db_errors(func: Callable):
         except HTTPException as e:
             logger.warning("Ошибка HTTP: %s", e)
             raise HTTPException(e.status_code, e.detail) from e
+        except MultipleResultsFound:
+            raise HTTPException(500, "Найдено несколько записей") from None
         except Exception as e:
             logger.error("Неожиданная ошибка: %s", e)
             raise HTTPException(500, "Внутренняя ошибка сервера") from e

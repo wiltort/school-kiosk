@@ -123,7 +123,7 @@ class ScheduleImageManager:
             Список всех расписаний в виде схем :class:`ScheduleImageGet`.
         """
         async with self.db.db_session() as session:
-            images = await self.image_repo.get_all(session)
+            images = await self.image_repo.list(session)
             return [ScheduleImageGet.model_validate(item) for item in images]
 
     @handle_db_errors
@@ -149,7 +149,10 @@ class ScheduleImageManager:
             data = schedule.model_dump(exclude_unset=True)
             if not data:
                 raise HTTPException(status_code=400, detail="Нет данных для обновления")
-            result = await self.image_repo.update(session, id, data)
+            schedule = await self.image_repo.get(session, id)
+            if not schedule:
+                raise HTTPException(status_code=404, detail="Запись не найдена")
+            result = await self.image_repo.update(session, schedule, data)
             await session.commit()
             return ScheduleImageGet.model_validate(result)
 
@@ -163,9 +166,10 @@ class ScheduleImageManager:
             HTTPException: с кодом 404, если запись не найдена.
         """
         async with self.db.db_session() as session:
-            result = await self.image_repo.delete(session, id)
-            if result.rowcount == 0:
+            schedule = await self.image_repo.get(session, id)
+            if not schedule:
                 raise HTTPException(status_code=404, detail="Расписание не найдено")
+            await self.image_repo.delete(session, schedule)
             await session.commit()
 
 

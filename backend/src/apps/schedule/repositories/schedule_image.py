@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import case, delete, insert, select, update
+from sqlalchemy import case, select
 from sqlalchemy.engine import Result
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,9 +28,7 @@ class ScheduleImageRepository:
         Returns:
             Найденное изображение либо ``None``, если запись отсутствует.
         """
-        query = select(self.model).where(self.model.id == id)
-        result: Result = await session.execute(query)
-        return result.scalar_one_or_none()
+        return await session.get(self.model, id)
 
     async def create(self, session: AsyncSession, data: dict) -> ScheduleImage:
         """Создаёт новое изображение расписания.
@@ -42,66 +40,59 @@ class ScheduleImageRepository:
         Returns:
             Созданное изображение :class:`ScheduleImage`.
         """
-        query = insert(self.model).values(**data).returning(self.model)
-        result: Result = await session.execute(query)
-        return result.scalar_one()
+        obj = self.model(**data)
+        session.add(obj)
+        await session.flush()
+        return obj
 
-    async def delete(self, session: AsyncSession, id: uuid.UUID) -> None:
-        """Удаляет изображение расписания по идентификатору.
+    async def delete(self, session: AsyncSession, obj: ScheduleImage) -> None:
+        """Удаляет изображение расписания.
 
         Args:
             session: Активная асинхронная сессия базы данных.
-            id: Уникальный идентификатор изображения.
-
-        Returns:
-            Результат выполнения запроса (для проверки ``rowcount``).
+            obj: Удаляемое изображение.
         """
-        query = delete(self.model).where(self.model.id == id)
-        return await session.execute(query)
+        await session.delete(obj)
+        return await session.flush()
 
-    async def get_all(self, session: AsyncSession) -> list[ScheduleImage]:
-        """Возвращает все изображения расписания.
-
-        Результат сортируется по дню недели (порядок определяется
-        перечислением :class:`DayOfWeek`).
+    async def list(
+        self, session: AsyncSession, *, limit: int | None = None
+    ) -> list[ScheduleImage]:
+        """Возвращает список изображений расписания.
 
         Args:
             session: Активная асинхронная сессия базы данных.
 
         Returns:
-            Список всех изображений :class:`ScheduleImage`.
+            Список изображений :class:`ScheduleImage`.
         """
         weekday_order = case(
             {day.name: index for index, day in enumerate(DayOfWeek, start=1)},
             value=self.model.day_of_week,
         )
         query = select(self.model).order_by(weekday_order)
+        if limit is not None:
+            query = query.limit(limit)
         result: Result = await session.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def update(
-        self, session: AsyncSession, id: uuid.UUID, data: dict
+        self, session: AsyncSession, obj: ScheduleImage, data: dict
     ) -> ScheduleImage:
-        """Обновляет изображение расписания по идентификатору.
-
-        Обновляются только поля, переданные в ``data``.
+        """Обновляет изображение расписания.
 
         Args:
             session: Активная асинхронная сессия базы данных.
-            id: Уникальный идентификатор изображения.
-            data: Словарь обновляемых полей.
+            obj: Обновляемое изображение.
+            data: Словарь значений полей для обновления.
 
         Returns:
             Обновлённое изображение :class:`ScheduleImage`.
         """
-        query = (
-            update(self.model)
-            .where(self.model.id == id)
-            .values(**data)
-            .returning(self.model)
-        )
-        result: Result = await session.execute(query)
-        return result.scalar_one()
+        for field, value in data.items():
+            setattr(obj, field, value)
+        await session.flush()
+        return obj
 
     async def get_local_by_name(
         self, session: AsyncSession, name: str
@@ -114,8 +105,24 @@ class ScheduleImageRepository:
         Returns:
             Найденное локальное изображение :class:`ScheduleImage`.
         """
-        query = (
-            select(self.model).where(self.model.name == name).where(self.model.is_local)
+        query = select(self.model).where(
+            self.model.name == name, self.model.is_local, self.model.is_active
         )
         result: Result = await session.execute(query)
         return result.scalar_one_or_none()
+
+    def get_by_path(self, session: AsyncSession, path: str) -> ScheduleImage | None:
+        """Возвращает изображение расписания по пути.
+
+        Args:
+            session: Активная асинхронная сессия базы данных.
+            path: Путь к изображению.
+
+        Returns:
+            Найденное изображение :class:`ScheduleImage`.
+        """
+        return (
+            session.query(self.model)
+            .filter_by(path=path, is_local=True, is_active=True)
+            .first()
+        )

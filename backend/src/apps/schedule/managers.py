@@ -26,6 +26,7 @@ from src.core.storage import ImageStorage
 from src.enums.schedule import DayOfWeek
 from src.models import Lesson, ScheduleColumn, ScheduleTable
 from src.utils.decorators import handle_db_errors
+from src.utils.retry import with_retry_commit
 
 logger = getLogger(__name__)
 
@@ -78,15 +79,18 @@ class ScheduleImageManager:
             HTTPException: с кодом 400 при нарушении ограничений
                 целостности базы данных (например, дубликат).
         """
-        stored_path = await self.storage.save(data, filename)
+        stored_path = self.storage.save(data, filename)
+        try:
+            async with self.db.db_session() as session:
+                schedule_data = schedule.model_dump(exclude_none=True)
+                schedule_data["image"] = stored_path
 
-        async with self.db.db_session() as session:
-            schedule_data = schedule.model_dump(exclude_none=True)
-            schedule_data["image"] = stored_path
-
-            schedule_image = await self.image_repo.create(session, schedule_data)
-            await session.commit()
-            return ScheduleImageGet.model_validate(schedule_image)
+                schedule_image = await self.image_repo.create(session, schedule_data)
+                await with_retry_commit(session)
+                return ScheduleImageGet.model_validate(schedule_image)
+        except Exception:
+            self.storage.delete(stored_path)
+            raise
 
     @handle_db_errors
     async def get(self, id: uuid.UUID) -> ScheduleImageGet:

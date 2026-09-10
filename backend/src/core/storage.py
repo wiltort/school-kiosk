@@ -15,7 +15,7 @@ class ImageStorage:
     def __init__(self, base_dir: Path | None = None) -> None:
         self._base = base_dir or settings.upload_dir / "schedule_images"
 
-    async def save(self, data: bytes, filename: str, subdir: str = "") -> str:
+    def save(self, data: bytes, filename: str, subdir: str = "") -> str:
         """Сохраняет содержимое файла и возвращает путь для записи в БД."""
         ext = Path(filename or "").suffix.lower() or ".png"
         filename = f"{uuid.uuid4().hex}{ext}"

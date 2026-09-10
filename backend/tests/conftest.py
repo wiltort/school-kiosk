@@ -39,7 +39,7 @@ class FakeImageStorage:
         self.saved: list[tuple[bytes, str]] = []
         self.deleted: list[str] = []
 
-    async def save(self, data: bytes, filename: str) -> str:
+    def save(self, data: bytes, filename: str) -> str:
         self.saved.append((data, filename))
         return self.saved_path
 

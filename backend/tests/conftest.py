@@ -46,6 +46,9 @@ class FakeImageStorage:
     def delete(self, path: str) -> None:
         self.deleted.append(path)
 
+    def read_file_metadata(self, path: str) -> dict:
+        return {"file_hash": f"{path}", "file_size": len(path), "mtime": 0.2}
+
 
 @pytest_asyncio.fixture(scope="session")
 async def async_engine():

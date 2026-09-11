@@ -84,7 +84,7 @@ class ScheduleImageManager:
             async with self.db.db_session() as session:
                 schedule_data = schedule.model_dump(exclude_none=True)
                 schedule_data["image"] = stored_path
-
+                schedule_data.update(self.storage.read_file_metadata(stored_path))
                 schedule_image = await self.image_repo.create(session, schedule_data)
                 await with_retry_commit(session)
                 return ScheduleImageGet.model_validate(schedule_image)
@@ -149,12 +149,14 @@ class ScheduleImageManager:
             data = schedule.model_dump(exclude_unset=True)
             if not data:
                 raise HTTPException(status_code=400, detail="Нет данных для обновления")
-            schedule = await self.image_repo.get(session, id)
-            if not schedule:
+            schedule_image = await self.image_repo.get(session, id)
+            if not schedule_image:
                 raise HTTPException(status_code=404, detail="Запись не найдена")
-            result = await self.image_repo.update(session, schedule, data)
-            await session.commit()
-            return ScheduleImageGet.model_validate(result)
+            updated_schedule = await self.image_repo.update(
+                session, schedule_image, data
+            )
+            await with_retry_commit(session)
+            return ScheduleImageGet.model_validate(updated_schedule)
 
     async def delete(self, id: uuid.UUID) -> None:
         """Удаляет расписание-изображение по идентификатору.
@@ -170,7 +172,7 @@ class ScheduleImageManager:
             if not schedule:
                 raise HTTPException(status_code=404, detail="Расписание не найдено")
             await self.image_repo.delete(session, schedule)
-            await session.commit()
+            await with_retry_commit(session)
 
 
 class ScheduleTableManager:

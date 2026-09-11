@@ -62,6 +62,7 @@ class ScheduleImageRepository:
 
         Args:
             session: Активная асинхронная сессия базы данных.
+            limit: Ограничение на количество возвращаемых записей.
 
         Returns:
             Список изображений :class:`ScheduleImage`.
@@ -111,18 +112,27 @@ class ScheduleImageRepository:
         result: Result = await session.execute(query)
         return result.scalar_one_or_none()
 
-    def get_by_path(self, session: AsyncSession, path: str) -> ScheduleImage | None:
+    async def get_by_path(
+        self,
+        session: AsyncSession,
+        path: str,
+        is_local: bool | None = None,
+        is_active: bool = True,
+    ) -> ScheduleImage | None:
         """Возвращает изображение расписания по пути.
 
         Args:
             session: Активная асинхронная сессия базы данных.
             path: Путь к изображению.
+            is_local: Флаг локальности изображения.
+            is_active: Флаг активности изображения.
 
         Returns:
             Найденное изображение :class:`ScheduleImage`.
         """
-        return (
-            session.query(self.model)
-            .filter_by(path=path, is_local=True, is_active=True)
-            .first()
-        )
+        filter_args = {"path": path, "is_active": is_active}
+        if is_local is not None:
+            filter_args["is_local"] = is_local
+        query = select(self.model).where(**filter_args)
+        result = await session.execute(query)
+        return result.scalars().first()

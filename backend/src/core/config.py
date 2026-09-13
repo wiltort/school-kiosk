@@ -125,6 +125,17 @@ class Settings(BaseSettings):
         return self.data_dir / "local_images"
 
     @property
+    def current_local_schedule_image_filename(self) -> str:
+        """Имя текущего локального изображения расписания."""
+        stored = self.app_settings.current_local_schedule_image_filename()
+        if stored:
+            return stored
+        env = os.environ.get("SCHOOL_KIOSK_CURRENT_LOCAL_SCHEDULE_IMAGE_FILENAME")
+        if env:
+            return env
+        return "current_schedule.jpg"
+
+    @property
     def frontend_dir(self) -> Path:
         """Каталог собранного фронтенда (SPA), который раздаётся по HTTP.
 
@@ -137,11 +148,6 @@ class Settings(BaseSettings):
         if env:
             return Path(env).expanduser()
         return BASE_DIR.parent / "frontend" / "dist"
-
-    @property
-    def upload_dir(self) -> Path:
-        """Каталог, из которого раздаётся статика (`upload_url`)."""
-        return self.static_dir
 
     @property
     def database_url(self) -> str:

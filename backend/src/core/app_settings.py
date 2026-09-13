@@ -28,6 +28,7 @@ _DEFAULTS: dict[str, Any] = {
     "static_dir": None,
     "autostart": False,
     "local_image_dir": None,
+    "current_local_schedule_image_filename": None,
 }
 
 
@@ -61,6 +62,10 @@ class AppSettingsStore:
                 data["local_image_dir"] = legacy["local_image_dir"]
             if legacy.get("autostart"):
                 data["autostart"] = bool(legacy["autostart"])
+            if legacy.get("current_local_schedule_image_filename"):
+                data["current_local_schedule_image_filename"] = legacy[
+                    "current_local_schedule_image_filename"
+                ]
             self._write(self._path, data)
         return data
 
@@ -98,12 +103,17 @@ class AppSettingsStore:
         """Каталог локальных изображений либо ``None`` (значение по умолчанию)."""
         return self.as_dict().get("local_image_dir")
 
+    def current_local_schedule_image_filename(self) -> str | None:
+        """Имя текущего изображения расписания."""
+        return self.as_dict().get("current_local_schedule_image_filename")
+
     def update(
         self,
         *,
         static_dir: str | None = _UNSET,
         autostart: bool = _UNSET,
         local_image_dir: str | None = _UNSET,
+        current_local_schedule_image_filename: str | None = _UNSET,
     ) -> dict[str, Any]:
         """Обновляет переданные поля и атомарно сохраняет файл.
 
@@ -118,6 +128,10 @@ class AppSettingsStore:
                 data["autostart"] = bool(autostart)
             if local_image_dir is not _UNSET:
                 data["local_image_dir"] = (local_image_dir or "").strip() or None
+            if current_local_schedule_image_filename is not _UNSET:
+                data["current_local_schedule_image_filename"] = (
+                    current_local_schedule_image_filename or ""
+                ).strip() or None
             self._data = data
             self._write(self._path, data)
         return dict(data)

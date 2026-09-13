@@ -39,14 +39,20 @@ class FakeImageStorage:
         self.saved: list[tuple[bytes, str]] = []
         self.deleted: list[str] = []
 
-    def save(self, data: bytes, filename: str) -> str:
+    def save(
+        self,
+        data: bytes,
+        filename: str,
+        subdir: str = "",  # noqa: ARG002
+        is_local: bool = False,  # noqa: ARG002
+    ) -> str:
         self.saved.append((data, filename))
         return self.saved_path
 
     def delete(self, path: str) -> None:
         self.deleted.append(path)
 
-    def read_file_metadata(self, path: str) -> dict:
+    def read_file_metadata(self, path: str, *args, **kwargs) -> dict:  # noqa: ARG002
         return {"file_hash": f"{path}", "file_size": len(path), "mtime": 0.2}
 
 

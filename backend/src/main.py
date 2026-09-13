@@ -60,10 +60,10 @@ def create_app() -> FastAPI:
 
     app.include_router(apps_router)
 
-    settings.upload_dir.mkdir(parents=True, exist_ok=True)
+    settings.static_dir.mkdir(parents=True, exist_ok=True)
     app.mount(
         settings.upload_url,
-        StaticFiles(directory=str(settings.upload_dir)),
+        StaticFiles(directory=str(settings.static_dir)),
         name="uploads",
     )
 

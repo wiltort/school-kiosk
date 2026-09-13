@@ -11,6 +11,7 @@ def test_defaults_when_no_file(tmp_path):
         "static_dir": None,
         "autostart": False,
         "local_image_dir": None,
+        "current_local_schedule_image_filename": None,
     }
     assert store.static_dir() is None
     assert store.autostart() is False
@@ -22,12 +23,14 @@ def test_update_persists_to_file(tmp_path):
         static_dir="D:/KioskStatic",
         autostart=True,
         local_image_dir="C:/uploaded_images",
+        current_local_schedule_image_filename="schedule.png",
     )
 
     assert result == {
         "static_dir": "D:/KioskStatic",
         "autostart": True,
         "local_image_dir": "C:/uploaded_images",
+        "current_local_schedule_image_filename": "schedule.png",
     }
 
     # Данные реально записаны на диск.
@@ -35,6 +38,7 @@ def test_update_persists_to_file(tmp_path):
     assert raw["static_dir"] == "D:/KioskStatic"
     assert raw["autostart"] is True
     assert raw["local_image_dir"] == "C:/uploaded_images"
+    assert raw["current_local_schedule_image_filename"] == "schedule.png"
 
     # Новый экземпляр читает те же значения.
     reloaded = AppSettingsStore(tmp_path)
@@ -42,6 +46,7 @@ def test_update_persists_to_file(tmp_path):
         "static_dir": "D:/KioskStatic",
         "autostart": True,
         "local_image_dir": "C:/uploaded_images",
+        "current_local_schedule_image_filename": "schedule.png",
     }
 
 
@@ -54,7 +59,10 @@ def test_empty_static_dir_normalizes_to_none(tmp_path):
 def test_partial_update_keeps_other_fields(tmp_path):
     store = AppSettingsStore(tmp_path)
     store.update(
-        static_dir="C:/Static", autostart=True, local_image_dir="C:/uploaded_images"
+        static_dir="C:/Static",
+        autostart=True,
+        local_image_dir="C:/uploaded_images",
+        current_local_schedule_image_filename="schedule.png",
     )
 
     store.update(autostart=False)
@@ -62,6 +70,7 @@ def test_partial_update_keeps_other_fields(tmp_path):
         "static_dir": "C:/Static",
         "autostart": False,
         "local_image_dir": "C:/uploaded_images",
+        "current_local_schedule_image_filename": "schedule.png",
     }
 
     store.update(static_dir=None)
@@ -69,6 +78,7 @@ def test_partial_update_keeps_other_fields(tmp_path):
         "static_dir": None,
         "autostart": False,
         "local_image_dir": "C:/uploaded_images",
+        "current_local_schedule_image_filename": "schedule.png",
     }
 
 
@@ -91,6 +101,7 @@ def test_migrates_static_dir_from_legacy_seed(tmp_path):
         "static_dir": "Z:/LegacyStatic",
         "autostart": False,
         "local_image_dir": None,
+        "current_local_schedule_image_filename": None,
     }
 
     # Повторная загрузка больше не трогает legacy и читает свой файл.
@@ -112,4 +123,13 @@ def test_not_ignores_legacy_without_static_dir(tmp_path):
         "static_dir": None,
         "autostart": True,
         "local_image_dir": None,
+        "current_local_schedule_image_filename": None,
+    }
+
+    store.update(static_dir="Z:/Changed")
+    assert store.as_dict() == {
+        "static_dir": "Z:/Changed",
+        "autostart": True,
+        "local_image_dir": None,
+        "current_local_schedule_image_filename": None,
     }

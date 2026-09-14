@@ -1,3 +1,4 @@
+from sqlalchemy import NullPool, event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -14,7 +15,10 @@ class DBDependency:
     ) -> None:
         if session_factory is None:
             self._engine = create_async_engine(
-                url=settings.database_url, echo=settings.db_echo
+                url=settings.database_url,
+                echo=settings.db_echo,
+                poolclass=NullPool,
+                connect_args={"timeout": 30},
             )
             self._session_factory = async_sessionmaker(
                 bind=self._engine, expire_on_commit=False, autocommit=False
@@ -30,6 +34,17 @@ class DBDependency:
     @property
     def db_engine(self) -> AsyncEngine | None:
         return self._engine
+
+    @staticmethod
+    def _attach_sqlite_pragmas(engine: AsyncEngine) -> None:
+        @event.listens_for(engine.sync_engine, "connect")
+        def _set_pragmas(dbapi_connection, connection_record):  # noqa: ARG001
+            cur = dbapi_connection.cursor()
+            cur.execute("PRAGMA busy_timeout=30000")
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.execute("PRAGMA synchronous=NORMAL")
+            cur.execute("PRAGMA foreign_keys=ON")
+            cur.close()
 
 
 _db: DBDependency | None = None

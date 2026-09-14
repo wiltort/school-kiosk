@@ -1,7 +1,16 @@
 import uuid
 
-from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import text
 
 from src.models.base import Base
 from src.models.mixins import IDMixin, ScheduleMixin
@@ -10,6 +19,19 @@ from src.models.mixins import IDMixin, ScheduleMixin
 class ScheduleImage(ScheduleMixin, Base):
     __tablename__ = "schedule_images"
     image: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_local: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    file_hash: Mapped[str | None] = mapped_column(String(64), index=True, default=None)
+    file_size: Mapped[int | None] = mapped_column(Integer, default=None)
+    mtime: Mapped[float | None] = mapped_column(Float, default=None)
+
+    __table_args__ = (
+        Index(
+            "ux_schedule_image_local_name",
+            "name",
+            unique=True,
+            sqlite_where=text("is_local = 1 AND is_active = 1"),
+        ),
+    )
 
 
 class ScheduleTable(ScheduleMixin, Base):

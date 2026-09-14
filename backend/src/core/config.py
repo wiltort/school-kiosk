@@ -106,6 +106,36 @@ class Settings(BaseSettings):
         return self.data_dir / "uploads"
 
     @property
+    def local_image_dir(self) -> Path:
+        """Каталог локальных изображений (загруженные изображения).
+
+        Приоритет:
+          1. Настройки приложения (settings.json в каталоге данных) — основной
+             источник, им управляет админ-панель;
+          2. Переменная окружения `SCHOOL_KIOSK_LOCAL_IMAGE_DIR` (legacy, для
+             обратной совместимости);
+           3. Каталог загрузок внутри каталога данных (`<data_dir>/uploads`).
+        """
+        stored = self.app_settings.local_image_dir()
+        if stored:
+            return Path(stored).expanduser()
+        env = os.environ.get("SCHOOL_KIOSK_LOCAL_IMAGE_DIR")
+        if env:
+            return Path(env).expanduser()
+        return self.data_dir / "local_images"
+
+    @property
+    def current_local_schedule_image_filename(self) -> str:
+        """Имя текущего локального изображения расписания."""
+        stored = self.app_settings.current_local_schedule_image_filename()
+        if stored:
+            return stored
+        env = os.environ.get("SCHOOL_KIOSK_CURRENT_LOCAL_SCHEDULE_IMAGE_FILENAME")
+        if env:
+            return env
+        return "current_schedule.jpg"
+
+    @property
     def frontend_dir(self) -> Path:
         """Каталог собранного фронтенда (SPA), который раздаётся по HTTP.
 
@@ -120,13 +150,13 @@ class Settings(BaseSettings):
         return BASE_DIR.parent / "frontend" / "dist"
 
     @property
-    def upload_dir(self) -> Path:
-        """Каталог, из которого раздаётся статика (`upload_url`)."""
-        return self.static_dir
-
-    @property
     def database_url(self) -> str:
-        """SQLite-файл лежит внутри каталога данных, а не рядом с кодом."""
+        """SQLite-файл лежит внутри каталога данных, а не рядом с кодом.
+
+        Создаём каталог данных, если его ещё нет (например, в чистом CI-чекауте,
+        где ``data/`` игнорируется git): иначе SQLite не сможет открыть файл БД.
+        """
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         db_path = self.data_dir / "school_kiosk.db"
         return f"sqlite+aiosqlite:///{db_path.as_posix()}"
 

@@ -25,6 +25,8 @@ build-backend: ## Собрать Python-бэкенд в standalone .exe (PyInsta
 	$(POETRY) pyinstaller --noconfirm --clean --onefile --name python-backend \
 		--collect-submodules uvicorn \
 		--hidden-import aiosqlite \
+		--add-data "$(BACKEND)/alembic;alembic" \
+		--add-data "$(BACKEND)/alembic.ini;." \
 		run_backend.py
 	mkdir -p $(TAURI)/binaries
 	@host=$$(rustc -vV | sed -n 's/^host: //p'); \

@@ -10,7 +10,7 @@ from src.apps import apps_router
 from src.apps.admin import autostart
 from src.core.config import settings
 from src.core.database import get_db_dependency
-from src.models import Base
+from src.core.migrations import apply_schema
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +26,12 @@ def _init_logging():
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001 — required by FastAPI lifespan signature
     db = get_db_dependency()
-    async with db.db_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if db.db_engine is not None:
+        # Автоприменение Alembic-миграций + создание недостающих таблиц. Нужно
+        # выполнять до начала обслуживания запросов, чтобы после автообновления
+        # (которое меняет только исполняемые файлы) схема БД соответствовала
+        # новой версии кода.
+        await apply_schema(db.db_engine)
     _init_logging()
     yield
     await db.db_engine.dispose()
@@ -56,10 +60,10 @@ def create_app() -> FastAPI:
 
     app.include_router(apps_router)
 
-    settings.upload_dir.mkdir(parents=True, exist_ok=True)
+    settings.static_dir.mkdir(parents=True, exist_ok=True)
     app.mount(
         settings.upload_url,
-        StaticFiles(directory=str(settings.upload_dir)),
+        StaticFiles(directory=str(settings.static_dir)),
         name="uploads",
     )
 

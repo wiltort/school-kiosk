@@ -1,7 +1,9 @@
 """Общие фикстуры для тестирования бэкенда."""
 
+import asyncio
 import os
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 # Чтобы юнит-тесты не зависели от наличия собранного фронтенда локально,
@@ -38,6 +40,7 @@ class FakeImageStorage:
     def __init__(self) -> None:
         self.saved: list[tuple[bytes, str]] = []
         self.deleted: list[str] = []
+        self._locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
     def save(
         self,
@@ -54,6 +57,12 @@ class FakeImageStorage:
 
     def read_file_metadata(self, path: str, *args, **kwargs) -> dict:  # noqa: ARG002
         return {"file_hash": f"{path}", "file_size": len(path), "mtime": 0.2}
+
+    def restore_file(self, path: str) -> bool:  # noqa: ARG002
+        return True
+
+    def lock(self, key: str) -> asyncio.Lock:
+        return self._locks[key]
 
 
 @pytest_asyncio.fixture(scope="session")

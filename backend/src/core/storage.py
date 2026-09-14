@@ -91,12 +91,9 @@ class ImageStorage:
 
     def read_file_metadata(self, path: str, is_local: bool = False) -> dict | None:
         """Возвращает метаданные файла по пути."""
-        safe = (
-            (self._local_dir / path).resolve()
-            if is_local
-            else (self._base / path).resolve()
-        )
-        if not safe.is_file():
+        base = self._local_dir if is_local else self._base
+        safe = self._safe_join(base, path)
+        if safe is None or not safe.is_file():
             return None
         return {
             "file_hash": self._get_file_hash(safe),
@@ -106,19 +103,22 @@ class ImageStorage:
 
     def read_file(self, path: str, is_local: bool = False) -> bytes | None:
         """Возвращает содержимое файла по пути."""
-        safe = (
-            (self._local_dir / path).resolve()
-            if is_local
-            else (self._base / path).resolve()
-        )
-        if not safe.is_file():
+        base = self._local_dir if is_local else self._base
+        safe = self._safe_join(base, path)
+        if safe is None or not safe.is_file():
             return None
         return safe.read_bytes()
 
-    def restore_file(self, subdir: str, filename: str) -> str | None:
+    def restore_file(self, path: str) -> bool:
         """Восстанавливает файл по пути из backup_dir."""
-        safe = (self._backup_dir / subdir / filename).resolve()
-        if not safe.is_file():
-            return None
-        safe.rename(self._base / subdir / filename)
-        return f"{subdir}/{filename}".lstrip("/")
+        backup = self._safe_join(self._backup_dir, path)
+        if backup is None or not backup.is_file():
+            return False
+
+        dest = self._safe_join(self._base, path)
+        if dest is None:
+            return False
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(backup, dest)
+        return True

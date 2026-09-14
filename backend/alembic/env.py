@@ -1,5 +1,6 @@
 import asyncio
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
 from sqlalchemy import pool
@@ -21,6 +22,29 @@ if config.config_file_name is not None:
 # settings to keep a single source of truth. This also makes the URL available
 # to both offline and online migration modes.
 config.set_main_option("sqlalchemy.url", settings.database_url)
+
+# --- Debug validation for CI: "unable to open database file" ---
+import logging  # noqa: E402
+
+_log = logging.getLogger("alembic.env")
+db_path = (
+    Path(settings.database_url.split("///", 1)[1])
+    if "///" in settings.database_url
+    else None
+)
+_log.warning(
+    "[DBG] database_url=%r db_path=%s db_dir=%s db_dir_exists=%s",
+    settings.database_url,
+    db_path,
+    str(db_path.parent) if db_path else None,
+    (db_path.parent.is_dir()) if db_path else None,
+)
+_log.warning(
+    "[DBG] SCHOOL_KIOSK_DATA_DIR=%r frozen=%s cwd=%s",
+    __import__("os").environ.get("SCHOOL_KIOSK_DATA_DIR"),
+    getattr(__import__("sys"), "frozen", False),
+    __import__("os").getcwd(),
+)
 
 # add your model's MetaData object here
 # for 'autogenerate' support

@@ -151,7 +151,12 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        """SQLite-файл лежит внутри каталога данных, а не рядом с кодом."""
+        """SQLite-файл лежит внутри каталога данных, а не рядом с кодом.
+
+        Создаём каталог данных, если его ещё нет (например, в чистом CI-чекауте,
+        где ``data/`` игнорируется git): иначе SQLite не сможет открыть файл БД.
+        """
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         db_path = self.data_dir / "school_kiosk.db"
         return f"sqlite+aiosqlite:///{db_path.as_posix()}"
 

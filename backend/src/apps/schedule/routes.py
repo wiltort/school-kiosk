@@ -51,7 +51,7 @@ async def create_schedule(
 )
 async def get_all_schedules(
     response: Response,
-    manager: Annotated[ScheduleImageManager, Depends()],
+    manager: ScheduleImageManager = Depends(),
 ) -> list[ScheduleImageGet]:
     # Метаданные расписания не должны кешироваться: клиент каждый раз должен
     # видеть актуальное состояние (и, следовательно, свежий файл картинки).

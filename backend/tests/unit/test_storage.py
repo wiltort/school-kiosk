@@ -182,12 +182,13 @@ def test_restore_file_moves_from_backup(storage: ImageStorage):
 
     # Восстановление используется, когда текущий файл уже удалён.
     storage.delete("2026/09/current.jpg")
-    restored = storage.restore_file("2026/09", "current.jpg")
-    assert restored == rel
-    # Восстановленная старая версия на месте, в backup её больше нет.
-    assert (storage._base / restored).read_bytes() == b"old"
-    assert not (storage._backup_dir / "2026/09/current.jpg").exists()
+    restored = storage.restore_file(rel)
+    assert restored is True
+    # Восстановленная старая версия на месте, в backup она осталась.
+    assert (storage._base / "2026/09" / "current.jpg").read_bytes() == b"old"
+    assert (storage._backup_dir / "2026/09/current.jpg").exists()
+    assert (storage._backup_dir / "2026/09/current.jpg").read_bytes() == b"old"
 
 
-def test_restore_file_returns_none_when_no_backup(storage: ImageStorage):
-    assert storage.restore_file("2026/09", "nope.jpg") is None
+def test_restore_file_returns_false_when_no_backup(storage: ImageStorage):
+    assert storage.restore_file("2026-09/nope.jpg") is False

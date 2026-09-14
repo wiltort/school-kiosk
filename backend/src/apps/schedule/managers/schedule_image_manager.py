@@ -56,33 +56,40 @@ class ScheduleImageManager:
         payload: dict,
         is_local: bool,
     ) -> ScheduleImageGet:
-        stored_path = self.storage.save(
-            data, filename, subdir=subdir, is_local=is_local
-        )
-        try:
-            meta = self.storage.read_file_metadata(stored_path)
-            if meta is None:
-                raise HTTPException(500, "Не удалось прочитать файл")
-            payload = {**payload, "image": stored_path, **meta}
+        lock_key = f"{subdir}/{filename}".lstrip("/")
+        lock = self.storage.lock(lock_key)
 
-            async with self.db.db_session() as session:
+        async with lock:
+            stored_path = self.storage.save(
+                data, filename, subdir=subdir, is_local=is_local
+            )
+            try:
+                meta = self.storage.read_file_metadata(stored_path)
+                if meta is None:
+                    raise HTTPException(500, "Не удалось прочитать файл")
+                payload = {**payload, "image": stored_path, **meta}
+
+                async with self.db.db_session() as session:
+                    if is_local:
+                        existing = await self.image_repo.get_local_by_name(
+                            session, payload["name"]
+                        )
+                        if existing:
+                            payload = {"image": stored_path, **meta}
+                            obj = await self.image_repo.update(
+                                session, existing, payload
+                            )
+                            await with_retry_commit(session)
+                            return ScheduleImageGet.model_validate(obj)
+                    obj = await self.image_repo.create(session, payload)
+                    await with_retry_commit(session)
+                    return ScheduleImageGet.model_validate(obj)
+            except Exception:
                 if is_local:
-                    existing = await self.image_repo.get_local_by_name(
-                        session, payload["name"]
-                    )
-                    if existing:
-                        data = {"image": stored_path, **meta}
-                        obj = await self.image_repo.update(session, existing, data)
-                        await with_retry_commit(session)
-                        return ScheduleImageGet.model_validate(obj)
-                obj = await self.image_repo.create(session, payload)
-                await with_retry_commit(session)
-                return ScheduleImageGet.model_validate(obj)
-        except Exception:
-            self.storage.delete(stored_path)
-            if is_local:
-                self.storage.restore_file(subdir, filename)
-            raise
+                    self.storage.restore_file(stored_path)
+                else:
+                    self.storage.delete(stored_path)
+                raise
 
     @handle_db_errors
     async def create(
@@ -114,7 +121,20 @@ class ScheduleImageManager:
         filename: str,
         schedule: ScheduleImageCreate,
     ) -> ScheduleImageGet:
-        """ """
+        """Создает новое локальное расписание-изображение.
+
+        Args:
+            filename: Имя файла расписания.
+            schedule: Данные для создания расписания.
+
+        Returns:
+            Созданное расписание в виде схемы :class: `ScheduleImageGet`.
+
+        Raises:
+            HTTPException: с кодом 400 при нарушении ограничений целостности
+                базы данных.
+            HTTPException: с кодом 500 при проблемах с чтением файла.
+        """
         data = self.storage.read_file(path=filename, is_local=True)
         if data is None:
             raise HTTPException(500, detail=f"Файл расписания {filename} не найден")
@@ -164,7 +184,7 @@ class ScheduleImageManager:
 
     @handle_db_errors
     async def update(
-        self, id: uuid.UUID, schedule: ScheduleImageUpdate
+        self, id: uuid.UUID, schedule: ScheduleImageUpdate, is_local: bool = False
     ) -> ScheduleImageGet:
         """Обновляет расписание-изображение по идентификатору.
 
@@ -183,12 +203,22 @@ class ScheduleImageManager:
         """
         async with self.db.db_session() as session:
             data = schedule.model_dump(exclude_unset=True)
-            if not data:
+            if not data and not is_local:
                 raise HTTPException(status_code=400, detail="Нет данных для обновления")
             schedule_image = await self.image_repo.get(session, id)
             if not schedule_image:
                 raise HTTPException(status_code=404, detail="Запись не найдена")
-            data.get("image", schedule_image.image)
+            image = data.get("image")
+            if image:
+                meta = self.storage.read_file_metadata(image)
+                data = {**data, **meta}
+            if is_local:
+                data["is_local"] = True
+                if not image:
+                    meta = self.storage.read_file_metadata(
+                        schedule_image.image, is_local=True
+                    )
+                    data = {**data, **meta}
             updated_schedule = await self.image_repo.update(
                 session, schedule_image, data
             )

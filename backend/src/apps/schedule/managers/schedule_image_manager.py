@@ -1,5 +1,6 @@
 import uuid
 from logging import getLogger
+from pathlib import Path
 
 from fastapi import Depends, HTTPException
 
@@ -18,6 +19,21 @@ logger = getLogger(__name__)
 
 
 class ScheduleImageManager:
+    @staticmethod
+    def _same_content(meta_a: dict | None, meta_b: dict | None) -> bool:
+        """Сравнивает метаданные файлов по содержимому (хеш и размер).
+
+        ``mtime`` сознательно не участвует в сравнении: после синхронизации
+        mtime статической копии всегда новее, чем у локального файла-источника,
+        поэтому полное сравнение словарей приводило бы к бесконечной
+        пересинхронизации на каждом цикле.
+        """
+        if not meta_a or not meta_b:
+            return False
+        return meta_a.get("file_hash") == meta_b.get("file_hash") and meta_a.get(
+            "file_size"
+        ) == meta_b.get("file_size")
+
     """Менеджер операций над расписаниями в виде изображений.
 
     Отвечает за CRUD-операции над сущностью :class:`ScheduleImage`.
@@ -192,13 +208,19 @@ class ScheduleImageManager:
             id: Уникальный идентификатор расписания.
             schedule: Поля, подлежащие обновлению (обновляются
                 только переданные значения).
+            is_local: При ``True`` выполняет синхронизацию с локальным
+                каталогом изображений: если файл-источник изменился,
+                перезаписывает статическую копию и обновляет метаданные
+                изображения. Позволяет вызывать метод с пустым
+                ``schedule`` (только синхронизация файла).
 
         Returns:
             Обновлённое расписание в виде схемы :class:`ScheduleImageGet`.
 
         Raises:
             HTTPException: с кодом 400, если не передано ни одного поля
-                для обновления или нарушена целостность данных;
+                для обновления (и ``is_local=False``) или нарушена
+                целостность данных;
                 с кодом 404, если запись не найдена.
         """
         async with self.db.db_session() as session:
@@ -211,14 +233,37 @@ class ScheduleImageManager:
             image = data.get("image")
             if image:
                 meta = self.storage.read_file_metadata(image)
+                if meta is None:
+                    raise HTTPException(
+                        status_code=400, detail="Файл изображения не найден"
+                    )
                 data = {**data, **meta}
+            else:
+                image = schedule_image.image
             if is_local:
                 data["is_local"] = True
-                if not image:
-                    meta = self.storage.read_file_metadata(
-                        schedule_image.image, is_local=True
+                # Файл-источник лежит в каталоге локальных изображений под
+                # своим именем (без префикса пути из БД, например "local/").
+                local_filename = Path(image).name
+                meta_local = self.storage.read_file_metadata(
+                    local_filename, is_local=True
+                )
+                meta_static = self.storage.read_file_metadata(image, is_local=False)
+                if meta_local and not self._same_content(meta_local, meta_static):
+                    image_data = self.storage.read_file(local_filename, is_local=True)
+                    if image_data is None:
+                        raise HTTPException(
+                            status_code=400, detail="Ошибка чтения файла"
+                        )
+                    subdir, _, filename = image.rpartition("/")
+                    path = self.storage.save(
+                        image_data, filename, subdir, is_local=True
                     )
-                    data = {**data, **meta}
+                    if path != schedule_image.image:
+                        raise HTTPException(
+                            status_code=400, detail="Ошибка сохранения файла"
+                        )
+                    data.update(meta_local)
             updated_schedule = await self.image_repo.update(
                 session, schedule_image, data
             )

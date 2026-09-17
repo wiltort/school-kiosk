@@ -1,6 +1,6 @@
 [package]
 name = "school-kiosk"
-version = "0.1.0"
+version = "0.1.0-dev.1"
 description = "School Kiosk — desktop shell (Tauri v2)"
 edition = "2021"
 
@@ -17,6 +17,18 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
+
+# Автообновление приложения из своей ветки (dev/main).
+# Требует публичный minisign-ключ в tauri.conf.json и приватный ключ
+# в переменной окружения TAURI_SIGNING_PRIVATE_KEY при сборке.
+tauri-plugin-updater = "2"
+
+# Таймеры для периодической проверки обновлений (tauri::async_runtime::sleep
+# отсутствует, поэтому используем tokio time напрямую).
+tokio = { version = "1", features = ["time"] }
+
+# Разбор URL фида обновлений (updater.endpoints принимает url::Url).
+url = "2"
 
 # Сериализация для IPC-команд (admin.rs)
 serde = { version = "1", features = ["derive"] }

@@ -1,7 +1,8 @@
+import datetime
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Response, UploadFile, status
 
 from src.apps.schedule.managers import ScheduleImageManager
 from src.apps.schedule.schemas import (
@@ -49,15 +50,22 @@ async def create_schedule(
     "/", response_model=list[ScheduleImageGet], status_code=status.HTTP_200_OK
 )
 async def get_all_schedules(
-    manager: Annotated[ScheduleImageManager, Depends()],
+    response: Response,
+    manager: ScheduleImageManager = Depends(),
 ) -> list[ScheduleImageGet]:
+    # Метаданные расписания не должны кешироваться: клиент каждый раз должен
+    # видеть актуальное состояние (и, следовательно, свежий файл картинки).
+    response.headers["Cache-Control"] = "no-store"
     return await manager.get_all()
 
 
 @schedule_image_router.get("/{id}", response_model=ScheduleImageGet)
 async def get_schedule(
-    id: uuid.UUID, manager: ScheduleImageManager = Depends()
+    id: uuid.UUID,
+    response: Response,
+    manager: ScheduleImageManager = Depends(),
 ) -> ScheduleImageGet | None:
+    response.headers["Cache-Control"] = "no-store"
     return await manager.get(id)
 
 
@@ -75,3 +83,27 @@ async def delete_schedule(
     id: uuid.UUID, manager: ScheduleImageManager = Depends()
 ) -> None:
     return await manager.delete(id)
+
+
+local_schedule_image_router = APIRouter(
+    prefix="/schedule_images_local", tags=["local_schedule_images"]
+)
+
+
+@local_schedule_image_router.get(
+    "/", response_model=ScheduleImageGet, status_code=status.HTTP_200_OK
+)
+async def get_local_schedule(response: Response) -> ScheduleImageGet:
+    # Метаданные локального расписания не должны кешироваться, чтобы клиент
+    # каждый раз запрашивал актуальную версию файла изображения.
+    response.headers["Cache-Control"] = "no-store"
+    schedule = ScheduleImageGet(
+        id=uuid.uuid4(),
+        name="Локальное расписание",
+        image="1.jpg",
+        is_active=True,
+        day_of_week=1,
+        created_at=datetime.datetime.now(),
+        updated_at=datetime.datetime.now(),
+    )
+    return schedule

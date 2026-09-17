@@ -1,7 +1,19 @@
 """Общие фикстуры для тестирования бэкенда."""
 
+import asyncio
+import os
 import sys
+from collections import defaultdict
 from pathlib import Path
+
+# Чтобы юнит-тесты не зависели от наличия собранного фронтенда локально,
+# указываем несуществующий каталог SPA: корень тогда отдаёт JSON-health,
+# а не index.html. Ставим ДО импорта `src.main`, т.к. модуль `app` создаётся
+# при импорте и решает про SPA-раздачу в этот момент.
+os.environ.setdefault(
+    "SCHOOL_KIOSK_FRONTEND_DIR",
+    str(Path(__file__).resolve().parent / "__no_frontend_build__"),
+)
 
 import pytest
 import pytest_asyncio
@@ -28,13 +40,29 @@ class FakeImageStorage:
     def __init__(self) -> None:
         self.saved: list[tuple[bytes, str]] = []
         self.deleted: list[str] = []
+        self._locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
-    async def save(self, data: bytes, filename: str) -> str:
+    def save(
+        self,
+        data: bytes,
+        filename: str,
+        subdir: str = "",  # noqa: ARG002
+        is_local: bool = False,  # noqa: ARG002
+    ) -> str:
         self.saved.append((data, filename))
         return self.saved_path
 
     def delete(self, path: str) -> None:
         self.deleted.append(path)
+
+    def read_file_metadata(self, path: str, *args, **kwargs) -> dict:  # noqa: ARG002
+        return {"file_hash": f"{path}", "file_size": len(path), "mtime": 0.2}
+
+    def restore_file(self, path: str) -> bool:  # noqa: ARG002
+        return True
+
+    def lock(self, key: str) -> asyncio.Lock:
+        return self._locks[key]
 
 
 @pytest_asyncio.fixture(scope="session")

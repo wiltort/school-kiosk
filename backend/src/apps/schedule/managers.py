@@ -26,6 +26,7 @@ from src.core.storage import ImageStorage
 from src.enums.schedule import DayOfWeek
 from src.models import Lesson, ScheduleColumn, ScheduleTable
 from src.utils.decorators import handle_db_errors
+from src.utils.retry import with_retry_commit
 
 logger = getLogger(__name__)
 
@@ -60,6 +61,50 @@ class ScheduleImageManager:
         self.image_repo = image_repo
         self.storage = storage
 
+    async def _create(
+        self,
+        *,
+        data: bytes,
+        filename: str,
+        subdir: str,
+        payload: dict,
+        is_local: bool,
+    ) -> ScheduleImageGet:
+        lock_key = f"{subdir}/{filename}".lstrip("/")
+        lock = self.storage.lock(lock_key)
+
+        async with lock:
+            stored_path = self.storage.save(
+                data, filename, subdir=subdir, is_local=is_local
+            )
+            try:
+                meta = self.storage.read_file_metadata(stored_path)
+                if meta is None:
+                    raise HTTPException(500, "Не удалось прочитать файл")
+                payload = {**payload, "image": stored_path, **meta}
+
+                async with self.db.db_session() as session:
+                    if is_local:
+                        existing = await self.image_repo.get_local_by_name(
+                            session, payload["name"]
+                        )
+                        if existing:
+                            payload = {"image": stored_path, **meta}
+                            obj = await self.image_repo.update(
+                                session, existing, payload
+                            )
+                            await with_retry_commit(session)
+                            return ScheduleImageGet.model_validate(obj)
+                    obj = await self.image_repo.create(session, payload)
+                    await with_retry_commit(session)
+                    return ScheduleImageGet.model_validate(obj)
+            except Exception:
+                if is_local:
+                    self.storage.restore_file(stored_path)
+                else:
+                    self.storage.delete(stored_path)
+                raise
+
     @handle_db_errors
     async def create(
         self, schedule: ScheduleImageCreate, data: bytes, filename: str
@@ -78,15 +123,31 @@ class ScheduleImageManager:
             HTTPException: с кодом 400 при нарушении ограничений
                 целостности базы данных (например, дубликат).
         """
-        stored_path = await self.storage.save(data, filename)
+        payload = schedule.model_dump(exclude_none=True)
+        payload["is_local"] = False
+        return await self._create(
+            data=data, filename=filename, subdir="", payload=payload, is_local=False
+        )
 
-        async with self.db.db_session() as session:
-            schedule_data = schedule.model_dump(exclude_none=True)
-            schedule_data["image"] = stored_path
-
-            schedule_image = await self.image_repo.create(session, schedule_data)
-            await session.commit()
-            return ScheduleImageGet.model_validate(schedule_image)
+    @handle_db_errors
+    async def create_local(
+        self,
+        filename: str,
+        schedule: ScheduleImageCreate,
+    ) -> ScheduleImageGet:
+        """ """
+        data = self.storage.read_file(path=filename, is_local=True)
+        if data is None:
+            raise HTTPException(500, detail=f"Файл расписания {filename} не найден")
+        payload = schedule.model_dump(exclude_none=True)
+        payload["is_local"] = True
+        return await self._create(
+            data=data,
+            filename=filename,
+            subdir="local",
+            payload=payload,
+            is_local=True,
+        )
 
     @handle_db_errors
     async def get(self, id: uuid.UUID) -> ScheduleImageGet:
@@ -119,7 +180,7 @@ class ScheduleImageManager:
             Список всех расписаний в виде схем :class:`ScheduleImageGet`.
         """
         async with self.db.db_session() as session:
-            images = await self.image_repo.get_all(session)
+            images = await self.image_repo.list(session)
             return [ScheduleImageGet.model_validate(item) for item in images]
 
     @handle_db_errors
@@ -145,9 +206,15 @@ class ScheduleImageManager:
             data = schedule.model_dump(exclude_unset=True)
             if not data:
                 raise HTTPException(status_code=400, detail="Нет данных для обновления")
-            result = await self.image_repo.update(session, id, data)
-            await session.commit()
-            return ScheduleImageGet.model_validate(result)
+            schedule_image = await self.image_repo.get(session, id)
+            if not schedule_image:
+                raise HTTPException(status_code=404, detail="Запись не найдена")
+            data.get("image", schedule_image.image)
+            updated_schedule = await self.image_repo.update(
+                session, schedule_image, data
+            )
+            await with_retry_commit(session)
+            return ScheduleImageGet.model_validate(updated_schedule)
 
     async def delete(self, id: uuid.UUID) -> None:
         """Удаляет расписание-изображение по идентификатору.
@@ -159,10 +226,28 @@ class ScheduleImageManager:
             HTTPException: с кодом 404, если запись не найдена.
         """
         async with self.db.db_session() as session:
-            result = await self.image_repo.delete(session, id)
-            if result.rowcount == 0:
+            schedule = await self.image_repo.get(session, id)
+            if not schedule:
                 raise HTTPException(status_code=404, detail="Расписание не найдено")
-            await session.commit()
+            await self.image_repo.delete(session, schedule)
+            await with_retry_commit(session)
+
+    async def local_sync(self, filename: str) -> bool:
+        path = f"local/{filename}"
+        async with self.db.db_session() as session:
+            existing = await self.image_repo.get_by_path(
+                session, path, is_local=True, is_active=True
+            )
+        if not existing:
+            schedule_data = ScheduleImageCreate(
+                name=filename,
+            )
+            await self.create_local(
+                filename=filename,
+                schedule=schedule_data,
+            )
+            return True
+        return False
 
 
 class ScheduleTableManager:

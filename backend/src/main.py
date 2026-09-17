@@ -2,12 +2,15 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.apps import apps_router
+from src.apps.admin import autostart
 from src.core.config import settings
 from src.core.database import get_db_dependency
-from src.models import Base
+from src.core.migrations import apply_schema
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +26,12 @@ def _init_logging():
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001 — required by FastAPI lifespan signature
     db = get_db_dependency()
-    async with db.db_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if db.db_engine is not None:
+        # Автоприменение Alembic-миграций + создание недостающих таблиц. Нужно
+        # выполнять до начала обслуживания запросов, чтобы после автообновления
+        # (которое меняет только исполняемые файлы) схема БД соответствовала
+        # новой версии кода.
+        await apply_schema(db.db_engine)
     _init_logging()
     yield
     await db.db_engine.dispose()
@@ -39,20 +46,84 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # CORS: собранное приложение (Tauri WebView) обращается к бэкенду по
+    # абсолютному URL из origin "http://tauri.localhost". Это локальный киоск,
+    # поэтому разрешаем все origin. В dev-режиме запросы идут через Vite-прокси
+    # (same-origin) и CORS не требуется, но middleware не мешает.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     app.include_router(apps_router)
 
-    settings.upload_dir.mkdir(parents=True, exist_ok=True)
+    settings.static_dir.mkdir(parents=True, exist_ok=True)
     app.mount(
         settings.upload_url,
-        StaticFiles(directory=str(settings.upload_dir)),
+        StaticFiles(directory=str(settings.static_dir)),
         name="uploads",
     )
 
-    @app.get("/", tags=["root"])
-    def root():
-        return {"message": "Backend service is running."}
+    # Самовосстановление автозагрузки: если в настройках она включена,
+    # применяем её и после перезапуска бэкенда (ключ в реестре Windows).
+    if autostart.is_supported() and settings.app_settings.autostart():
+        autostart.set_enabled(True)
+
+    _mount_spa(app)
 
     return app
+
+
+def _mount_spa(app: FastAPI) -> None:
+    """Раздаёт собранный фронтенд (SPA) по HTTP, если он собран.
+
+    Каталог фронтенда берётся из `settings.frontend_dir` (см. config.py).
+    Если `index.html` отсутствует — считаем, что фронтенд не собран
+    (например, чистый dev-бэкенд за Vite), и оставляем корень как
+    health-ответ JSON.
+    """
+    index_file = settings.frontend_dir / "index.html"
+    if not index_file.is_file():
+
+        @app.get("/", tags=["root"])
+        def root():
+            return {"message": "Backend service is running."}
+
+        return
+
+    assets_dir = settings.frontend_dir / "assets"
+    if assets_dir.is_dir():
+        app.mount(
+            "/assets",
+            StaticFiles(directory=str(assets_dir)),
+            name="assets",
+        )
+
+    # index.html не кэшируется: после автообновления WebView должен сразу
+    # получить новый бандл с актуальной версией, а не старый из HTTP-кэша.
+    # Сами ассеты (assets/*) имеют хеши в имени файла, поэтому их кэширование
+    # безопасно — менять его не нужно.
+    spa_headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+
+    @app.get("/", include_in_schema=False)
+    def root_spa():
+        return FileResponse(index_file, headers=spa_headers)
+
+    # SPA-fallback: любой не-API путь (история/клиентская навигация) отдаёт
+    # index.html. Монтированные ранее маршруты (API, uploads, assets) имеют
+    # приоритет и обрабатываются раньше этого catch-all.
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa_fallback(full_path: str):
+        if full_path.startswith("api/"):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        return FileResponse(index_file, headers=spa_headers)
 
 
 app = create_app()

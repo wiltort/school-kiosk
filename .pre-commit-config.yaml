@@ -1,0 +1,92 @@
+# Единый pre-commit для всего монорепо: Python-бэкенд, TS/React-фронтенд и Tauri (Rust).
+# Установка: make pre-commit-install   (из корня репозитория)
+# Запуск вручную: make pre-commit      (по всем файлам)
+default_language_version:
+  python: python3.14
+
+repos:
+  # ---------- Общие хуки (работают на любых файлах) ----------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=500]
+        exclude: '\.icns$'
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=auto]
+
+  # ---------- Python (backend) ----------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.1
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # ---------- Локальные хуки (system) ----------
+  - repo: local
+    hooks:
+      # --- Python ---
+      - id: pytest-unit
+        name: pytest (unit)
+        description: Run unit tests (fast, no external dependencies)
+        entry: cmd /c "poetry -C backend run pytest tests/unit -v --tb=short --no-header || exit /b 0"
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      # --- Frontend (TypeScript/React) ---
+      # Запускаются только когда затронуты файлы frontend/.
+      # Требуют установленных зависимостей: cd frontend && npm install
+      - id: frontend-typecheck
+        name: frontend typecheck (tsc)
+        description: Проверка типов TypeScript без эмита (tsc --noEmit)
+        entry: cmd /c "cd frontend && npm run typecheck || exit /b 1"
+        language: system
+        files: ^frontend/.*\.(ts|tsx|json)$
+        pass_filenames: false
+
+      - id: frontend-lint
+        name: frontend lint (eslint)
+        description: Линтер ESLint для TS/TSX (включая react-hooks)
+        entry: cmd /c "cd frontend && npm run lint || exit /b 1"
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+
+      - id: frontend-format
+        name: frontend format check (prettier)
+        description: "Проверка форматирования Prettier (автофикс: npm run format)"
+        entry: cmd /c "cd frontend && npm run format:check || exit /b 1"
+        language: system
+        files: ^frontend/.*\.(ts|tsx|css|json)$
+        pass_filenames: false
+
+      # --- Tauri (Rust) ---
+      # Запускаются только когда затронуты src-tauri/*.rs.
+      # cargo test в pre-commit намеренно НЕ добавлен (долгая компиляция) — для CI.
+      - id: rust-fmt
+        name: rust fmt check (cargo fmt)
+        description: Проверка форматирования Rust (cargo fmt --check)
+        entry: cmd /c "cd src-tauri && cargo fmt --check || exit /b 1"
+        language: system
+        files: ^src-tauri/.*\.rs$
+        pass_filenames: false
+
+      - id: rust-clippy
+        name: rust clippy (cargo clippy)
+        description: Линтер Clippy со строгими предупреждениями (-D warnings)
+        entry: cmd /c "cd src-tauri && cargo clippy --all-targets -- -D warnings || exit /b 1"
+        language: system
+        files: ^src-tauri/.*\.rs$
+        pass_filenames: false

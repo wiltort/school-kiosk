@@ -19,3 +19,24 @@ def test_base_dir_resolved():
     assert (BASE_DIR / "pyproject.toml").exists()
     assert (BASE_DIR / "src").exists()
     assert (BASE_DIR / "tests").exists()
+
+
+def test_static_dir_defaults_under_data_dir(monkeypatch, tmp_path):
+    """По умолчанию статика лежит внутри каталога данных (`data/uploads`)."""
+    monkeypatch.delenv("SCHOOL_KIOSK_STATIC_DIR", raising=False)
+    # Изолируем data_dir во временный каталог, чтобы локальный файл
+    # `backend/.tmp-data/settings.json` (созданный локальным запуском) не влиял.
+    monkeypatch.setenv("SCHOOL_KIOSK_DATA_DIR", str(tmp_path))
+    settings = Settings()
+    assert settings.static_dir == tmp_path / "uploads"
+
+
+def test_static_dir_from_env(monkeypatch, tmp_path):
+    """Переменная SCHOOL_KIOSK_STATIC_DIR переопределяет каталог статики."""
+    target = tmp_path / "kiosk-static"
+    # Изолируем data_dir, чтобы локальный settings.json не влиял на приоритет:
+    # без файла настроек значение берётся из env.
+    monkeypatch.setenv("SCHOOL_KIOSK_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("SCHOOL_KIOSK_STATIC_DIR", str(target))
+    settings = Settings()
+    assert settings.static_dir == target

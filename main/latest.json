@@ -1,0 +1,11 @@
+{
+  "version": "0.1.0-main.20",
+  "notes": "",
+  "pub_date": "2026-09-17T07:17:30Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVXVEMnV1S0JDQUJadW4rSWNXSE9ZTzJXdmdJdGpTa2YyNmFTdzlscjQvaktxN05IMG9sTUJFbXR1VGRqL0h4eVRvLzFENXZUOTRwTWY0MHRDTU5FTm1aSjliMnNUaWdFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NjI5NDMwCWZpbGU6U2Nob29sIEtpb3NrXzAuMS4wLW1haW4uMjBfeDY0LXNldHVwLmV4ZQphU2xpK0lURUgxbHMvWXZuaWdVeHNDQkNUMExUc2dFa3VKLzRkREFtTmhPMjdVT3J5OUN3L0lFMDJrYjNvcFhRQzFTOHViSTN2UGpvQXhta0RSaDVEZz09Cg==",
+      "url": "https://github.com/wiltort/school-kiosk/releases/download/main-v0.1.0-main.20/School.Kiosk_0.1.0-main.20_x64-setup.exe"
+    }
+  }
+}

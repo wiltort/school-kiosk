@@ -2,7 +2,9 @@
 
 import uuid
 
+import pytest
 from sqlalchemy import Boolean, String
+from src.apps.schedule.repositories import ScheduleImageRepository
 from src.enums.schedule import DayOfWeek
 from src.models.schedule import ScheduleImage
 
@@ -113,3 +115,26 @@ def test_schedule_image_repr():
     image = ScheduleImage(id=uuid.uuid4(), name="Weekday schedule")
 
     assert repr(image) == f"ScheduleImage(id={image.id}, name=Weekday schedule)"
+
+
+@pytest.mark.asyncio
+async def test_repository_get_populate_existing_bypasses_identity_map(
+    async_session_maker,
+):
+    """get(populate_existing=True) читает данные из БД, минуя identity map."""
+    repo = ScheduleImageRepository()
+    async with async_session_maker() as session:
+        image = ScheduleImage(image="a.png")
+        session.add(image)
+        await session.commit()
+
+        loaded = await repo.get(session, image.id)
+        assert loaded is not None and loaded.name == "Untitled"
+
+        loaded.name = "Dirty"  # грязное изменение без flush
+        cached = await repo.get(session, image.id)
+        assert cached is loaded  # identity map вернул тот же объект
+
+        fresh = await repo.get(session, image.id, populate_existing=True)
+        assert fresh is loaded  # тот же экземпляр, но атрибуты перечитаны
+        assert fresh.name == "Untitled"

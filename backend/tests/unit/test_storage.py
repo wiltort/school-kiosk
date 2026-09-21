@@ -4,6 +4,7 @@
 в тестах передаём временные каталоги (``tmp_path``) и не зависим от настроек.
 """
 
+import asyncio
 import hashlib
 from datetime import datetime
 
@@ -192,3 +193,40 @@ def test_restore_file_moves_from_backup(storage: ImageStorage):
 
 def test_restore_file_returns_false_when_no_backup(storage: ImageStorage):
     assert storage.restore_file("2026-09/nope.jpg") is False
+
+
+@pytest.mark.asyncio
+async def test_lock_creates_lock_file(storage: ImageStorage):
+    """lock() возвращает блокировку, создающую файл в каталоге блокировок."""
+    lock = storage.lock("local/current.jpg")
+    async with lock:
+        digest = hashlib.sha256(b"local/current.jpg").hexdigest()
+        assert (storage._locks_dir / f"{digest}.lock").is_file()
+
+
+@pytest.mark.asyncio
+async def test_lock_can_be_reacquired_after_release(storage: ImageStorage):
+    """После выхода из контекста блокировка освобождается."""
+    lock = storage.lock("local/current.jpg")
+    async with lock:
+        pass
+    # Повторный захват не должен зависнуть.
+    async with lock:
+        pass
+
+
+@pytest.mark.asyncio
+async def test_lock_serializes_acquisitions_for_same_key(storage: ImageStorage):
+    """Два захвата одного ключа не пересекаются во времени."""
+    lock = storage.lock("local/current.jpg")
+    order: list[str] = []
+
+    async def worker(tag: str) -> None:
+        async with lock:
+            order.append(f"{tag}-start")
+            await asyncio.sleep(0.02)
+            order.append(f"{tag}-end")
+
+    await asyncio.gather(worker("a"), worker("b"))
+
+    assert order == ["a-start", "a-end", "b-start", "b-end"]

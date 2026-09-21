@@ -400,3 +400,129 @@ async def test_update_image_missing_in_storage_raises_400(manager_factory):
         await manager.update(created.id, ScheduleImageUpdate(image="local/ghost.png"))
 
     assert excinfo.value.status_code == 400
+
+
+class _DeletingLock:
+    """Обёртка над asyncio.Lock, выполняющая побочное действие при захвате."""
+
+    def __init__(self, inner: asyncio.Lock, on_acquire) -> None:
+        self._inner = inner
+        self._on_acquire = on_acquire
+
+    async def __aenter__(self):
+        await self._inner.__aenter__()
+        await self._on_acquire()
+
+    async def __aexit__(self, *args):
+        return await self._inner.__aexit__(*args)
+
+
+class ConcurrentDeleteStorage(LocalSyncStorage):
+    """Хранилище, удаляющее запись из БД в момент взятия лока."""
+
+    def __init__(self, delete_callback, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._delete_callback = delete_callback
+
+    def lock(self, key: str) -> _DeletingLock:
+        return _DeletingLock(super().lock(key), self._delete_callback)
+
+
+class FailingMetaStorage(LocalSyncStorage):
+    """Хранилище, возвращающее None для метаданных пути после N-го чтения.
+
+    Позволяет имитировать ошибку сразу после ``save`` и проверить откат
+    файловых операций в ``update``.
+    """
+
+    def __init__(self, fail_path: str, fail_after: int = 1, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.fail_path = fail_path
+        self.fail_after = fail_after
+        self._meta_reads: dict[str, int] = defaultdict(int)
+        self.restored: list[str] = []
+        self.deleted: list[str] = []
+
+    def restore_file(self, path: str) -> bool:
+        self.restored.append(path)
+        return True
+
+    def delete(self, path: str) -> None:
+        self.deleted.append(path)
+
+    def read_file_metadata(self, path: str, is_local: bool = False) -> dict | None:
+        if path == self.fail_path and not is_local:
+            self._meta_reads[path] += 1
+            if self._meta_reads[path] >= self.fail_after:
+                return None
+        return super().read_file_metadata(path, is_local=is_local)
+
+
+@pytest.mark.asyncio
+async def test_update_rereads_fresh_state_after_lock(
+    manager_factory, async_session_maker
+):
+    """Перечитывание под локом видит изменения других транзакций.
+
+    Если запись удалена между первым чтением и взятием лока, update должен
+    вернуть 404, а не продолжать работу с устаревшим объектом из identity map.
+    """
+    deleted_id = None
+
+    async def delete_record() -> None:
+        if deleted_id is None:
+            return
+        async with async_session_maker() as session:
+            obj = await session.get(ScheduleImage, deleted_id)
+            if obj is not None:
+                await session.delete(obj)
+                await session.commit()
+
+    storage = ConcurrentDeleteStorage(delete_record)
+    manager = _make_manager(manager_factory, storage)
+    created = await _create_local(manager)
+    deleted_id = created.id
+
+    with pytest.raises(Exception) as excinfo:
+        await manager.update(created.id, ScheduleImageUpdate(), is_local=True)
+
+    assert excinfo.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_update_rollback_deletes_new_file_on_failure(manager_factory):
+    """Ошибка после сохранения нового файла (переименование): новый файл
+    удаляется, прежний не трогается."""
+    storage = FailingMetaStorage(fail_path="local/new_name.jpg")
+    manager = _make_manager(manager_factory, storage)
+    created = await _create_local(manager)
+
+    with pytest.raises(Exception) as excinfo:
+        await manager.update(
+            created.id, ScheduleImageUpdate(), is_local=True, filename="new_name.jpg"
+        )
+
+    assert excinfo.value.status_code == 400
+    assert storage.deleted == ["local/new_name.jpg"]
+    assert storage.restored == []
+
+
+@pytest.mark.asyncio
+async def test_update_rollback_restores_overwritten_file_on_failure(manager_factory):
+    """Ошибка после перезаписи того же файла: предыдущая версия восстанавливается
+    из backup, новый файл не удаляется."""
+    storage = FailingMetaStorage(fail_path="local/current_schedule.jpg", fail_after=2)
+    manager = _make_manager(manager_factory, storage)
+    created = await _create_local(manager)
+
+    with pytest.raises(Exception) as excinfo:
+        await manager.update(
+            created.id,
+            ScheduleImageUpdate(),
+            is_local=True,
+            filename="current_schedule.jpg",
+        )
+
+    assert excinfo.value.status_code == 400
+    assert storage.restored == ["local/current_schedule.jpg"]
+    assert storage.deleted == []

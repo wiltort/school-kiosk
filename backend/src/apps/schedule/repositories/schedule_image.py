@@ -18,17 +18,25 @@ class ScheduleImageRepository:
 
     model = ScheduleImage
 
-    async def get(self, session: AsyncSession, id: uuid.UUID) -> ScheduleImage | None:
+    async def get(
+        self,
+        session: AsyncSession,
+        id: uuid.UUID,
+        *,
+        populate_existing: bool = False,
+    ) -> ScheduleImage | None:
         """Возвращает изображение расписания по идентификатору.
 
         Args:
             session: Активная асинхронная сессия базы данных.
             id: Уникальный идентификатор изображения.
+            populate_existing: При ``True`` выполняет реальный SELECT из БД,
+                не полагаясь на кеш identity map сессии.
 
         Returns:
             Найденное изображение либо ``None``, если запись отсутствует.
         """
-        return await session.get(self.model, id)
+        return await session.get(self.model, id, populate_existing=populate_existing)
 
     async def create(self, session: AsyncSession, data: dict) -> ScheduleImage:
         """Создаёт новое изображение расписания.

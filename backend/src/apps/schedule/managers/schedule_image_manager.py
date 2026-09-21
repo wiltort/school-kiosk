@@ -13,6 +13,7 @@ from src.apps.schedule.schemas import (
 from src.core.database import DBDependency, get_db_dependency
 from src.core.storage import ImageStorage
 from src.utils.decorators import handle_db_errors
+from src.utils.locking import maybe_lock
 from src.utils.retry import with_retry_commit
 
 logger = getLogger(__name__)
@@ -200,7 +201,12 @@ class ScheduleImageManager:
 
     @handle_db_errors
     async def update(
-        self, id: uuid.UUID, schedule: ScheduleImageUpdate, is_local: bool = False
+        self,
+        id: uuid.UUID,
+        schedule: ScheduleImageUpdate,
+        is_local: bool = False,
+        filename: str | None = None,
+        # file_data: bytes | None = None,
     ) -> ScheduleImageGet:
         """Обновляет расписание-изображение по идентификатору.
 
@@ -231,43 +237,58 @@ class ScheduleImageManager:
             if not schedule_image:
                 raise HTTPException(status_code=404, detail="Запись не найдена")
             image = data.get("image")
+            lock_key = None
+            locking = False
             if image:
-                meta = self.storage.read_file_metadata(image)
-                if meta is None:
-                    raise HTTPException(
-                        status_code=400, detail="Файл изображения не найден"
+                lock_key = image
+                locking = True
+            elif is_local:
+                locking = True
+                lock_key = f"local/{filename}" if filename else schedule_image.image
+            lock = self.storage.lock(lock_key) if lock_key else None
+
+            image = data.get("image")
+
+            async with maybe_lock(lock, use_lock=locking):
+                if image:
+                    meta = self.storage.read_file_metadata(image)
+                    if meta is None:
+                        raise HTTPException(
+                            status_code=400, detail="Файл изображения не найден"
+                        )
+                    data = {**data, **meta}
+                else:
+                    image = schedule_image.image
+                if is_local:
+                    data["is_local"] = True
+                    # Файл-источник лежит в каталоге локальных изображений под
+                    # своим именем (без префикса пути из БД, например "local/").
+                    local_filename = Path(image).name
+                    meta_local = self.storage.read_file_metadata(
+                        local_filename, is_local=True
                     )
-                data = {**data, **meta}
-            else:
-                image = schedule_image.image
-            if is_local:
-                data["is_local"] = True
-                # Файл-источник лежит в каталоге локальных изображений под
-                # своим именем (без префикса пути из БД, например "local/").
-                local_filename = Path(image).name
-                meta_local = self.storage.read_file_metadata(
-                    local_filename, is_local=True
+                    meta_static = self.storage.read_file_metadata(image, is_local=False)
+                    if meta_local and not self._same_content(meta_local, meta_static):
+                        image_data = self.storage.read_file(
+                            local_filename, is_local=True
+                        )
+                        if image_data is None:
+                            raise HTTPException(
+                                status_code=400, detail="Ошибка чтения файла"
+                            )
+                        subdir, _, filename = image.rpartition("/")
+                        path = self.storage.save(
+                            image_data, filename, subdir, is_local=True
+                        )
+                        if path != schedule_image.image:
+                            raise HTTPException(
+                                status_code=400, detail="Ошибка сохранения файла"
+                            )
+                        data.update(meta_local)
+                updated_schedule = await self.image_repo.update(
+                    session, schedule_image, data
                 )
-                meta_static = self.storage.read_file_metadata(image, is_local=False)
-                if meta_local and not self._same_content(meta_local, meta_static):
-                    image_data = self.storage.read_file(local_filename, is_local=True)
-                    if image_data is None:
-                        raise HTTPException(
-                            status_code=400, detail="Ошибка чтения файла"
-                        )
-                    subdir, _, filename = image.rpartition("/")
-                    path = self.storage.save(
-                        image_data, filename, subdir, is_local=True
-                    )
-                    if path != schedule_image.image:
-                        raise HTTPException(
-                            status_code=400, detail="Ошибка сохранения файла"
-                        )
-                    data.update(meta_local)
-            updated_schedule = await self.image_repo.update(
-                session, schedule_image, data
-            )
-            await with_retry_commit(session)
+                await with_retry_commit(session)
             return ScheduleImageGet.model_validate(updated_schedule)
 
     async def delete(self, id: uuid.UUID) -> None:

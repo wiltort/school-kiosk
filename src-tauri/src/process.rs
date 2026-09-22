@@ -59,6 +59,34 @@ impl Drop for BackendProcess {
     }
 }
 
+/// Вычитывает stdout/stderr дочернего процесса в фоновых потоках.
+///
+/// Без этого каналы (буфер ~64 КБ) рано или поздно переполняются, и бэкенд
+/// блокируется на записи в stderr — выглядит как «зависший» процесс. Свой лог
+/// Python-бэкенд пишет в файл (`<data_dir>/logs/backend.log`), сюда попадают
+/// лишь остатки вывода (uvicorn и т.п.), поэтому строки просто выводим
+/// в stderr оболочки.
+fn drain_child_output(mut child: Child) -> Child {
+    if let Some(reader) = child.stdout.take() {
+        drain_pipe(reader, "stdout");
+    }
+    if let Some(reader) = child.stderr.take() {
+        drain_pipe(reader, "stderr");
+    }
+    child
+}
+
+/// Читает переданный pipe до EOF в отдельном потоке.
+fn drain_pipe<R: io::Read + Send + 'static>(reader: R, label: &'static str) {
+    std::thread::spawn(move || {
+        use std::io::{BufRead, BufReader};
+        let mut lines = BufReader::new(reader).lines();
+        while let Some(Ok(line)) = lines.next() {
+            eprintln!("[backend:{label}] {line}");
+        }
+    });
+}
+
 /// Запускает Python-бэкенд.
 ///
 /// Приоритет:
@@ -72,7 +100,8 @@ fn spawn_backend(app: &AppHandle) -> io::Result<Child> {
     if backend_command_override() {
         let mut cmd = Command::new(backend_command());
         cmd.args(backend_args());
-        return cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn();
+        let child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+        return Ok(drain_child_output(child));
     }
 
     #[cfg(debug_assertions)]
@@ -88,7 +117,8 @@ fn spawn_backend(app: &AppHandle) -> io::Result<Child> {
             &BACKEND_PORT.to_string(),
         ]);
         apply_runtime_env(&mut cmd, app);
-        cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()
+        let child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+        Ok(drain_child_output(child))
     }
 
     #[cfg(not(debug_assertions))]
@@ -148,7 +178,8 @@ fn spawn_packaged_backend(app: &AppHandle) -> io::Result<Child> {
         // Каталог собранного SPA, который бэкенд раздаёт по HTTP (см. config.py).
         .env("SCHOOL_KIOSK_FRONTEND_DIR", &frontend_dir);
     apply_runtime_env(&mut cmd, app);
-    cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()
+    let child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    Ok(drain_child_output(child))
 }
 
 /// Каталог данных приложения (БД и загрузки изображений) — используется в

@@ -127,14 +127,47 @@ async def run_migrations(engine: AsyncEngine) -> None:
 
     Должна вызываться до ``Base.metadata.create_all`` (внутри ``apply_schema``),
     чтобы ``stamp``/``upgrade`` не конфликтовали с созданием таблиц.
+
+    Raises:
+        FileNotFoundError: если в сборке отсутствуют ресурсы Alembic
+            (``alembic.ini`` или каталог ``alembic/``) — вызывающий код может
+            переключиться на фолбэк ``create_all``.
     """
+    base = _resource_dir()
+    ini = base / "alembic.ini"
+    scripts = base / "alembic"
+    logger.info(
+        "Ресурсы миграций: ini=%s (есть=%s), scripts=%s (есть=%s), frozen=%s",
+        ini,
+        ini.is_file(),
+        scripts,
+        (scripts / "env.py").is_file(),
+        getattr(sys, "frozen", False),
+    )
+    if not ini.is_file() or not (scripts / "env.py").is_file():
+        raise FileNotFoundError(
+            "Ресурсы Alembic отсутствуют в сборке: "
+            f"ini={ini}, scripts={scripts}. "
+            "Проверьте, что PyInstaller собирается с --add-data "
+            "(alembic;alembic и alembic.ini;.)."
+        )
+
     cfg = _make_config()
+    db_path = _sqlite_file(engine)
+    logger.info(
+        "Файл БД: %s (существует=%s, размер=%s байт)",
+        db_path,
+        db_path.exists() if db_path else None,
+        db_path.stat().st_size if db_path and db_path.exists() else 0,
+    )
+
     head = _head_revision(cfg)
     if head is None:
         logger.warning("В проекте нет миграций Alembic — пропускаю автозапуск")
         return
 
     has_version_table = await _table_exists(engine, "alembic_version")
+    logger.info("alembic_version существует: %s", has_version_table)
 
     if not has_version_table:
         # Пустая БД либо БД, созданная ранее только через create_all: схема
@@ -160,7 +193,21 @@ async def run_migrations(engine: AsyncEngine) -> None:
 
 async def apply_schema(engine: AsyncEngine) -> None:
     """Приводит БД к актуальному состоянию: миграции + создание недостающих
-    таблиц через metadata (фолбэк для пустой БД)."""
-    await run_migrations(engine)
+    таблиц через metadata (фолбэк для пустой БД).
+
+    Если Alembic-миграции недоступны или падают (например, в бинарной сборке
+    не оказалось ресурсов alembic), приложение не роняем: логируем ошибку и
+    выполняем хотя бы ``Base.metadata.create_all``. На пустой БД это создаст все
+    таблицы, и киоск сможет стартовать. Реальные ALTER-миграции в такой
+    ситуации будут пропущены — об этом громко предупреждаем в логе.
+    """
+    try:
+        await run_migrations(engine)
+    except Exception:
+        logger.exception(
+            "Не удалось применить Alembic-миграции — фолбэк на "
+            "Base.metadata.create_all (без ALTER-миграций). Проверьте наличие "
+            "alembic-ресурсов в сборке."
+        )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

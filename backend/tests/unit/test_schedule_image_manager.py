@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import uuid
 from collections import defaultdict
+from datetime import UTC
 
 import pytest
 from sqlalchemy import select
@@ -342,18 +343,21 @@ async def test_update_is_local_noop_when_file_unchanged(manager_factory):
 
 @pytest.mark.asyncio
 async def test_update_is_local_missing_source_skips_sync(manager_factory):
-    """Синхронизация пропускается без ошибки, если файл-источник исчез."""
+    """Синхронизация откатывается с ошибкой, если файл-источник исчез."""
     storage = LocalSyncStorage(local_data=b"local-v1")
     manager = _make_manager(manager_factory, storage)
     created = await _create_local(manager)
 
     storage.local_missing = True
     saves_before = len(storage.saved)
+    with pytest.raises(Exception) as excinfo:
+        await manager.update(created.id, ScheduleImageUpdate(), is_local=True)
+    assert excinfo.value.status_code == 400
 
-    updated = await manager.update(created.id, ScheduleImageUpdate(), is_local=True)
-
+    updated = await manager.get(created.id)
     assert len(storage.saved) == saves_before
     assert updated.image == created.image
+    assert updated.updated_at.replace(tzinfo=UTC) == created.updated_at
 
 
 @pytest.mark.asyncio
@@ -451,7 +455,8 @@ class FailingMetaStorage(LocalSyncStorage):
         self.deleted.append(path)
 
     def read_file_metadata(self, path: str, is_local: bool = False) -> dict | None:
-        if path == self.fail_path and not is_local:
+        path = f"local/{path}" if is_local else path
+        if path == self.fail_path:
             self._meta_reads[path] += 1
             if self._meta_reads[path] >= self.fail_after:
                 return None
@@ -490,9 +495,8 @@ async def test_update_rereads_fresh_state_after_lock(
 
 
 @pytest.mark.asyncio
-async def test_update_rollback_deletes_new_file_on_failure(manager_factory):
-    """Ошибка после сохранения нового файла (переименование): новый файл
-    удаляется, прежний не трогается."""
+async def test_update_new_local_file_failure(manager_factory):
+    """Ошибка после сохранения нового файла для локального расписания."""
     storage = FailingMetaStorage(fail_path="local/new_name.jpg")
     manager = _make_manager(manager_factory, storage)
     created = await _create_local(manager)
@@ -503,12 +507,11 @@ async def test_update_rollback_deletes_new_file_on_failure(manager_factory):
         )
 
     assert excinfo.value.status_code == 400
-    assert storage.deleted == ["local/new_name.jpg"]
-    assert storage.restored == []
+    assert excinfo.value.detail == "Невозможно заменить файл у локального расписания"
 
 
 @pytest.mark.asyncio
-async def test_update_rollback_restores_overwritten_file_on_failure(manager_factory):
+async def test_update_local_file_failure(manager_factory):
     """Ошибка после перезаписи того же файла: предыдущая версия восстанавливается
     из backup, новый файл не удаляется."""
     storage = FailingMetaStorage(fail_path="local/current_schedule.jpg", fail_after=2)
@@ -520,9 +523,6 @@ async def test_update_rollback_restores_overwritten_file_on_failure(manager_fact
             created.id,
             ScheduleImageUpdate(),
             is_local=True,
-            filename="current_schedule.jpg",
         )
 
     assert excinfo.value.status_code == 400
-    assert storage.restored == ["local/current_schedule.jpg"]
-    assert storage.deleted == []

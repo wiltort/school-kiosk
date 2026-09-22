@@ -1,12 +1,97 @@
 import asyncio
 import hashlib
+import os
 import shutil
+import time
 import uuid
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
 from src.core.config import settings
+
+
+def _lock_file_exclusive(fd: int) -> None:
+    """Захватывает эксклюзивную файловую блокировку (межпроцессную).
+
+    На Windows используется ``msvcrt.locking`` (блокировка одного байта),
+    на POSIX — ``fcntl.flock``. Функция блокирующая, поэтому вызывается
+    через ``asyncio.to_thread``, чтобы не блокировать event loop.
+    """
+    if os.name == "nt":
+        import msvcrt
+
+        os.ftruncate(fd, 1)
+        os.lseek(fd, 0, os.SEEK_SET)
+        deadline = time.monotonic() + 30.0
+        while True:
+            try:
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                return
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.05)
+    else:
+        import fcntl
+
+        fcntl.flock(fd, fcntl.LOCK_EX)
+
+
+def _unlock_file(fd: int) -> None:
+    if os.name == "nt":
+        import msvcrt
+
+        os.lseek(fd, 0, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+    else:
+        import fcntl
+
+        fcntl.flock(fd, fcntl.LOCK_UN)
+
+
+class ProcessSafeLock:
+    """Асинхронная блокировка по ключу.
+
+    Сочетает внутрипроцессный ``asyncio.Lock`` (быстрый путь без системных
+    вызовов) и файловую блокировку (msvcrt/fcntl) для согласованности между
+    процессами — например, между HTTP-запросами и задачей синхронизации.
+
+    Реализует протокол асинхронного контекстного менеджера и поэтому может
+    использоваться в ``maybe_lock`` вместо обычного ``asyncio.Lock``.
+    """
+
+    def __init__(self, local: asyncio.Lock, lock_file: Path) -> None:
+        self._local = local
+        self._lock_file = lock_file
+        self._fd: int | None = None
+
+    async def __aenter__(self) -> ProcessSafeLock:
+        await self._local.acquire()
+        try:
+            self._lock_file.parent.mkdir(parents=True, exist_ok=True)
+            fd = os.open(self._lock_file, os.O_CREAT | os.O_RDWR)
+        except BaseException:
+            self._local.release()
+            raise
+        try:
+            await asyncio.to_thread(_lock_file_exclusive, fd)
+        except BaseException:
+            os.close(fd)
+            self._local.release()
+            raise
+        self._fd = fd
+        return self
+
+    async def __aexit__(self, _exc_type, _exc, _tb) -> None:
+        fd, self._fd = self._fd, None
+        try:
+            if fd is not None:
+                await asyncio.to_thread(_unlock_file, fd)
+        finally:
+            if fd is not None:
+                os.close(fd)
+            self._local.release()
 
 
 class ImageStorage:
@@ -25,10 +110,18 @@ class ImageStorage:
         self._base = (base_dir or settings.static_dir / "schedule_images").resolve()
         self._local_dir = (local_dir or settings.local_image_dir).resolve()
         self._backup_dir = (backup_dir or settings.data_dir / "backup").resolve()
+        self._locks_dir = self._backup_dir.parent / "locks"
         self._locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
-    def lock(self, key: str) -> asyncio.Lock:
-        return self._locks[key]
+    def lock(self, key: str) -> ProcessSafeLock:
+        """Возвращает блокировку по ключу.
+
+        Один и тот же ключ всегда даёт один и тот же ``asyncio.Lock``
+        (сериализация внутри процесса) и один файл блокировки
+        (сериализация между процессами).
+        """
+        digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
+        return ProcessSafeLock(self._locks[key], self._locks_dir / f"{digest}.lock")
 
     def _safe_join(self, base: Path, *parts: str | Path) -> Path | None:
         candidate = (base / Path(*parts)).resolve()

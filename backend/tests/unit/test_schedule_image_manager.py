@@ -124,10 +124,10 @@ class MissingStaticStorage(LocalSyncStorage):
         return self._meta(self.static_data)
 
 
-async def _create_local(manager, **overrides) -> None:
+async def _create_local(manager, filename: str | None = None, **overrides) -> None:
     return await manager.create_local(
-        filename="current_schedule.jpg",
-        schedule=_sample_create(name="Локальное", **overrides),
+        filename=filename or "current_schedule.jpg",
+        schedule=_sample_create(**overrides),
     )
 
 
@@ -460,6 +460,8 @@ class FailingMetaStorage(LocalSyncStorage):
             self._meta_reads[path] += 1
             if self._meta_reads[path] >= self.fail_after:
                 return None
+        if is_local:
+            self.local_data += b"1"
         return super().read_file_metadata(path, is_local=is_local)
 
 
@@ -514,15 +516,17 @@ async def test_update_new_local_file_failure(manager_factory):
 async def test_update_local_file_failure(manager_factory):
     """Ошибка после перезаписи того же файла: предыдущая версия восстанавливается
     из backup, новый файл не удаляется."""
-    storage = FailingMetaStorage(fail_path="local/current_schedule.jpg", fail_after=2)
+    storage = FailingMetaStorage(fail_path="example.jpg")
     manager = _make_manager(manager_factory, storage)
-    created = await _create_local(manager)
-
+    created_1 = await _create_local(manager)
+    await _create_local(manager, filename="example.jpg", name="example")
     with pytest.raises(Exception) as excinfo:
         await manager.update(
-            created.id,
-            ScheduleImageUpdate(),
+            created_1.id,
+            ScheduleImageUpdate(name="example"),
             is_local=True,
         )
 
     assert excinfo.value.status_code == 400
+    assert storage.restored == ["local/current_schedule.jpg"]
+    assert storage.deleted == []

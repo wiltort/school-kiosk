@@ -14,8 +14,12 @@ config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
+#
+# disable_existing_loggers=False: не сбрасываем хендлеры корневого логгера
+# приложения (файловый лог <data_dir>/logs/backend.log), иначе во время
+# автоприменения миграций на старте потеряем запись диагностики.
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # The database URL is not stored in alembic.ini. It is sourced from the app
 # settings to keep a single source of truth. This also makes the URL available

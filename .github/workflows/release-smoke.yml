@@ -1,0 +1,83 @@
+name: Release smoke test (published installer)
+
+# Проверяет РЕАЛЬНО ОПУБЛИКОВАННЫЙ релиз на GitHub: скачивает NSIS-установщик,
+# извлекает из него python-backend.exe (или тихо устанавливает) и прогоняет
+# интеграционные тесты билда (backend/tests/integration) на «свежей установке».
+#
+# Это страховка поверх гейта в release-build.yml: даже если что-то сломалось
+# на этапе публикации, мы увидим это сразу после выхода релиза.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    name: Smoke test python-backend.exe from release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install backend dependencies
+        run: poetry install --no-interaction
+        working-directory: backend
+
+      - name: Resolve release asset
+        id: resolve
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="$(gh release list --repo "${{ github.repository }}" --limit 1 --json tagName --jq '.[0].tagName')"
+          fi
+          URL="$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[] | select(.name | endswith(".exe")) | .browser_download_url' | head -n1)"
+          if [ -z "$URL" ]; then
+            echo "::error::В релизе $TAG не найден .exe ассет"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Download installer
+        shell: bash
+        run: curl -sSL -o "$RUNNER_TEMP/kiosk-setup.exe" "${{ steps.resolve.outputs.url }}"
+
+      - name: Extract installer and locate python-backend.exe
+        id: locate
+        shell: bash
+        run: |
+          set -e
+          mkdir -p "$RUNNER_TEMP/kiosk-extract"
+          # Пытаемся распаковать NSIS-установщик через 7-Zip; при неудаче
+          # (солидный архив и т.п.) выполняем тихую установку в temp-каталог.
+          7z x -y -o"$RUNNER_TEMP/kiosk-extract" "$RUNNER_TEMP/kiosk-setup.exe" >/dev/null 2>&1 || true
+          EXE="$(find "$RUNNER_TEMP/kiosk-extract" -iname 'python-backend.exe' 2>/dev/null | head -n1)"
+          if [ -z "$EXE" ]; then
+            "$RUNNER_TEMP/kiosk-setup.exe" /S "/D=$RUNNER_TEMP/kiosk-install"
+            EXE="$(find "$RUNNER_TEMP/kiosk-install" -iname 'python-backend.exe' 2>/dev/null | head -n1)"
+          fi
+          if [ -z "$EXE" ]; then
+            echo "::error::python-backend.exe не найден ни в распакованном, ни в установленном инсталляторе"
+            exit 1
+          fi
+          echo "backend_exe=$EXE" >> "$GITHUB_OUTPUT"
+
+      - name: Run release smoke tests
+        shell: bash
+        env:
+          KIOSK_BACKEND_EXE: ${{ steps.locate.outputs.backend_exe }}
+        run: poetry run pytest tests/integration -q
+        working-directory: backend

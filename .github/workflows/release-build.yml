@@ -36,7 +36,7 @@ jobs:
         shell: bash
         run: |
           CHANNEL="${{ github.ref_name }}"
-          VERSION="0.1.0-${CHANNEL}.${{ github.run_number }}"
+          VERSION="0.1.1-${CHANNEL}.${{ github.run_number }}"
           TAG="${CHANNEL}-v${VERSION}"
           echo "channel=${CHANNEL}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
@@ -77,7 +77,21 @@ jobs:
         run: cargo install tauri-cli --version ^2 --locked
 
       - name: Build backend executable (PyInstaller)
-        run: poetry run pyinstaller --noconfirm --clean --onefile --name python-backend --collect-submodules uvicorn --hidden-import aiosqlite run_backend.py
+        # ВАЖНО: ресурсы Alembic (alembic.ini + каталог alembic/) обязательно
+        # должны попасть в onefile-сборку, иначе бэкенд падает при старте:
+        # run_migrations() → _make_config() → "No config file ... found".
+        # Флаги дублируют make build-backend (см. Makefile).
+        run: poetry run pyinstaller --noconfirm --clean --onefile --name python-backend --collect-submodules uvicorn --hidden-import aiosqlite --add-data "alembic;alembic" --add-data "alembic.ini;." run_backend.py
+        working-directory: backend
+
+      # Гейт на публикацию: если собранный python-backend.exe не стартует на
+      # «свежей установке» (не создаёт БД, не применяет миграции, не отвечает
+      # на API), релиз не публикуется. Тесты см. backend/tests/integration.
+      - name: Smoke-test backend executable (fresh install)
+        shell: bash
+        env:
+          KIOSK_BACKEND_EXE: ${{ github.workspace }}/backend/dist/python-backend.exe
+        run: poetry run pytest tests/integration -q
         working-directory: backend
 
       - name: Stage externalBin

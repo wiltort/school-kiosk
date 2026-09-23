@@ -173,6 +173,7 @@ jobs:
           fi
       - name: Trigger release smoke test
         if: success()
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

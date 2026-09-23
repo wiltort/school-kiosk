@@ -82,7 +82,7 @@ jobs:
           gh release view "$TAG" --repo "${{ github.repository }}" --json assets
           URL="$(gh release view "$TAG" --repo "${{ github.repository }}" \
             --json assets \
-            --jq '.assets[] | select(.name | endswith(".exe")) | .browser_download_url' \
+            --jq '.assets[] | select(.name | endswith(".exe")) | .url' \
             | head -n1)"
 
           if [ -z "$URL" ]; then

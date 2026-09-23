@@ -4,7 +4,7 @@
 [![Frontend & Tauri CI](https://github.com/wiltort/school-kiosk/actions/workflows/frontend-tauri-ci.yml/badge.svg)](https://github.com/wiltort/school-kiosk/actions/workflows/frontend-tauri-ci.yml)
 [![Release build](https://github.com/wiltort/school-kiosk/actions/workflows/release-build.yml/badge.svg?branch=main)](https://github.com/ВАШ_ЮЗЕР/school-kiosk/actions/workflows/release-build.yml)
 [![Release smoke test](https://github.com/wiltort/school-kiosk/actions/workflows/release-smoke.yml/badge.svg?branch=main)](https://github.com/wiltort/school-kiosk/actions/workflows/release-smoke.yml)
-[![Release](https://img.shields.io/github/v/release/wiltort/school-kiosk?include_prereleases&filter=main-v*&label=main&sort=semver)](https://github.com/wiltort/school-kiosk/releases?q=main-v&expanded=true)
+[![Release](https://img.shields.io/github/v/release/wiltort/school-kiosk?include_prereleases&filter=main-v*&label=release&sort=semver)](https://github.com/wiltort/school-kiosk/releases)
 [![License: MIT](https://img.shields.io/github/license/wiltort/school-kiosk?label=license)](https://github.com/wiltort/school-kiosk/blob/main/LICENSE)
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/wiltort/school-kiosk/releases)
 

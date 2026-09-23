@@ -70,7 +70,9 @@ ignore = [
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101"]  # allow assert in tests
+# Тесты интеграционные: спавнят собранный python-backend.exe (S603) и ходят
+# на localhost health-check (S310) — это намеренно.
+"tests/*" = ["S101", "S310", "S603"]
 
 [tool.ruff.format]
 quote-style = "double"

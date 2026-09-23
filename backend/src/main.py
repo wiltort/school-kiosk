@@ -1,4 +1,5 @@
 import logging
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -10,17 +11,44 @@ from src.apps import apps_router
 from src.apps.admin import autostart
 from src.core.config import settings
 from src.core.database import get_db_dependency
-from src.core.migrations import apply_schema
+from src.core.logging_setup import setup_logging
+from src.core.migrations import _resource_dir, apply_schema
 
 logger = logging.getLogger(__name__)
 
 
 def _init_logging():
-    logging.basicConfig(
-        level=getattr(logging, settings.log_level.upper(), logging.INFO),
-        format=settings.log_format,
+    """Инициализирует логирование: консоль + файл `<data_dir>/logs/backend.log`.
+
+    Вызывается при импорте модуля (до создания приложения), в начале lifespan
+    (до миграций) и после миграций — `alembic/env.py` переопределяет logging
+    через `fileConfig`, из-за чего наши хендлеры могли быть сброшены.
+    Повторные вызовы идемпотентны.
+    """
+    setup_logging(
+        data_dir=settings.data_dir,
+        level=settings.log_level,
+        log_format=settings.log_format,
         datefmt=settings.date_format,
     )
+
+
+# Логирование настраиваем как можно раньше: падение при импорте или создании
+# приложения должно попасть в лог-файл (в релизе stderr уходит в канал, который
+# никто не читает — без файлового лога причина была бы невидимой).
+_init_logging()
+logger.info("=== School Kiosk backend: запуск ===")
+logger.info(
+    "version=%s debug=%s frozen=%s py=%s",
+    settings.app_version,
+    settings.debug,
+    getattr(sys, "frozen", False),
+    sys.version.split()[0],
+)
+logger.info("data_dir=%s", settings.data_dir)
+logger.info("database_url=%s", settings.database_url)
+logger.info("frontend_dir=%s", settings.frontend_dir)
+logger.info("migrations_resources=%s", _resource_dir())
 
 
 @asynccontextmanager
@@ -31,8 +59,16 @@ async def lifespan(app: FastAPI):  # noqa: ARG001 — required by FastAPI lifesp
         # выполнять до начала обслуживания запросов, чтобы после автообновления
         # (которое меняет только исполняемые файлы) схема БД соответствовала
         # новой версии кода.
-        await apply_schema(db.db_engine)
-    _init_logging()
+        try:
+            await apply_schema(db.db_engine)
+        except Exception:
+            logger.exception(
+                "Ошибка применения схемы БД при старте — бэкенд завершает работу"
+            )
+            raise
+        finally:
+            # Восстанавливаем наши хендлеры после возможного fileConfig в alembic.
+            _init_logging()
     yield
     await db.db_engine.dispose()
 

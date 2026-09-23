@@ -85,6 +85,10 @@ test-integration: ## Запустить только integration-тесты
 test-coverage: ## Запустить тесты с отчётом о покрытии
 	$(POETRY) pytest --cov=src --cov-report=term-missing
 
+.PHONY: smoke-test
+smoke-test: ## Интеграционные тесты собранного билда (сначала make build-backend)
+	$(POETRY) pytest tests/integration -q
+
 .PHONY: lint
 lint: ## Проверить код линтером (ruff)
 	$(POETRY) ruff check src tests

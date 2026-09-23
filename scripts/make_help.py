@@ -22,6 +22,7 @@ SECTIONS = [
             "test",
             "test-integration",
             "test-coverage",
+            "smoke-test",
             "lint",
             "format",
             "check",

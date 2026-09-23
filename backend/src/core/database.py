@@ -20,8 +20,10 @@ class DBDependency:
                 poolclass=NullPool,
                 connect_args={"timeout": 30},
             )
+            if settings.database_url.startswith("sqlite"):
+                self._attach_sqlite_pragmas(self._engine)
             self._session_factory = async_sessionmaker(
-                bind=self._engine, expire_on_commit=False, autocommit=False
+                bind=self._engine, expire_on_commit=False
             )
         else:
             self._engine = None

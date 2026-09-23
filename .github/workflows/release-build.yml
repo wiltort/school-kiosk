@@ -22,6 +22,7 @@ concurrency:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   build-and-release:
@@ -170,3 +171,12 @@ jobs:
           else
             echo "Signature (.sig) not found - update feed skipped. Configure the MINISIGN_PRIVATE_KEY secret to enable auto-updates."
           fi
+      - name: Trigger release smoke test
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run release-smoke.yml \
+            --repo "${{ github.repository }}" \
+            --ref main \
+            -f tag="${{ steps.meta.outputs.tag }}"

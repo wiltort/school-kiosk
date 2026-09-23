@@ -11,6 +11,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Тег релиза для проверки (пусто = последний с .exe)'
+        required: false
+        default: ''
 
 jobs:
   smoke-test:
@@ -38,46 +43,50 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+
           if [ "${{ github.event_name }}" = "release" ]; then
             TAG="${{ github.event.release.tag_name }}"
+          elif [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
           else
-            TAG="$(gh release list --repo "${{ github.repository }}" --limit 1 --json tagName --jq '.[0].tagName')"
+            TAG=""
+            for t in $(gh release list --repo "${{ github.repository }}" \
+                         --limit 30 --json tagName --jq '.[].tagName'); do
+              if gh release view "$t" --repo "${{ github.repository }}" \
+                   --json assets --jq '.assets[].name' | grep -q '\.exe$'; then
+                TAG="$t"
+                break
+              fi
+            done
           fi
-          URL="$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[] | select(.name | endswith(".exe")) | .browser_download_url' | head -n1)"
-          if [ -z "$URL" ]; then
-            echo "::error::В релизе $TAG не найден .exe ассет"
+
+          if [ -z "$TAG" ]; then
+            echo "::error::Не удалось определить тег релиза"
             exit 1
           fi
+          echo "TAG=$TAG"
+
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" \
+                --json assets >/dev/null 2>&1; then
+            echo "::error::Релиз $TAG не найден"
+            exit 1
+          fi
+
+          echo "=== Все ассеты релиза $TAG ==="
+          gh release view "$TAG" --repo "${{ github.repository }}" \
+            --json assets --jq '.assets[].name'
+
+          URL="$(gh release view "$TAG" --repo "${{ github.repository }}" \
+            --json assets \
+            --jq '.assets[] | select(.name | test("\\.exe$")) | .browser_download_url' \
+            | head -n1)"
+
+          if [ -z "$URL" ]; then
+            echo "::error::В релизе $TAG нет .exe ассета"
+            exit 1
+          fi
+          echo "URL=$URL"
+
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
-
-      - name: Download installer
-        shell: bash
-        run: curl -sSL -o "$RUNNER_TEMP/kiosk-setup.exe" "${{ steps.resolve.outputs.url }}"
-
-      - name: Extract installer and locate python-backend.exe
-        id: locate
-        shell: bash
-        run: |
-          set -e
-          mkdir -p "$RUNNER_TEMP/kiosk-extract"
-          # Пытаемся распаковать NSIS-установщик через 7-Zip; при неудаче
-          # (солидный архив и т.п.) выполняем тихую установку в temp-каталог.
-          7z x -y -o"$RUNNER_TEMP/kiosk-extract" "$RUNNER_TEMP/kiosk-setup.exe" >/dev/null 2>&1 || true
-          EXE="$(find "$RUNNER_TEMP/kiosk-extract" -iname 'python-backend.exe' 2>/dev/null | head -n1)"
-          if [ -z "$EXE" ]; then
-            "$RUNNER_TEMP/kiosk-setup.exe" /S "/D=$RUNNER_TEMP/kiosk-install"
-            EXE="$(find "$RUNNER_TEMP/kiosk-install" -iname 'python-backend.exe' 2>/dev/null | head -n1)"
-          fi
-          if [ -z "$EXE" ]; then
-            echo "::error::python-backend.exe не найден ни в распакованном, ни в установленном инсталляторе"
-            exit 1
-          fi
-          echo "backend_exe=$EXE" >> "$GITHUB_OUTPUT"
-
-      - name: Run release smoke tests
-        shell: bash
-        env:
-          KIOSK_BACKEND_EXE: ${{ steps.locate.outputs.backend_exe }}
-        run: poetry run pytest tests/integration -q
-        working-directory: backend

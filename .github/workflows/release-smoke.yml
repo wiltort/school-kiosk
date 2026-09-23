@@ -93,3 +93,49 @@ jobs:
 
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
+      - name: Download installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSL -o "$RUNNER_TEMP/kiosk-setup.exe" "${{ steps.resolve.outputs.url }}"
+          ls -la "$RUNNER_TEMP/kiosk-setup.exe"
+
+      - name: Extract installer and locate python-backend.exe
+        id: locate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/kiosk-extract"
+
+          # Пытаемся распаковать NSIS через 7-Zip.
+          7z x -y -o"$RUNNER_TEMP/kiosk-extract" "$RUNNER_TEMP/kiosk-setup.exe" >/dev/null 2>&1 || true
+
+          EXE="$(find "$RUNNER_TEMP/kiosk-extract" -iname 'python-backend.exe' 2>/dev/null | head -n1)"
+
+          if [ -z "$EXE" ]; then
+            echo "7z не нашёл exe, пробуем тихую установку NSIS..."
+            "$RUNNER_TEMP/kiosk-setup.exe" /S "/D=$RUNNER_TEMP/kiosk-install"
+            # NSIS возвращает управление до окончания распаковки — ждём.
+            sleep 15
+            EXE="$(find "$RUNNER_TEMP/kiosk-install" -iname 'python-backend.exe' 2>/dev/null | head -n1)"
+          fi
+
+          if [ -z "$EXE" ]; then
+            echo "::error::python-backend.exe не найден ни в распакованном, ни в установленном инсталляторе"
+            echo "=== Содержимое kiosk-extract ==="
+            find "$RUNNER_TEMP/kiosk-extract" -maxdepth 3 2>/dev/null | head -50
+            echo "=== Содержимое kiosk-install ==="
+            find "$RUNNER_TEMP/kiosk-install" -maxdepth 3 2>/dev/null | head -50
+            exit 1
+          fi
+
+          echo "backend_exe=$EXE" >> "$GITHUB_OUTPUT"
+          echo "EXE=$EXE"
+
+      - name: Run release smoke tests
+        shell: bash
+        env:
+          KIOSK_BACKEND_EXE: ${{ steps.locate.outputs.backend_exe }}
+        run: |
+          poetry run pytest tests/integration -q
+        working-directory: backend

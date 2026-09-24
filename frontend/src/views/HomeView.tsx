@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import AppIcon from "../components/AppIcon";
 import LanInfoPanel from "../components/LanInfoPanel";
+import kioskLogo from "../assets/kiosk-logo.png";
 
 interface HomeViewProps {
   onSchedule: () => void;
@@ -31,7 +32,13 @@ export default function HomeView({ onSchedule, onWeather }: HomeViewProps) {
   return (
     <section className="home">
       <header className="home__header">
-        <h1 className="home__title">School Kiosk</h1>
+        <img
+          src={kioskLogo}
+          alt="Логотип школы"
+          className="home__logo"
+          draggable={false}
+        />
+        <h1 className="home__title">Школьный киоск</h1>
         <p className="home__subtitle">Информационный киоск школы</p>
       </header>
 

@@ -69,6 +69,18 @@ body {
   text-align: center;
 }
 
+.home__logo {
+  width: clamp(84px, 10vw, 128px);
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  margin-bottom: 4px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 .home__title {
   margin: 0;
   font-size: clamp(2rem, 5vw, 4.5rem);

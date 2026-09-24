@@ -11,7 +11,7 @@ interface HomeViewProps {
 function ScheduleIcon(): ReactNode {
   return (
     <svg viewBox="0 0 24 24" width="96" height="96" fill="currentColor">
-      <path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-1 8H6v-2h12v2zm0 3H6v-2h12v2zm-5 3H6v-2h7v2zm5-12v2H6V5h12z" />
+      <path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM7 7h10v2H7V7zm0 4h10v2H7v-2zm0 4h10v2H7v-2z" />
     </svg>
   );
 }

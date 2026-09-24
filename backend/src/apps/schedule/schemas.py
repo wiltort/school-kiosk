@@ -47,12 +47,6 @@ class ScheduleImageUpdate(BaseModel):
         examples=["Расписание 1"],
         max_length=255,
     )
-    image: str | None = Field(
-        None,
-        description="Изображение расписания",
-        examples=["image.png"],
-        max_length=255,
-    )
     is_active: bool | None = Field(
         None, description="Активное расписание", examples=[True]
     )

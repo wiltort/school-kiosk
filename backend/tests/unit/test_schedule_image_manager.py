@@ -5,6 +5,7 @@ import hashlib
 import uuid
 from collections import defaultdict
 from datetime import UTC
+from pathlib import Path
 
 import pytest
 from sqlalchemy import select
@@ -82,6 +83,8 @@ class LocalSyncStorage:
         subdir: str = "",
         is_local: bool = False,
     ) -> str:
+        ext = Path(filename or "").suffix.lower() or ".png"
+        filename = filename if is_local else f"{uuid.uuid4().hex}{ext}"
         self.saved.append((data, filename, subdir, is_local))
         self.static_data = data
         return f"{subdir}/{filename}".lstrip("/")
@@ -196,9 +199,10 @@ async def test_get_missing_raises_404(manager_factory, fake_image_storage):
 
 
 @pytest.mark.asyncio
-async def test_get_all_returns_created_records(manager_factory, fake_image_storage):
+async def test_get_all_returns_created_records(manager_factory):
     """Тест получения всех созданных записей."""
-    manager = _make_manager(manager_factory, fake_image_storage)
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
     await _create(manager, _sample_create(name="A", day_of_week=DayOfWeek.MONDAY))
     await _create(manager, _sample_create(name="B", day_of_week=DayOfWeek.TUESDAY))
 
@@ -209,9 +213,10 @@ async def test_get_all_returns_created_records(manager_factory, fake_image_stora
 
 
 @pytest.mark.asyncio
-async def test_get_all_orders_by_day_of_week(manager_factory, fake_image_storage):
+async def test_get_all_orders_by_day_of_week(manager_factory):
     """Тест получения всех записей по дню недели."""
-    manager = _make_manager(manager_factory, fake_image_storage)
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
 
     await _create(manager, _sample_create(name="late", day_of_week=DayOfWeek.FRIDAY))
     await _create(manager, _sample_create(name="early", day_of_week=DayOfWeek.MONDAY))
@@ -371,26 +376,6 @@ async def test_update_is_local_empty_payload_missing_record_raises_404(
         await manager.update(uuid.uuid4(), ScheduleImageUpdate(), is_local=True)
 
     assert excinfo.value.status_code == 404
-
-
-@pytest.mark.asyncio
-async def test_update_replaces_image_and_refreshes_metadata(
-    manager_factory, fake_image_storage, async_session_maker
-):
-    """Обновление поля image перечитывает метаданные нового файла."""
-    manager = _make_manager(manager_factory, fake_image_storage)
-    created = await _create(manager)
-
-    updated = await manager.update(
-        created.id, ScheduleImageUpdate(image="stored/new.png")
-    )
-
-    assert updated.image == "stored/new.png"
-    async with async_session_maker() as session:
-        obj = await session.get(ScheduleImage, created.id)
-    # fake-хранилище формирует метаданные из пути файла.
-    assert obj.file_hash == "stored/new.png"
-    assert obj.file_size == len("stored/new.png")
 
 
 @pytest.mark.asyncio

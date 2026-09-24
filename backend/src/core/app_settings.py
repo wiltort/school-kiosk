@@ -14,10 +14,13 @@
 становится только этот файл.
 """
 
+import contextlib
 import json
 import threading
 from pathlib import Path
 from typing import Any
+
+from src.enums.schedule_modes import ScheduleMode
 
 APP_SETTINGS_FILE = "settings.json"
 
@@ -29,6 +32,7 @@ _DEFAULTS: dict[str, Any] = {
     "autostart": False,
     "local_image_dir": None,
     "current_local_schedule_image_filename": None,
+    "schedule_mode": ScheduleMode.SINGLE,
 }
 
 
@@ -66,6 +70,9 @@ class AppSettingsStore:
                 data["current_local_schedule_image_filename"] = legacy[
                     "current_local_schedule_image_filename"
                 ]
+            if legacy.get("schedule_mode"):
+                with contextlib.suppress(ValueError):
+                    data["schedule_mode"] = ScheduleMode(legacy["schedule_mode"])
             self._write(self._path, data)
         return data
 
@@ -107,6 +114,13 @@ class AppSettingsStore:
         """Имя текущего изображения расписания."""
         return self.as_dict().get("current_local_schedule_image_filename")
 
+    def schedule_mode(self) -> ScheduleMode:
+        raw = self.as_dict().get("schedule_mode")
+        try:
+            return ScheduleMode(raw) if raw is not None else ScheduleMode.SINGLE
+        except ValueError:
+            return ScheduleMode.SINGLE
+
     def update(
         self,
         *,
@@ -114,6 +128,7 @@ class AppSettingsStore:
         autostart: bool = _UNSET,
         local_image_dir: str | None = _UNSET,
         current_local_schedule_image_filename: str | None = _UNSET,
+        schedule_mode: str | None = _UNSET,
     ) -> dict[str, Any]:
         """Обновляет переданные поля и атомарно сохраняет файл.
 
@@ -132,6 +147,9 @@ class AppSettingsStore:
                 data["current_local_schedule_image_filename"] = (
                     current_local_schedule_image_filename or ""
                 ).strip() or None
+            if schedule_mode is not _UNSET:
+                with contextlib.suppress(ValueError):
+                    data["schedule_mode"] = ScheduleMode(schedule_mode)
             self._data = data
             self._write(self._path, data)
         return dict(data)

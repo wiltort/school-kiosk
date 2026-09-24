@@ -5,6 +5,7 @@ from pathlib import Path
 from pydantic_settings import BaseSettings
 
 from src.core.app_settings import AppSettingsStore
+from src.enums.schedule_modes import ScheduleMode
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
@@ -134,6 +135,17 @@ class Settings(BaseSettings):
         if env:
             return env
         return "current_schedule.jpg"
+
+    @property
+    def schedule_mode(self) -> ScheduleMode:
+        """Режим отображения расписания."""
+        stored = self.app_settings.schedule_mode()
+        if stored:
+            return ScheduleMode(stored)
+        env = os.environ.get("SCHOOL_KIOSK_SCHEDULE_MODE")
+        if env:
+            return ScheduleMode(env)
+        return ScheduleMode.SINGLE
 
     @property
     def frontend_dir(self) -> Path:

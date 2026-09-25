@@ -181,5 +181,5 @@ jobs:
         run: |
           gh workflow run release-smoke.yml \
             --repo "${{ github.repository }}" \
-            --ref main \
+            --ref "${{ github.ref_name }}" \
             -f tag="${{ steps.meta.outputs.tag }}"

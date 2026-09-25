@@ -1,7 +1,7 @@
 [project]
 name = "SchoolKioskBackend"
-version = "0.1.0"
-description = ""
+version = "0.1.3"
+description = "Backend for School Kiosk"
 authors = [
     {name = "Wiltort",email = "wiltort21@gmail.com"}
 ]

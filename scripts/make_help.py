@@ -20,6 +20,7 @@ SECTIONS = [
             "install-backend",
             "run-backend",
             "test",
+            "test-unit",
             "test-integration",
             "test-coverage",
             "smoke-test",

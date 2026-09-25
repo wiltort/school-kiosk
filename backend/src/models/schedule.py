@@ -32,10 +32,9 @@ class ScheduleImage(ScheduleMixin, Base):
             sqlite_where=text("is_local = 1 AND is_active = 1"),
         ),
         Index(
-            "ux_schedule_image_local_image",
+            "ux_schedule_image_image",
             "image",
             unique=True,
-            sqlite_where=text("is_local = 1 AND is_active = 1"),
         ),
     )
 

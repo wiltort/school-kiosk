@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from src.apps.admin import autostart
 from src.apps.admin.auth import create_token, get_current_admin, revoke_token
 from src.core.config import settings
+from src.enums.schedule_modes import ScheduleMode
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -26,13 +27,17 @@ class LoginResponse(BaseModel):
 
 
 class SettingsResponse(BaseModel):
-    static_dir: str | None
+    local_image_dir: str | None
+    schedule_mode: ScheduleMode
+    welcome_message: str | None
     autostart: bool
     autostart_supported: bool
 
 
 class SettingsUpdate(BaseModel):
-    static_dir: str | None = None
+    local_image_dir: str | None = None
+    schedule_mode: ScheduleMode = ScheduleMode.SINGLE
+    welcome_message: str | None = None
     autostart: bool = False
 
 
@@ -62,7 +67,9 @@ async def get_settings(_: str = Depends(get_current_admin)) -> SettingsResponse:
     """Возвращает текущие настройки приложения."""
     store = settings.app_settings
     return SettingsResponse(
-        static_dir=store.static_dir(),
+        local_image_dir=store.local_image_dir(),
+        schedule_mode=store.schedule_mode(),
+        welcome_message=store.welcome_message(),
         autostart=store.autostart(),
         autostart_supported=autostart.is_supported(),
     )
@@ -75,18 +82,22 @@ async def update_settings(
 ) -> SettingsResponse:
     """Сохраняет настройки и применяет автозагрузку сразу.
 
-    Смена ``static_dir`` сохраняется и вступает в силу при следующем
-    перезапуске бэкенда (монтаж `/uploads` происходит на старте).
+    Смена ``local_image_dir`` (папка локальных расписаний) сохраняется
+    и используется бэкендом сразу.
     """
     store = settings.app_settings
     store.update(
-        static_dir=payload.static_dir,
+        local_image_dir=payload.local_image_dir,
+        schedule_mode=payload.schedule_mode,
+        welcome_message=payload.welcome_message,
         autostart=payload.autostart,
     )
     autostart.set_enabled(payload.autostart)
 
     return SettingsResponse(
-        static_dir=store.static_dir(),
+        local_image_dir=store.local_image_dir(),
+        schedule_mode=store.schedule_mode(),
+        welcome_message=store.welcome_message(),
         autostart=store.autostart(),
         autostart_supported=autostart.is_supported(),
     )

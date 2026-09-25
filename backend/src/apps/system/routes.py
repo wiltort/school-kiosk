@@ -1,4 +1,4 @@
-"""Сетевая информация киоска для панели «подключиться по локальной сети»."""
+"""Публичные настройки киоска и сетевая информация для главного экрана."""
 
 import socket
 
@@ -6,6 +6,22 @@ from fastapi import APIRouter
 from src.core.config import settings
 
 network_router = APIRouter(prefix="/network", tags=["network"])
+kiosk_router = APIRouter(prefix="/kiosk", tags=["kiosk"])
+
+
+@kiosk_router.get("/config")
+async def get_kiosk_config() -> dict:
+    """Публичные настройки главного экрана (без авторизации).
+
+    Нужны киоск-интерфейсу при загрузке: приветственное сообщение и режим
+    отображения расписания. Владелец значений — бэкенд (settings.json),
+    редактируются через админ-панель.
+    """
+    store = settings.app_settings
+    return {
+        "welcome_message": store.welcome_message(),
+        "schedule_mode": store.schedule_mode(),
+    }
 
 
 @network_router.get("/info")

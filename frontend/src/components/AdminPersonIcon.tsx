@@ -5,10 +5,12 @@ interface AdminPersonIconProps {
   title?: string;
   /** CSS-класс для управления цветом (по умолчанию — currentColor). */
   className?: string;
+  /** Флаг активированного админа */
+  isAdmin?: boolean;
 }
 
 /**
- * Иконка «человечек в фуражке».
+ * Иконка «Щит».
  *
  * Используется как:
  *   - иконка входа в админку на главном экране (приглушённый цвет);
@@ -21,6 +23,7 @@ export default function AdminPersonIcon({
   size = 24,
   title,
   className,
+  isAdmin = false,
 }: AdminPersonIconProps) {
   return (
     <svg
@@ -33,14 +36,34 @@ export default function AdminPersonIcon({
       aria-hidden={title ? undefined : true}
     >
       {title && <title>{title}</title>}
-      {/* Плечи */}
-      <path d="M4 21c0-3.87 3.58-6.5 8-6.5s8 2.63 8 6.5H4z" />
-      {/* Голова */}
-      <circle cx="12" cy="8.7" r="3.3" />
-      {/* Тулья фуражки */}
-      <path d="M8.4 8.6C8.6 6.6 10.1 4.9 12 4.9s3.4 1.7 3.6 3.7a3.3 3.3 0 0 0-7.2 0z" />
-      {/* Козырёк */}
-      <path d="M8.3 8.4 4.9 9.3c-.56.14-.56.94 0 1.08l3.4.92c.16.04.34-.01.44-.12V8.55c0-.06-.02-.11-.05-.15-.07-.07-.24-.06-.39 0z" />
+      {/* Щит */}
+      <path
+        d="M12 2L4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Галочка (зелёная, админ активен) или крестик (красный, вход не выполнен) */}
+      {isAdmin ? (
+        <path
+          d="M9 12l2 2 4-4"
+          fill="none"
+          stroke="#34d399"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ) : (
+        <path
+          d="M10 10l4 4M14 10l-4 4"
+          fill="none"
+          stroke="#f87171"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      )}
     </svg>
   );
 }

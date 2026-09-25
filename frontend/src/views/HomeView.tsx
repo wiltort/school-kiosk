@@ -1,16 +1,19 @@
 import type { ReactNode } from "react";
 import AppIcon from "../components/AppIcon";
 import LanInfoPanel from "../components/LanInfoPanel";
+import kioskLogo from "../assets/kiosk-logo.png";
 
 interface HomeViewProps {
   onSchedule: () => void;
   onWeather: () => void;
+  /** Приветственное сообщение из настроек; пустая строка — стандартный подзаголовок. */
+  welcomeMessage?: string;
 }
 
 function ScheduleIcon(): ReactNode {
   return (
     <svg viewBox="0 0 24 24" width="96" height="96" fill="currentColor">
-      <path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-1 8H6v-2h12v2zm0 3H6v-2h12v2zm-5 3H6v-2h7v2zm5-12v2H6V5h12z" />
+      <path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM7 7h10v2H7V7zm0 4h10v2H7v-2zm0 4h10v2H7v-2z" />
     </svg>
   );
 }
@@ -27,12 +30,23 @@ function WeatherIcon(): ReactNode {
  * Главный экран киоска: сетка иконок приложений.
  * Сейчас доступны «Расписание» и «Погода», в будущем список расширится.
  */
-export default function HomeView({ onSchedule, onWeather }: HomeViewProps) {
+export default function HomeView({
+  onSchedule,
+  onWeather,
+  welcomeMessage = "",
+}: HomeViewProps) {
+  const subtitle = welcomeMessage.trim() || "Информационный киоск школы";
   return (
     <section className="home">
       <header className="home__header">
-        <h1 className="home__title">School Kiosk</h1>
-        <p className="home__subtitle">Информационный киоск школы</p>
+        <img
+          src={kioskLogo}
+          alt="Логотип школы"
+          className="home__logo"
+          draggable={false}
+        />
+        <h1 className="home__title">Школьный киоск</h1>
+        <p className="home__subtitle">{subtitle}</p>
       </header>
 
       <div className="home__grid">

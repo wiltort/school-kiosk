@@ -22,11 +22,13 @@ install-tauri: ## Установить Tauri CLI (cargo install tauri-cli)
 
 .PHONY: build-backend
 build-backend: ## Собрать Python-бэкенд в standalone .exe (PyInstaller)
+	taskkill //F //IM python-backend.exe || true
+	rm -f $(BACKEND)/dist/python-backend.exe
 	$(POETRY) pyinstaller --noconfirm --clean --onefile --name python-backend \
 		--collect-submodules uvicorn \
 		--hidden-import aiosqlite \
-		--add-data "$(BACKEND)/alembic;alembic" \
-		--add-data "$(BACKEND)/alembic.ini;." \
+		--add-data "alembic;alembic" \
+		--add-data "alembic.ini;." \
 		run_backend.py
 	mkdir -p $(TAURI)/binaries
 	@host=$$(rustc -vV | sed -n 's/^host: //p'); \
@@ -71,6 +73,7 @@ lint-rust: ## Формат + clippy для Rust (src-tauri)
 
 .PHONY: test
 test: ## Запустить все тесты
+	taskkill //F //IM python-backend.exe || true
 	$(POETRY) pytest
 
 .PHONY: test-unit
@@ -79,6 +82,7 @@ test-unit: ## Запустить только unit-тесты
 
 .PHONY: test-integration
 test-integration: ## Запустить только integration-тесты
+	taskkill //F //IM python-backend.exe || true
 	$(POETRY) pytest tests/integration
 
 .PHONY: test-coverage

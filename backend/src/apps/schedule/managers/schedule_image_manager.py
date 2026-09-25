@@ -236,16 +236,10 @@ class ScheduleImageManager:
             schedule_image = await self.image_repo.get(session, id)
             if not schedule_image:
                 raise HTTPException(status_code=404, detail="Запись не найдена")
-            image = data.get("image")
             lock_key = None
             locking = False
-            if image:
-                if is_local or schedule_image.is_local:
-                    raise HTTPException(
-                        400,
-                        detail="Неверный запрос: поле 'image' не для локального расписания",
-                    )
-            elif is_local:
+
+            if is_local:
                 if not schedule_image.is_local:
                     raise HTTPException(400, detail="Запись не является локальной")
                 if filename:
@@ -278,11 +272,6 @@ class ScheduleImageManager:
                         raise HTTPException(404, detail="Запись не найдена")
                     # Состояние записи могло измениться между первым чтением
                     # и взятием лока — повторяем проверки инвариантов ветки.
-                    if image and schedule_image.is_local:
-                        raise HTTPException(
-                            400,
-                            detail="Неверный запрос: поле 'image' не для локального расписания",
-                        )
                     if file_data and filename and schedule_image.is_local:
                         raise HTTPException(
                             400,
@@ -297,13 +286,7 @@ class ScheduleImageManager:
                     old_image = schedule_image.image
                     new_image = None
                     meta = None
-                    if image:
-                        # Просто замена на существующий файл (не для локального расписания)
-                        new_image = image
-                        meta = self.storage.read_file_metadata(new_image)
-                        if meta is None:
-                            raise HTTPException(400, detail="Файл не найден")
-                    elif file_data and filename:
+                    if file_data and filename:
                         # подгрузка нового файла (не для локального расписания)
                         new_image = self.storage.save(file_data, filename)
                         if new_image is None:
@@ -353,6 +336,14 @@ class ScheduleImageManager:
                         session, schedule_image, data
                     )
                     await with_retry_commit(session)
+                    if (
+                        not is_local
+                        and old_image
+                        and new_image
+                        and old_image != new_image
+                    ):
+                        self.storage.delete(old_image)
+
                     return ScheduleImageGet.model_validate(updated_schedule)
                 except Exception:
                     # Откат файловых операций: при перезаписи файла поверх себя
@@ -376,5 +367,16 @@ class ScheduleImageManager:
             schedule = await self.image_repo.get(session, id)
             if not schedule:
                 raise HTTPException(status_code=404, detail="Расписание не найдено")
-            await self.image_repo.delete(session, schedule)
-            await with_retry_commit(session)
+            lock_key = schedule.image
+            is_local = schedule.is_local
+            lock = self.storage.lock(lock_key) if is_local else None
+
+            async with maybe_lock(lock, use_lock=is_local):
+                await session.rollback()
+                schedule = await self.image_repo.get(session, id)
+                if not schedule:
+                    raise HTTPException(status_code=404, detail="Расписание не найдено")
+                await self.image_repo.delete(session, schedule)
+                await with_retry_commit(session)
+                if is_local:
+                    self.storage.delete(schedule.image)

@@ -53,10 +53,17 @@ export function scheduleImageUrl(
 // Админ-панель
 // ============================================================================
 
+/** Режим отображения расписания (совпадает с backend ScheduleMode). */
+export type ScheduleMode = "single" | "week";
+
 /** Настройки приложения, отдаваемые админ-API. */
 export interface AdminSettings {
-  /** Каталог изображений расписания; null — значение по умолчанию. */
-  static_dir: string | null;
+  /** Каталог локальных расписаний; null — значение по умолчанию. */
+  local_image_dir: string | null;
+  /** Режим отображения расписания. */
+  schedule_mode: ScheduleMode;
+  /** Приветственное сообщение на главном экране; null — значение по умолчанию. */
+  welcome_message: string | null;
   /** Включена ли автозагрузка при входе в систему. */
   autostart: boolean;
   /** Поддерживает ли текущая платформа автозагрузку. */
@@ -71,6 +78,11 @@ function getAdminToken(): string | null {
   } catch {
     return null;
   }
+}
+
+/** Есть ли активная админ-сессия (токен в sessionStorage). */
+export function isAdminLoggedIn(): boolean {
+  return getAdminToken() !== null;
 }
 
 function setAdminToken(token: string | null): void {
@@ -148,10 +160,13 @@ export async function fetchAdminSettings(): Promise<AdminSettings> {
 /**
  * Сохраняет настройки админки. Требует действующий токен.
  *
- * @param staticDir Путь к папке изображений; пустая строка/null сбрасывает в дефолт.
+ * Пустая строка/null для папки локальных расписаний и приветственного
+ * сообщения сбрасывает значение в дефолт.
  */
 export async function updateAdminSettings(settings: {
-  static_dir: string | null;
+  local_image_dir: string | null;
+  schedule_mode: ScheduleMode;
+  welcome_message: string | null;
   autostart: boolean;
 }): Promise<AdminSettings> {
   const token = getAdminToken();

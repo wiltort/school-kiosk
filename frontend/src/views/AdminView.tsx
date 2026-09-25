@@ -4,32 +4,197 @@ import HomeButton from "../components/HomeButton";
 import {
   fetchAdminSettings,
   loginAdmin,
-  logoutAdmin,
   updateAdminSettings,
-  type AdminSettings,
+  type ScheduleMode,
 } from "../services/api";
 
-interface AdminViewProps {
-  /** Возврат на главный экран киоска. */
+/** Раздел админ-панели, открываемый из строки меню. */
+export type AdminSection = "settings" | "schedules" | "about";
+
+const SECTION_TITLES: Record<AdminSection, string> = {
+  settings: "Настройки",
+  schedules: "Расписания",
+  about: "О проекте",
+};
+
+// ============================================================================
+// Экран входа в админку (логин/пароль)
+// ============================================================================
+
+interface AdminLoginProps {
+  /** Возврат на главный экран киоска без входа. */
   onHome: () => void;
+  /** Успешный вход: возвращаемся на главный экран, админ-режим активен. */
+  onSuccess: () => void;
 }
 
-/** Пункты строки меню админки. Пока доступна только «Настройки», список расширится. */
-type AdminPanel = "settings";
-
-/** Экран админ-панели: вход по логину/паролю и настройки приложения. */
-export default function AdminView({ onHome }: AdminViewProps) {
+/** Форма входа в админку. После успеха не открывает панель, а возвращает на главный экран. */
+export function AdminLogin({ onHome, onSuccess }: AdminLoginProps) {
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
-  const [token, setToken] = useState<string | null>(() => getStoredToken());
   const [authError, setAuthError] = useState<string | null>(null);
   const [loggingIn, setLoggingIn] = useState(false);
 
-  const [activePanel, setActivePanel] = useState<AdminPanel>("settings");
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoggingIn(true);
+    setAuthError(null);
+    try {
+      await loginAdmin(login, password);
+      onSuccess();
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "Ошибка входа");
+    } finally {
+      setLoggingIn(false);
+    }
+  };
 
-  const [settings, setSettings] = useState<AdminSettings | null>(null);
-  const [staticDir, setStaticDir] = useState("");
+  return (
+    <div className="admin-view">
+      <div className="admin-header">
+        <HomeButton onHome={onHome} label="Киоск" />
+        <h1 className="admin-title">Вход в админку</h1>
+      </div>
+
+      <form className="admin-login" onSubmit={handleLogin}>
+        <h2 className="admin-subtitle">Авторизация</h2>
+        <label className="admin-field">
+          <span>Логин</span>
+          <input
+            type="text"
+            value={login}
+            autoComplete="username"
+            onChange={(e) => setLogin(e.target.value)}
+            required
+          />
+        </label>
+        <label className="admin-field">
+          <span>Пароль</span>
+          <input
+            type="password"
+            value={password}
+            autoComplete="current-password"
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </label>
+        {authError && <p className="admin-error">{authError}</p>}
+        <button type="submit" className="admin-button" disabled={loggingIn}>
+          {loggingIn ? "Вход..." : "Войти"}
+        </button>
+        <small className="admin-hint">
+          После входа вы останетесь на главном экране — сверху появится строка
+          меню администратора.
+        </small>
+      </form>
+    </div>
+  );
+}
+
+// ============================================================================
+// Строка меню администратора (показывается на всех экранах после входа)
+// ============================================================================
+
+interface AdminMenuBarProps {
+  /** Активный раздел (подсвечивается); null — на главном экране. */
+  activeSection: AdminSection | null;
+  /** Открытие раздела. */
+  onSectionChange: (section: AdminSection) => void;
+  /** Выход из режима админа. */
+  onExit: () => void;
+}
+
+/** Верхняя строка меню админки: «Настройки», «Расписания», «О проекте» и выход. */
+export function AdminMenuBar({
+  activeSection,
+  onSectionChange,
+  onExit,
+}: AdminMenuBarProps) {
+  const items: { id: AdminSection; label: string }[] = [
+    { id: "settings", label: "Настройки" },
+    { id: "schedules", label: "Расписания" },
+    { id: "about", label: "О проекте" },
+  ];
+
+  return (
+    <nav className="admin-menu admin-menu--top">
+      <div className="admin-menu__nav">
+        {items.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={
+              activeSection === item.id
+                ? "admin-menu__item admin-menu__item--active"
+                : "admin-menu__item"
+            }
+            onClick={() => onSectionChange(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        className="admin-menu__exit"
+        aria-label="Выйти из админки"
+        title="Выйти из админки"
+        onClick={onExit}
+      >
+        <AdminPersonIcon size={30} isAdmin title="Выйти из админки" />
+      </button>
+    </nav>
+  );
+}
+
+// ============================================================================
+// Панель администратора (раздел выбран в строке меню)
+// ============================================================================
+
+interface AdminPanelProps {
+  /** Выбранный раздел. */
+  section: AdminSection;
+  /** Возврат на главный экран киоска. */
+  onHome: () => void;
+  /** Вызывается после сохранения настроек (для обновления главного экрана). */
+  onSettingsSaved?: () => void;
+}
+
+/** Контейнер выбранного раздела админки под строкой меню. */
+export function AdminPanel({
+  section,
+  onHome,
+  onSettingsSaved,
+}: AdminPanelProps) {
+  return (
+    <div className="admin-view">
+      <div className="admin-header">
+        <HomeButton onHome={onHome} label="Киоск" />
+        <h1 className="admin-title">{SECTION_TITLES[section]}</h1>
+      </div>
+
+      {section === "settings" && <SettingsPanel onSaved={onSettingsSaved} />}
+      {section === "schedules" && <SchedulesPanel />}
+      {section === "about" && <AboutPanel />}
+    </div>
+  );
+}
+
+// ============================================================================
+// Раздел «Настройки»
+// ============================================================================
+
+interface SettingsPanelProps {
+  /** Вызывается после успешного сохранения. */
+  onSaved?: () => void;
+}
+
+function SettingsPanel({ onSaved }: SettingsPanelProps) {
+  const [localImageDir, setLocalImageDir] = useState("");
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("single");
+  const [welcomeMessage, setWelcomeMessage] = useState("");
   const [autostart, setAutostart] = useState(false);
+  const [autostartSupported, setAutostartSupported] = useState(true);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -40,42 +205,23 @@ export default function AdminView({ onHome }: AdminViewProps) {
     setError(null);
     try {
       const data = await fetchAdminSettings();
-      setSettings(data);
-      setStaticDir(data.static_dir ?? "");
+      setLocalImageDir(data.local_image_dir ?? "");
+      setScheduleMode(data.schedule_mode);
+      setWelcomeMessage(data.welcome_message ?? "");
       setAutostart(data.autostart);
+      setAutostartSupported(data.autostart_supported);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Не удалось загрузить настройки"
       );
-      // Невалидный/протухший токен — возвращаем к форме входа.
-      if (e instanceof Error && e.message === "Нет авторизации") {
-        clearToken();
-        setToken(null);
-      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (token) {
-      void loadSettings();
-    }
-  }, [token, loadSettings]);
-
-  const handleLogin = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setLoggingIn(true);
-    setAuthError(null);
-    try {
-      await loginAdmin(login, password);
-      setToken(getStoredToken());
-    } catch (e) {
-      setAuthError(e instanceof Error ? e.message : "Ошибка входа");
-    } finally {
-      setLoggingIn(false);
-    }
-  };
+    void loadSettings();
+  }, [loadSettings]);
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -84,15 +230,17 @@ export default function AdminView({ onHome }: AdminViewProps) {
     setError(null);
     try {
       const saved = await updateAdminSettings({
-        static_dir: staticDir.trim() || null,
+        local_image_dir: localImageDir.trim() || null,
+        schedule_mode: scheduleMode,
+        welcome_message: welcomeMessage.trim() || null,
         autostart,
       });
-      setSettings(saved);
-      setStaticDir(saved.static_dir ?? "");
+      setLocalImageDir(saved.local_image_dir ?? "");
+      setScheduleMode(saved.schedule_mode);
+      setWelcomeMessage(saved.welcome_message ?? "");
       setAutostart(saved.autostart);
-      setNotice(
-        "Настройки сохранены. Смена папки изображений вступит в силу после перезапуска."
-      );
+      setNotice("Настройки сохранены.");
+      onSaved?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка сохранения");
     } finally {
@@ -100,144 +248,48 @@ export default function AdminView({ onHome }: AdminViewProps) {
     }
   };
 
-  /** Выход из режима админа: инвалидируем токен и возвращаемся на главный экран киоска. */
-  const handleExit = async () => {
-    await logoutAdmin();
-    clearToken();
-    setToken(null);
-    setSettings(null);
-    onHome();
-  };
-
   return (
-    <div className="admin-view">
-      {!token ? (
-        <>
-          <div className="admin-header">
-            <HomeButton onHome={onHome} label="Киоск" />
-            <h1 className="admin-title">Админ-панель</h1>
-          </div>
-
-          <form className="admin-login" onSubmit={handleLogin}>
-            <h2 className="admin-subtitle">Вход в админку</h2>
-            <label className="admin-field">
-              <span>Логин</span>
-              <input
-                type="text"
-                value={login}
-                autoComplete="username"
-                onChange={(e) => setLogin(e.target.value)}
-                required
-              />
-            </label>
-            <label className="admin-field">
-              <span>Пароль</span>
-              <input
-                type="password"
-                value={password}
-                autoComplete="current-password"
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </label>
-            {authError && <p className="admin-error">{authError}</p>}
-            <button type="submit" className="admin-button" disabled={loggingIn}>
-              {loggingIn ? "Вход..." : "Войти"}
-            </button>
-          </form>
-        </>
-      ) : (
-        <>
-          {/* Строка меню админки. Пункты добавляются слева, кнопка выхода прижата вправо. */}
-          <nav className="admin-menu">
-            <div className="admin-menu__nav">
-              <button
-                type="button"
-                className={
-                  activePanel === "settings"
-                    ? "admin-menu__item admin-menu__item--active"
-                    : "admin-menu__item"
-                }
-                onClick={() => setActivePanel("settings")}
-              >
-                Настройки
-              </button>
-              {/* В дальнейшем сюда добавятся новые пункты меню */}
-            </div>
-            <button
-              type="button"
-              className="admin-menu__exit"
-              aria-label="Выйти из админки"
-              title="Выйти из админки"
-              onClick={handleExit}
-            >
-              <AdminPersonIcon size={30} title="Выйти из админки" />
-            </button>
-          </nav>
-
-          <SettingsPanel
-            loading={loading}
-            saving={saving}
-            staticDir={staticDir}
-            autostart={autostart}
-            autostartSupported={settings?.autostart_supported ?? false}
-            error={error}
-            notice={notice}
-            onStaticDirChange={setStaticDir}
-            onAutostartChange={setAutostart}
-            onSave={handleSave}
-          />
-        </>
-      )}
-    </div>
-  );
-}
-
-// ============================================================================
-// Панель настроек (рендерится под строкой меню при активном пункте «Настройки»)
-// ============================================================================
-
-interface SettingsPanelProps {
-  loading: boolean;
-  saving: boolean;
-  staticDir: string;
-  autostart: boolean;
-  autostartSupported: boolean;
-  error: string | null;
-  notice: string | null;
-  onStaticDirChange: (value: string) => void;
-  onAutostartChange: (checked: boolean) => void;
-  onSave: (event: React.FormEvent) => void;
-}
-
-function SettingsPanel({
-  loading,
-  saving,
-  staticDir,
-  autostart,
-  autostartSupported,
-  error,
-  notice,
-  onStaticDirChange,
-  onAutostartChange,
-  onSave,
-}: SettingsPanelProps) {
-  return (
-    <form className="admin-settings" onSubmit={onSave}>
+    <form className="admin-settings" onSubmit={handleSave}>
       <h2 className="admin-subtitle">Настройки</h2>
 
       <label className="admin-field">
-        <span>Папка для изображений расписания</span>
+        <span>Папка локальных расписаний</span>
         <input
           type="text"
-          value={staticDir}
+          value={localImageDir}
           placeholder="Оставьте пустым — используется папка по умолчанию"
-          onChange={(e) => onStaticDirChange(e.target.value)}
+          onChange={(e) => setLocalImageDir(e.target.value)}
         />
         <small>
-          Путь на диске киоска, например <code>D:\KioskStatic</code>. Пустое
-          поле — значение по умолчанию.
+          Путь на диске киоска, например <code>D:\KioskLocal</code>. Пустое поле
+          — значение по умолчанию.
         </small>
+      </label>
+
+      <label className="admin-field">
+        <span>Режим расписания</span>
+        <select
+          value={scheduleMode}
+          onChange={(e) => setScheduleMode(e.target.value as ScheduleMode)}
+        >
+          <option value="single">Одно изображение</option>
+          <option value="week">Неделя (по дням)</option>
+        </select>
+        <small>
+          Как киоск показывает расписание: одним изображением или недельным
+          набором.
+        </small>
+      </label>
+
+      <label className="admin-field">
+        <span>Приветственное сообщение</span>
+        <input
+          type="text"
+          value={welcomeMessage}
+          placeholder="Например: Добро пожаловать в школу!"
+          onChange={(e) => setWelcomeMessage(e.target.value)}
+        />
+        <small>Показывается на главном экране под заголовком.</small>
       </label>
 
       <label className="admin-check">
@@ -245,7 +297,7 @@ function SettingsPanel({
           type="checkbox"
           checked={autostart}
           disabled={!autostartSupported}
-          onChange={(e) => onAutostartChange(e.target.checked)}
+          onChange={(e) => setAutostart(e.target.checked)}
         />
         <span>Автозапуск программы при входе в систему</span>
       </label>
@@ -271,22 +323,44 @@ function SettingsPanel({
   );
 }
 
-// --- Вспомогательные функции для токена (модульная обвязка над sessionStorage) ---
+// ============================================================================
+// Раздел «Расписания»
+// ============================================================================
 
-const ADMIN_TOKEN_KEY = "school_kiosk_admin_token";
-
-function getStoredToken(): string | null {
-  try {
-    return sessionStorage.getItem(ADMIN_TOKEN_KEY);
-  } catch {
-    return null;
-  }
+function SchedulesPanel() {
+  return (
+    <div className="admin-settings">
+      <h2 className="admin-subtitle">Расписания</h2>
+      <p className="admin-text">
+        Управление загруженными изображениями расписания появится здесь в
+        ближайшем обновлении.
+      </p>
+      <p className="admin-text">
+        Сейчас киоск показывает активное расписание из папки локальных
+        расписаний. Саму папку и режим отображения можно задать в разделе
+        «Настройки».
+      </p>
+    </div>
+  );
 }
 
-function clearToken(): void {
-  try {
-    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-  } catch {
-    /* ignore */
-  }
+// ============================================================================
+// Раздел «О проекте»
+// ============================================================================
+
+function AboutPanel() {
+  return (
+    <div className="admin-settings">
+      <h2 className="admin-subtitle">О проекте</h2>
+      <p className="admin-text">
+        «Школьный киоск» — информационный терминал для школ. На главном экране
+        посетители видят расписание и погоду, а администратор может управлять
+        содержимым через эту панель.
+      </p>
+      <p className="admin-text">
+        Версия приложения показана внизу экрана. Обновления устанавливаются
+        автоматически через сервер обновлений.
+      </p>
+    </div>
+  );
 }

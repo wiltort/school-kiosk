@@ -6,6 +6,8 @@ import kioskLogo from "../assets/kiosk-logo.png";
 interface HomeViewProps {
   onSchedule: () => void;
   onWeather: () => void;
+  /** Приветственное сообщение из настроек; пустая строка — стандартный подзаголовок. */
+  welcomeMessage?: string;
 }
 
 function ScheduleIcon(): ReactNode {
@@ -28,7 +30,12 @@ function WeatherIcon(): ReactNode {
  * Главный экран киоска: сетка иконок приложений.
  * Сейчас доступны «Расписание» и «Погода», в будущем список расширится.
  */
-export default function HomeView({ onSchedule, onWeather }: HomeViewProps) {
+export default function HomeView({
+  onSchedule,
+  onWeather,
+  welcomeMessage = "",
+}: HomeViewProps) {
+  const subtitle = welcomeMessage.trim() || "Информационный киоск школы";
   return (
     <section className="home">
       <header className="home__header">
@@ -39,7 +46,7 @@ export default function HomeView({ onSchedule, onWeather }: HomeViewProps) {
           draggable={false}
         />
         <h1 className="home__title">Школьный киоск</h1>
-        <p className="home__subtitle">Информационный киоск школы</p>
+        <p className="home__subtitle">{subtitle}</p>
       </header>
 
       <div className="home__grid">

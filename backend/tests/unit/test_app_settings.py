@@ -13,9 +13,11 @@ def test_defaults_when_no_file(tmp_path):
         "local_image_dir": None,
         "current_local_schedule_image_filename": None,
         "schedule_mode": "single",
+        "welcome_message": None,
     }
     assert store.static_dir() is None
     assert store.autostart() is False
+    assert store.welcome_message() is None
 
 
 def test_update_persists_to_file(tmp_path):
@@ -26,6 +28,7 @@ def test_update_persists_to_file(tmp_path):
         local_image_dir="C:/uploaded_images",
         current_local_schedule_image_filename="schedule.png",
         schedule_mode="week",
+        welcome_message="Добро пожаловать!",
     )
 
     assert result == {
@@ -34,6 +37,7 @@ def test_update_persists_to_file(tmp_path):
         "local_image_dir": "C:/uploaded_images",
         "current_local_schedule_image_filename": "schedule.png",
         "schedule_mode": "week",
+        "welcome_message": "Добро пожаловать!",
     }
 
     # Данные реально записаны на диск.
@@ -43,6 +47,7 @@ def test_update_persists_to_file(tmp_path):
     assert raw["local_image_dir"] == "C:/uploaded_images"
     assert raw["current_local_schedule_image_filename"] == "schedule.png"
     assert raw["schedule_mode"] == "week"
+    assert raw["welcome_message"] == "Добро пожаловать!"
 
     # Новый экземпляр читает те же значения.
     reloaded = AppSettingsStore(tmp_path)
@@ -52,13 +57,23 @@ def test_update_persists_to_file(tmp_path):
         "local_image_dir": "C:/uploaded_images",
         "current_local_schedule_image_filename": "schedule.png",
         "schedule_mode": "week",
+        "welcome_message": "Добро пожаловать!",
     }
+    assert reloaded.welcome_message() == "Добро пожаловать!"
 
 
 def test_empty_static_dir_normalizes_to_none(tmp_path):
     store = AppSettingsStore(tmp_path)
     store.update(static_dir="  ")
     assert store.static_dir() is None
+
+
+def test_empty_welcome_message_normalizes_to_none(tmp_path):
+    store = AppSettingsStore(tmp_path)
+    store.update(welcome_message="Привет!")
+    assert store.welcome_message() == "Привет!"
+    store.update(welcome_message="   ")
+    assert store.welcome_message() is None
 
 
 def test_wrong_schedule_mode_ignores_it(tmp_path):
@@ -83,6 +98,7 @@ def test_partial_update_keeps_other_fields(tmp_path):
         "local_image_dir": "C:/uploaded_images",
         "current_local_schedule_image_filename": "schedule.png",
         "schedule_mode": "single",
+        "welcome_message": None,
     }
 
     store.update(static_dir=None)
@@ -92,6 +108,7 @@ def test_partial_update_keeps_other_fields(tmp_path):
         "local_image_dir": "C:/uploaded_images",
         "current_local_schedule_image_filename": "schedule.png",
         "schedule_mode": "single",
+        "welcome_message": None,
     }
 
 
@@ -116,6 +133,7 @@ def test_migrates_static_dir_from_legacy_seed(tmp_path):
         "local_image_dir": None,
         "current_local_schedule_image_filename": None,
         "schedule_mode": "single",
+        "welcome_message": None,
     }
 
     # Повторная загрузка больше не трогает legacy и читает свой файл.
@@ -139,6 +157,7 @@ def test_not_ignores_legacy_without_static_dir(tmp_path):
         "local_image_dir": None,
         "current_local_schedule_image_filename": None,
         "schedule_mode": "single",
+        "welcome_message": None,
     }
 
     store.update(static_dir="Z:/Changed")
@@ -148,4 +167,5 @@ def test_not_ignores_legacy_without_static_dir(tmp_path):
         "local_image_dir": None,
         "current_local_schedule_image_filename": None,
         "schedule_mode": "single",
+        "welcome_message": None,
     }

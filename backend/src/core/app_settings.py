@@ -33,6 +33,7 @@ _DEFAULTS: dict[str, Any] = {
     "local_image_dir": None,
     "current_local_schedule_image_filename": None,
     "schedule_mode": ScheduleMode.SINGLE,
+    "welcome_message": None,
 }
 
 
@@ -121,6 +122,10 @@ class AppSettingsStore:
         except ValueError:
             return ScheduleMode.SINGLE
 
+    def welcome_message(self) -> str | None:
+        """Приветственное сообщение на главном экране либо ``None``."""
+        return self.as_dict().get("welcome_message")
+
     def update(
         self,
         *,
@@ -129,11 +134,13 @@ class AppSettingsStore:
         local_image_dir: str | None = _UNSET,
         current_local_schedule_image_filename: str | None = _UNSET,
         schedule_mode: str | None = _UNSET,
+        welcome_message: str | None = _UNSET,
     ) -> dict[str, Any]:
         """Обновляет переданные поля и атомарно сохраняет файл.
 
         Непереданные поля (по умолчанию ``_UNSET``) не меняются.
-        Пустая строка для ``static_dir`` нормализуется в ``None`` (дефолт).
+        Пустая строка для ``static_dir``/``local_image_dir``/``welcome_message``
+        нормализуется в ``None`` (дефолт).
         """
         with self._lock:
             data = dict(self._data)
@@ -150,6 +157,8 @@ class AppSettingsStore:
             if schedule_mode is not _UNSET:
                 with contextlib.suppress(ValueError):
                     data["schedule_mode"] = ScheduleMode(schedule_mode)
+            if welcome_message is not _UNSET:
+                data["welcome_message"] = (welcome_message or "").strip() or None
             self._data = data
             self._write(self._path, data)
         return dict(data)

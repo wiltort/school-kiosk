@@ -45,12 +45,12 @@ export default function AdminPersonIcon({
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* Галочка или крестик */}
+      {/* Галочка (зелёная, админ активен) или крестик (красный, вход не выполнен) */}
       {isAdmin ? (
         <path
           d="M9 12l2 2 4-4"
           fill="none"
-          stroke="currentColor"
+          stroke="#34d399"
           strokeWidth="1.8"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -59,7 +59,7 @@ export default function AdminPersonIcon({
         <path
           d="M10 10l4 4M14 10l-4 4"
           fill="none"
-          stroke="currentColor"
+          stroke="#f87171"
           strokeWidth="1.8"
           strokeLinecap="round"
         />

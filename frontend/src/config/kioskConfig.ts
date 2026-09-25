@@ -12,6 +12,8 @@ export interface KioskConfig {
   inactivityTimeoutMs: number;
   /** Базовый URL API бэкенда. */
   apiBaseUrl: string;
+  /** Приветственное сообщение на главном экране (пустая строка — стандартный подзаголовок). */
+  welcomeMessage: string;
 }
 
 // Префикс API. В dev-режиме относительный путь проксируется Vite на бэкенд.
@@ -25,6 +27,8 @@ const DEFAULT_CONFIG: KioskConfig = {
   // 2 минуты (по ТЗ). Значение станет настраиваемым из админки.
   inactivityTimeoutMs: 2 * 60 * 1000,
   apiBaseUrl: DEV_API_PREFIX,
+  // По умолчанию приветствие не задано — главный экран показывает стандартный подзаголовок.
+  welcomeMessage: "",
 };
 
 const config: KioskConfig = { ...DEFAULT_CONFIG };
@@ -61,16 +65,37 @@ export function getKioskConfig(): KioskConfig {
   return { ...config, apiBaseUrl };
 }
 
+/** Ответ публичного эндпоинта `GET /api/v1/kiosk/config`. */
+interface KioskPublicConfig {
+  welcome_message: string | null;
+  schedule_mode: "single" | "week";
+}
+
 /**
- * Загружает актуальные настройки киоска.
+ * Загружает актуальные настройки киоска с бэкенда.
  *
- * Сейчас это "плейсхолдер": возвращает значения по умолчанию. В дальнейшем
- * здесь будет запрос к админ-API (например, GET /api/v1/settings) с подменой
- * сохранённых параметров.
+ * Публичный эндпоинт `GET /api/v1/kiosk/config` отдаёт параметры главного
+ * экрана (приветственное сообщение, режим расписания) без авторизации.
+ * Если бэкенд недоступен — возвращаем значения по умолчанию, чтобы киоск
+ * продолжал работать автономно.
  *
  * @returns Копия актуальной конфигурации киоска.
  */
 export async function loadKioskConfig(): Promise<KioskConfig> {
-  // TODO(admin): заменить на реальную загрузку настроек с бэкенда.
-  return { ...DEFAULT_CONFIG };
+  const base = getKioskConfig();
+  try {
+    const response = await fetch(`${base.apiBaseUrl}/kiosk/config`, {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return { ...base };
+    }
+    const remote = (await response.json()) as KioskPublicConfig;
+    return {
+      ...base,
+      welcomeMessage: remote.welcome_message ?? "",
+    };
+  } catch {
+    return { ...base };
+  }
 }

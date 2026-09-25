@@ -20,6 +20,20 @@ logger = getLogger(__name__)
 
 
 class ScheduleImageManager:
+    """Менеджер операций над расписаниями в виде изображений.
+
+    Отвечает за CRUD-операции над сущностью :class:`ScheduleImage`,
+    включая синхронизацию статической копии с локальным файлом-источником
+    (``create_local`` и ``update`` с ``is_local=True``) и активацию
+    единственного активного расписания (``set_single_active``).
+    Все методы работают в рамках отдельной сессии базы данных,
+    открываемой через ``self.db.db_session()``.
+
+    Raises:
+        HTTPException: с кодом 400 при нарушении целостности данных
+            и с кодом 404, когда запись не найдена.
+    """
+
     @staticmethod
     def _same_content(meta_a: dict | None, meta_b: dict | None) -> bool:
         """Сравнивает метаданные файлов по содержимому (хеш и размер).
@@ -34,17 +48,6 @@ class ScheduleImageManager:
         return meta_a.get("file_hash") == meta_b.get("file_hash") and meta_a.get(
             "file_size"
         ) == meta_b.get("file_size")
-
-    """Менеджер операций над расписаниями в виде изображений.
-
-    Отвечает за CRUD-операции над сущностью :class:`ScheduleImage`.
-    Все методы работают в рамках отдельной сессии базы данных,
-    открываемой через ``self.db.db_session()``.
-
-    Raises:
-        HTTPException: с кодом 400 при нарушении целостности данных
-            и с кодом 404, когда запись не найдена.
-    """
 
     def __init__(
         self,
@@ -219,6 +222,10 @@ class ScheduleImageManager:
                 перезаписывает статическую копию и обновляет метаданные
                 изображения. Позволяет вызывать метод с пустым
                 ``schedule`` (только синхронизация файла).
+            filename: Имя файла для подгрузки нового изображения
+                (недоступно для локальных расписаний).
+            file_data: Содержимое нового файла изображения; вместе с
+                ``filename`` заменяет файл нелокального расписания.
 
         Returns:
             Обновлённое расписание в виде схемы :class:`ScheduleImageGet`.
@@ -354,6 +361,7 @@ class ScheduleImageManager:
                         self.storage.restore_file(old_image)
                     raise
 
+    @handle_db_errors
     async def delete(self, id: uuid.UUID) -> None:
         """Удаляет расписание-изображение по идентификатору.
 
@@ -380,3 +388,37 @@ class ScheduleImageManager:
                 await with_retry_commit(session)
                 if is_local:
                     self.storage.delete(schedule.image)
+
+    @handle_db_errors
+    async def set_single_active(self, id: uuid.UUID) -> ScheduleImageGet:
+        """Активирует указанное расписание и деактивирует остальные.
+
+        Устанавливает ``is_active=True`` для записи с переданным
+        идентификатором и сбрасывает ``is_active=False`` у всех остальных
+        активных расписаний. Изменения фиксируются одной транзакцией.
+
+        Args:
+            id: Уникальный идентификатор расписания, которое нужно
+                активировать.
+
+        Returns:
+            Активированное расписание в виде схемы :class:`ScheduleImageGet`.
+
+        Raises:
+            HTTPException: с кодом 404, если запись не найдена.
+        """
+        async with self.db.db_session() as session:
+            schedule = await self.image_repo.get(session, id)
+            if not schedule:
+                raise HTTPException(status_code=404, detail="Расписание не найдено")
+            active_schedules = await self.image_repo.filter(session, is_active=True)
+            for instance in active_schedules:
+                if instance.id != id:
+                    await self.image_repo.update(
+                        session, instance, {"is_active": False}
+                    )
+            updated_schedule = await self.image_repo.update(
+                session, schedule, {"is_active": True}
+            )
+            await with_retry_commit(session)
+            return ScheduleImageGet.model_validate(updated_schedule)

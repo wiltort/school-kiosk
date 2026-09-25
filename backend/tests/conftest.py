@@ -50,7 +50,8 @@ class FakeImageStorage:
         is_local: bool = False,  # noqa: ARG002
     ) -> str:
         self.saved.append((data, filename))
-        return self.saved_path
+        subdir = subdir or "stored"
+        return f"{subdir}/{filename}"
 
     def delete(self, path: str) -> None:
         self.deleted.append(path)

@@ -63,6 +63,7 @@ def test_create_with_omitted_optional_fields(client):
     body = response.json()
     assert body["name"] == "Расписание 1"
     assert body["is_active"] is True  # дефолт формы
+    assert body["image"] == "stored/image.png"
 
 
 def test_create_without_required_image_returns_422(client):
@@ -165,3 +166,29 @@ def test_router_prefix_and_tags():
     """Тест префикса и тегов роутера."""
     assert schedule_image_router.prefix == "/schedule_images"
     assert schedule_image_router.tags == ["schedule_images"]
+
+
+def test_set_single_active(client):
+    """Тест установки единственного расписания."""
+    created_1 = _create_schedule_image_record(client)
+    response = client.post(
+        CREATE_URL,
+        data={
+            "name": "Расписание 2",
+            "day_of_week": DayOfWeek.MONDAY.value,
+            "is_active": True,
+        },
+        files={"image": ("image2.png", b"x", "image/png")},
+    )
+    created_2 = response.json()
+    assert created_2["is_active"] is True
+    response = client.post(
+        f"/api/v1/schedule_images/{created_1['id']}/set_single_active"
+    )
+    assert response.status_code == 202
+    created_1 = response.json()
+    assert created_1["is_active"] is True
+    response = client.get(f"/api/v1/schedule_images/{created_2['id']}")
+    assert response.status_code == 200
+    created_2 = response.json()
+    assert created_2["is_active"] is False

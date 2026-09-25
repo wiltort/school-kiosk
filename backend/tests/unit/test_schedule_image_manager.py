@@ -515,3 +515,108 @@ async def test_update_local_file_failure(manager_factory):
     assert excinfo.value.status_code == 400
     assert storage.restored == ["local/current_schedule.jpg"]
     assert storage.deleted == []
+
+
+@pytest.mark.asyncio
+async def test_create_local_saves_file_and_metadata(
+    manager_factory, async_session_maker
+):
+    """create_local сохраняет локальный файл и метаданные, помечает is_local."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+
+    created = await _create_local(manager)
+
+    assert created.is_local is True
+    assert created.image == "local/current_schedule.jpg"
+    assert storage.saved[-1] == (b"local-v1", "current_schedule.jpg", "local", True)
+
+    async with async_session_maker() as session:
+        obj = await session.get(ScheduleImage, created.id)
+        assert obj.file_hash == hashlib.sha256(b"local-v1").hexdigest()
+        assert obj.file_size == len(b"local-v1")
+
+
+@pytest.mark.asyncio
+async def test_create_local_missing_source_raises_500(manager_factory):
+    """create_local без файла-источника — HTTP 500."""
+    storage = LocalSyncStorage(local_data=b"local-v1", local_missing=True)
+    manager = _make_manager(manager_factory, storage)
+
+    with pytest.raises(Exception) as excinfo:
+        await _create_local(manager)
+
+    assert excinfo.value.status_code == 500
+    assert "не найден" in excinfo.value.detail
+
+
+@pytest.mark.asyncio
+async def test_create_local_updates_existing_active_record(
+    manager_factory, async_session_maker
+):
+    """Повторное создание локального расписания с тем же именем обновляет
+    существующую запись вместо создания новой."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+    created = await _create_local(manager, name="Расписание 1")
+
+    storage.local_data = b"local-v2"
+    created_again = await _create_local(manager, name="Расписание 1")
+
+    async with async_session_maker() as session:
+        rows = (await session.execute(select(ScheduleImage))).scalars().all()
+
+    assert len(rows) == 1
+    assert rows[0].id == created.id == created_again.id
+    assert rows[0].file_hash == hashlib.sha256(b"local-v2").hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_set_single_active_activates_target(manager_factory, async_session_maker):
+    """Активирует целевое расписание и деактивирует остальные активные."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+    first = await _create(manager, _sample_create(name="A"))
+    second = await _create(manager, _sample_create(name="B", is_active=True))
+
+    activated = await manager.set_single_active(first.id)
+
+    assert activated.id == first.id
+    assert activated.is_active is True
+
+    async with async_session_maker() as session:
+        rows = (await session.execute(select(ScheduleImage))).scalars().all()
+    states = {row.id: row.is_active for row in rows}
+    assert states[first.id] is True
+    assert states[second.id] is False
+
+
+@pytest.mark.asyncio
+async def test_set_single_active_keeps_only_target_active(
+    manager_factory, async_session_maker
+):
+    """Если целевая запись уже активна, остальные остаются неактивными."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+    active = await _create(manager, _sample_create(name="Active", is_active=True))
+    inactive = await _create(manager, _sample_create(name="Inactive"))
+
+    result = await manager.set_single_active(active.id)
+
+    assert result.id == active.id
+    assert result.is_active is True
+
+    async with async_session_maker() as session:
+        row = await session.get(ScheduleImage, inactive.id)
+        assert row.is_active is False
+
+
+@pytest.mark.asyncio
+async def test_set_single_active_missing_raises_404(manager_factory):
+    """set_single_active для несуществующей записи — HTTP 404."""
+    manager = _make_manager(manager_factory, LocalSyncStorage(local_data=b"x"))
+
+    with pytest.raises(Exception) as excinfo:
+        await manager.set_single_active(uuid.uuid4())
+
+    assert excinfo.value.status_code == 404

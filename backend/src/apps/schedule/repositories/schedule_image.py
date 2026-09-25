@@ -106,13 +106,19 @@ class ScheduleImageRepository:
     async def get_local_by_name(
         self, session: AsyncSession, name: str
     ) -> ScheduleImage | None:
-        """Возвращает локальное изображение расписания по идентификатору.
+        """Возвращает активное локальное изображение расписания по имени.
+
+        Ищет только среди записей с ``is_local=True`` и ``is_active=True``.
+        Уникальность имени активных локальных записей гарантируется
+        частичным уникальным индексом ``ux_schedule_image_local_name``.
 
         Args:
             session: Активная асинхронная сессия базы данных.
             name: Имя локального изображения.
+
         Returns:
-            Найденное локальное изображение :class:`ScheduleImage`.
+            Найденное локальное изображение :class:`ScheduleImage`
+            либо ``None``, если запись отсутствует.
         """
         query = select(self.model).where(
             self.model.name == name, self.model.is_local, self.model.is_active
@@ -127,20 +133,50 @@ class ScheduleImageRepository:
         is_local: bool | None = None,
         is_active: bool = True,
     ) -> ScheduleImage | None:
-        """Возвращает изображение расписания по пути.
+        """Возвращает изображение расписания по пути файла.
+
+        Поиск идёт по колонке ``image``. При ``is_local=None`` фильтр
+        локальности не применяется.
 
         Args:
             session: Активная асинхронная сессия базы данных.
-            path: Путь к изображению.
-            is_local: Флаг локальности изображения.
-            is_active: Флаг активности изображения.
+            path: Путь к файлу изображения.
+            is_local: Флаг локальности изображения; ``None`` — без фильтра.
+            is_active: Флаг активности изображения (по умолчанию ``True``).
 
         Returns:
-            Найденное изображение :class:`ScheduleImage`.
+            Найденное изображение :class:`ScheduleImage` либо ``None``.
         """
-        filter_args = {"path": path, "is_active": is_active}
+        conditions = [
+            self.model.image == path,
+            self.model.is_active == is_active,
+        ]
         if is_local is not None:
-            filter_args["is_local"] = is_local
-        query = select(self.model).where(**filter_args)
+            conditions.append(self.model.is_local == is_local)
+        query = select(self.model).where(*conditions)
         result = await session.execute(query)
         return result.scalars().first()
+
+    async def filter(self, session: AsyncSession, **kwargs) -> list[ScheduleImage]:
+        """Возвращает изображения расписания, соответствующие фильтру.
+
+        Пары «имя поля = значение» превращаются в условия, объединённые
+        оператором AND. Имена полей должны совпадать с атрибутами модели
+        :class:`ScheduleImage` (например, ``is_active=True``).
+
+        Args:
+            session: Активная асинхронная сессия базы данных.
+            **kwargs: Условия фильтрации в виде «поле=значение».
+
+        Returns:
+            Список найденных изображений :class:`ScheduleImage`.
+            Пустой список, если фильтр пуст или записи не найдены.
+        """
+        if not kwargs:
+            return []
+        conditions = [
+            getattr(self.model, key) == value for key, value in kwargs.items()
+        ]
+        query = select(self.model).where(*conditions)
+        result = await session.execute(query)
+        return list(result.scalars().all())

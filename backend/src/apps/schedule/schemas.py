@@ -23,6 +23,7 @@ class ScheduleImageBase(BaseModel):
     day_of_week: DayOfWeek = Field(
         ..., description="День недели", examples=[DayOfWeek.MONDAY]
     )
+    is_local: bool = Field(..., description="Локальное расписание", examples=[True])
 
 
 class ScheduleImageCreate(BaseModel):

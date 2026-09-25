@@ -102,8 +102,21 @@ async def get_local_schedule(response: Response) -> ScheduleImageGet:
         name="Локальное расписание",
         image="1.jpg",
         is_active=True,
+        is_local=True,
         day_of_week=1,
         created_at=datetime.datetime.now(),
         updated_at=datetime.datetime.now(),
     )
     return schedule
+
+
+@schedule_image_router.post(
+    "/{id}/set_single_active",
+    response_model=ScheduleImageGet,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def set_single_active(
+    id: uuid.UUID,
+    manager: Annotated[ScheduleImageManager, Depends()],
+):
+    return await manager.set_single_active(id)

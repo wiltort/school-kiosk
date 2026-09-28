@@ -620,3 +620,18 @@ async def test_set_single_active_missing_raises_404(manager_factory):
         await manager.set_single_active(uuid.uuid4())
 
     assert excinfo.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_single_active_returns_schedule(manager_factory):
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+    active = await _create(manager, _sample_create(name="Active", is_active=True))
+    inactive = await _create(manager, _sample_create(name="Inactive", is_active=False))
+    active = await manager.get(active.id)
+
+    result = await manager.get_single_schedule()
+    assert result == active
+
+    inactive = await manager.get(inactive.id)
+    assert inactive.is_active is False

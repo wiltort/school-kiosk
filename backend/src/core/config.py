@@ -48,12 +48,24 @@ def _resolve_legacy_settings_file() -> Path | None:
     return None
 
 
+def _read_app_version() -> str:
+    try:
+        import tomllib
+
+        pyproject = BASE_DIR / "pyproject.toml"
+        if pyproject.is_file():
+            data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+            return data["project"]["version"]
+    except OSError, KeyError, tomllib.TOMLDecodeError:
+        return "0.0.0"
+
+
 class Settings(BaseSettings):
     model_config = {"env_prefix": "BACKEND_"}
 
     app_name: str = "School Kiosk API"
     app_description: str = "API backend for School Kiosk"
-    app_version: str = "0.1.0"
+    app_version: str = _read_app_version()
 
     debug: bool = False
     log_level: str = "INFO"

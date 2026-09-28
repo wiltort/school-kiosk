@@ -422,3 +422,24 @@ class ScheduleImageManager:
             )
             await with_retry_commit(session)
             return ScheduleImageGet.model_validate(updated_schedule)
+
+    @handle_db_errors
+    async def get_single_schedule(self) -> ScheduleImageGet:
+        """Получает единственное активное расписание (для сингл режима).
+
+        Returns: Активное расписание в виде схемы :class:`ScheduleImageGet`.
+
+        Raises:
+            HTTPException с кодом 400 если активное расписание не одно или вообще нет.
+        """
+        async with self.db.db_session() as session:
+            active_schedules = await self.image_repo.filter(session, is_active=True)
+            if not active_schedules:
+                raise HTTPException(
+                    status_code=400, detail="Активных расписаний не найдено"
+                )
+            if not len(active_schedules) == 1:
+                raise HTTPException(
+                    status_code=400, detail="Выберите единственное расписание"
+                )
+            return ScheduleImageGet.model_validate(active_schedules[0])

@@ -48,6 +48,10 @@ run: ## Запустить проект
 run-frontend: ## Запустить frontend (dev-сервер)
 	$(NPM) dev
 
+.PHONY: build-frontend
+build-frontend: ## Собрать frontend
+	$(NPM) build
+
 .PHONY: install-backend
 install-backend: ## Установить все зависимости (включая dev)
 	cd $(BACKEND) && poetry install

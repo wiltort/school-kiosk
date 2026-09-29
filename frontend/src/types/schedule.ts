@@ -1,3 +1,6 @@
+/** Режим отображения расписания (совпадает с backend ScheduleMode). */
+export type ScheduleMode = "single" | "week";
+
 /** Изображение расписания (ответ GET /api/v1/schedule_images/). */
 export interface ScheduleImage {
   id: string;

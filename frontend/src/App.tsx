@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  getKioskConfig,
-  isDesktopApp,
-  loadKioskConfig,
-  type KioskConfig,
-} from "./config/kioskConfig";
+import { isDesktopApp } from "./config/kioskConfig";
 import { useIdleTimeout } from "./hooks/useIdleTimeout";
+import { useKioskConfig } from "./hooks/useKioskConfig";
 import AdminPersonIcon from "./components/AdminPersonIcon";
 import HomeView from "./views/HomeView";
 import ScheduleView from "./views/ScheduleView";
@@ -26,14 +22,6 @@ const ADMIN_POLL_MS = 1000;
 
 /**
  * Корневой компонент киоск-режима.
- *
- * Логика входа:
- *   - иконка на главном экране (браузер по LAN) открывает форму входа;
- *   - после успешного входа киоск остаётся на главном экране, но сверху
- *     появляется строка меню администратора («Настройки», «Расписания»,
- *     «О проекте»), а иконка меняет красный крестик на зелёную галочку;
- *   - повторное нажатие на иконку (или кнопка в строке меню) выходит
- *     из режима администратора;
  *   - десктопный киоск: сочетание Ctrl+Shift+A открывает форму входа
  *     (админ-режим из kiosk.rs опрашивается через `is_admin_active`).
  */
@@ -41,8 +29,9 @@ export default function App() {
   const [view, setView] = useState<View>("home");
   const [adminSection, setAdminSection] = useState<AdminSection>("settings");
   const [isAdmin, setIsAdmin] = useState<boolean>(() => isAdminLoggedIn());
-  const [config, setConfig] = useState<KioskConfig>(getKioskConfig());
   const desktop = isDesktopApp();
+
+  const { data: config, refetch: refetchConfig } = useKioskConfig();
 
   const viewRef = useRef<View>(view);
   useEffect(() => {
@@ -53,19 +42,6 @@ export default function App() {
   useEffect(() => {
     isAdminRef.current = isAdmin;
   }, [isAdmin]);
-
-  // Загружаем актуальные настройки киоска с бэкенда (приветственное сообщение).
-  useEffect(() => {
-    let cancelled = false;
-    loadKioskConfig().then((loaded) => {
-      if (!cancelled) {
-        setConfig(loaded);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Десктоп: Ctrl+Shift+A переключает админ-режим (kiosk.rs) — открываем форму входа.
   useEffect(() => {
@@ -118,10 +94,9 @@ export default function App() {
   }, []);
 
   /** Перезагрузка настроек киоска (например, после сохранения в админке). */
-  const reloadConfig = useCallback(async () => {
-    const loaded = await loadKioskConfig();
-    setConfig(loaded);
-  }, []);
+  const reloadConfig = useCallback(() => {
+    void refetchConfig();
+  }, [refetchConfig]);
 
   // При бездействии дольше inactivityTimeoutMs возвращаемся на главный экран
   // (админ-сессия при этом сохраняется — строка меню остаётся видимой).

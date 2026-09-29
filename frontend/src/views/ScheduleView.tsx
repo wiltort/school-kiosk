@@ -1,60 +1,32 @@
-import { useCallback, useEffect, useState } from "react";
 import HomeButton from "../components/HomeButton";
-import { fetchScheduleImage, scheduleImageUrl } from "../services/api";
-import type { ScheduleImage } from "../types/schedule";
+import { useScheduleImage } from "../hooks/useScheduleImage";
+import { scheduleImageUrl } from "../services/api";
 
 interface ScheduleViewProps {
   onHome: () => void;
 }
 
-type LoadState =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "ready"; schedule: ScheduleImage };
-
 /** Экран расписания: отображает изображение(я) расписания и кнопку «Домой». */
 export default function ScheduleView({ onHome }: ScheduleViewProps) {
-  const [state, setState] = useState<LoadState>({ status: "loading" });
+  const { data: schedule, isLoading, isError, error } = useScheduleImage();
 
-  useEffect(() => {
-    let cancelled = false;
-
-    fetchScheduleImage()
-      .then((schedule) => {
-        if (!cancelled) {
-          setState({ status: "ready", schedule });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          const message =
-            error instanceof Error ? error.message : "Неизвестная ошибка";
-          setState({ status: "error", message });
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const activeSchedule = state.status === "ready" ? state.schedule : null;
-
-  const renderBody = useCallback(() => {
-    if (state.status === "loading") {
+  const renderBody = () => {
+    if (isLoading) {
       return <p className="schedule__hint">Загрузка расписания…</p>;
     }
 
-    if (state.status === "error") {
+    if (isError) {
       return (
         <div className="schedule__empty">
           <p>Не удалось загрузить расписание.</p>
-          <p className="schedule__error">{state.message}</p>
+          <p className="schedule__error">
+            {error instanceof Error ? error.message : "Неизвестная ошибка"}
+          </p>
         </div>
       );
     }
 
-    if (!activeSchedule) {
+    if (!schedule) {
       return (
         <p className="schedule__hint">Активное расписание не загружено.</p>
       );
@@ -62,22 +34,17 @@ export default function ScheduleView({ onHome }: ScheduleViewProps) {
 
     return (
       <div className="schedule__images">
-        <figure key={activeSchedule.id} className="schedule__figure">
+        <figure key={schedule.id} className="schedule__figure">
           <img
             className="schedule__image"
-            src={scheduleImageUrl(
-              activeSchedule.image,
-              activeSchedule.updated_at
-            )}
-            alt={activeSchedule.name}
+            src={scheduleImageUrl(schedule.image, schedule.updated_at)}
+            alt={schedule.name}
           />
-          <figcaption className="schedule__caption">
-            {activeSchedule.name}
-          </figcaption>
+          <figcaption className="schedule__caption">{schedule.name}</figcaption>
         </figure>
       </div>
     );
-  }, [state, activeSchedule]);
+  };
 
   return (
     <section className="schedule">

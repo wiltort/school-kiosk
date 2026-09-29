@@ -11,7 +11,13 @@ SECTIONS = [
     ("Project", ["build", "run", "install"]),
     (
         "Frontend",
-        ["install-frontend", "run-frontend", "lint-frontend", "format-frontend"],
+        [
+            "install-frontend",
+            "run-frontend",
+            "lint-frontend",
+            "format-frontend",
+            "build-frontend",
+        ],
     ),
     (
         "Backend",

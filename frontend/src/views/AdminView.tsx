@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import AdminPersonIcon from "../components/AdminPersonIcon";
 import HomeButton from "../components/HomeButton";
 import {
-  fetchAdminSettings,
-  loginAdmin,
-  updateAdminSettings,
-  type ScheduleMode,
-} from "../services/api";
+  useAdminSettings,
+  useUpdateAdminSettings,
+} from "../hooks/useAdminSettings";
+import { loginAdmin, type ScheduleMode } from "../services/api";
 
 /** Раздел админ-панели, открываемый из строки меню. */
 export type AdminSection = "settings" | "schedules" | "about";
@@ -190,67 +189,57 @@ interface SettingsPanelProps {
 }
 
 function SettingsPanel({ onSaved }: SettingsPanelProps) {
+  const { data: settings, isLoading, error: loadError } = useAdminSettings();
+  const updateMutation = useUpdateAdminSettings();
+
   const [localImageDir, setLocalImageDir] = useState("");
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("single");
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [autostart, setAutostart] = useState(false);
   const [autostartSupported, setAutostartSupported] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const loadSettings = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchAdminSettings();
-      setLocalImageDir(data.local_image_dir ?? "");
-      setScheduleMode(data.schedule_mode);
-      setWelcomeMessage(data.welcome_message ?? "");
-      setAutostart(data.autostart);
-      setAutostartSupported(data.autostart_supported);
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Не удалось загрузить настройки"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Синхронизируем поля формы с настройками из React Query-кеша.
   useEffect(() => {
-    void loadSettings();
-  }, [loadSettings]);
+    if (!settings) {
+      return;
+    }
+    setLocalImageDir(settings.local_image_dir ?? "");
+    setScheduleMode(settings.schedule_mode);
+    setWelcomeMessage(settings.welcome_message ?? "");
+    setAutostart(settings.autostart);
+    setAutostartSupported(settings.autostart_supported);
+  }, [settings]);
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault();
-    setSaving(true);
     setNotice(null);
-    setError(null);
     try {
-      const saved = await updateAdminSettings({
+      await updateMutation.mutateAsync({
         local_image_dir: localImageDir.trim() || null,
         schedule_mode: scheduleMode,
         welcome_message: welcomeMessage.trim() || null,
         autostart,
       });
-      setLocalImageDir(saved.local_image_dir ?? "");
-      setScheduleMode(saved.schedule_mode);
-      setWelcomeMessage(saved.welcome_message ?? "");
-      setAutostart(saved.autostart);
       setNotice("Настройки сохранены.");
       onSaved?.();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Ошибка сохранения");
-    } finally {
-      setSaving(false);
+    } catch {
+      /* ошибка отображается через updateMutation.error */
     }
   };
 
   return (
     <form className="admin-settings" onSubmit={handleSave}>
       <h2 className="admin-subtitle">Настройки</h2>
+
+      {isLoading && <p className="admin-hint">Загрузка настроек…</p>}
+      {loadError && !isLoading && (
+        <p className="admin-error">
+          {loadError instanceof Error
+            ? loadError.message
+            : "Не удалось загрузить настройки"}
+        </p>
+      )}
 
       <label className="admin-field">
         <span>Папка локальных расписаний</span>
@@ -307,16 +296,22 @@ function SettingsPanel({ onSaved }: SettingsPanelProps) {
         </small>
       )}
 
-      {error && <p className="admin-error">{error}</p>}
+      {updateMutation.error && (
+        <p className="admin-error">
+          {updateMutation.error instanceof Error
+            ? updateMutation.error.message
+            : "Ошибка сохранения"}
+        </p>
+      )}
       {notice && <p className="admin-notice">{notice}</p>}
 
       <div className="admin-actions">
         <button
           type="submit"
           className="admin-button"
-          disabled={saving || loading}
+          disabled={updateMutation.isPending || isLoading}
         >
-          {saving ? "Сохранение..." : "Сохранить"}
+          {updateMutation.isPending ? "Сохранение..." : "Сохранить"}
         </button>
       </div>
     </form>

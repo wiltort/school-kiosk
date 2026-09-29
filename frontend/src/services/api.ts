@@ -1,5 +1,5 @@
 import { getKioskConfig } from "../config/kioskConfig";
-import type { ScheduleImage } from "../types/schedule";
+import type { ScheduleImage, ScheduleMode } from "../types/schedule";
 
 const SCHEDULE_IMAGES_PATH = "/schedule_images_local/";
 
@@ -53,8 +53,7 @@ export function scheduleImageUrl(
 // Админ-панель
 // ============================================================================
 
-/** Режим отображения расписания (совпадает с backend ScheduleMode). */
-export type ScheduleMode = "single" | "week";
+export type { ScheduleMode };
 
 /** Настройки приложения, отдаваемые админ-API. */
 export interface AdminSettings {

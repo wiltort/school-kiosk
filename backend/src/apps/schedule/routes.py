@@ -59,6 +59,17 @@ async def get_all_schedules(
     return await manager.get_all()
 
 
+@schedule_image_router.get(
+    "/get_single_schedule",
+    response_model=ScheduleImageGet,
+    status_code=status.HTTP_200_OK,
+)
+async def get_single_schedule(
+    manager: Annotated[ScheduleImageManager, Depends()],
+) -> ScheduleImageGet:
+    return await manager.get_single_schedule()
+
+
 @schedule_image_router.get("/{id}", response_model=ScheduleImageGet)
 async def get_schedule(
     id: uuid.UUID,
@@ -104,8 +115,8 @@ async def get_local_schedule(response: Response) -> ScheduleImageGet:
         is_active=True,
         is_local=True,
         day_of_week=1,
-        created_at=datetime.datetime.now(),
-        updated_at=datetime.datetime.now(),
+        created_at=datetime.datetime.now(datetime.UTC),
+        updated_at=datetime.datetime.now(datetime.UTC),
     )
     return schedule
 
@@ -118,5 +129,5 @@ async def get_local_schedule(response: Response) -> ScheduleImageGet:
 async def set_single_active(
     id: uuid.UUID,
     manager: Annotated[ScheduleImageManager, Depends()],
-):
+) -> ScheduleImageGet:
     return await manager.set_single_active(id)

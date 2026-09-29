@@ -1,10 +1,11 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import UUID, Boolean, DateTime, Enum, String
+from sqlalchemy import UUID, Boolean, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.enums.schedule import DayOfWeek
+from src.models.types import UTCDateTime
 
 
 class IDMixin:
@@ -15,10 +16,10 @@ class IDMixin:
 
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+        UTCDateTime, default=lambda: datetime.now(UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UTCDateTime,
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )

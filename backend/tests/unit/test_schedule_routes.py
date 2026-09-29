@@ -192,3 +192,19 @@ def test_set_single_active(client):
     assert response.status_code == 200
     created_2 = response.json()
     assert created_2["is_active"] is False
+
+
+def test_get_single_schedule(client):
+    created_1 = _create_schedule_image_record(client)
+    response = client.post(
+        CREATE_URL,
+        data={
+            "name": "Расписание 2",
+            "day_of_week": DayOfWeek.MONDAY.value,
+            "is_active": False,
+        },
+        files={"image": ("image2.png", b"x", "image/png")},
+    )
+    response = client.get("/api/v1/schedule_images/get_single_schedule")
+    assert response.status_code == 200
+    assert response.json() == created_1

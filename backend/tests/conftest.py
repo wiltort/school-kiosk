@@ -65,6 +65,16 @@ class FakeImageStorage:
     def lock(self, key: str) -> asyncio.Lock:
         return self._locks[key]
 
+    def read_file(self, path: str, is_local: bool = False):
+        if is_local:
+            return b"image"
+        try:
+            file = filter(lambda x: x[1] == path, self.saved)
+        except Exception:
+            return None
+        if file:
+            return list(file)[0][0]
+
 
 @pytest_asyncio.fixture(scope="session")
 async def async_engine():

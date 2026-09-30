@@ -6,6 +6,7 @@ import {
   setSingleActiveSchedule,
   updateSchedule,
   type ScheduleFormValues,
+  type ScheduleUpdateValues,
 } from "../services/api";
 import { scheduleImageKeys } from "./useScheduleImage";
 
@@ -35,7 +36,7 @@ export function useCreateSchedule() {
       file,
     }: {
       values: ScheduleFormValues;
-      file: File;
+      file: File | null;
     }) => createSchedule(values, file),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: scheduleImagesKeys.all });
@@ -48,8 +49,13 @@ export function useCreateSchedule() {
 export function useUpdateSchedule() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, values }: { id: string; values: ScheduleFormValues }) =>
-      updateSchedule(id, values),
+    mutationFn: ({
+      id,
+      values,
+    }: {
+      id: string;
+      values: ScheduleUpdateValues;
+    }) => updateSchedule(id, values),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: scheduleImagesKeys.all });
       void queryClient.invalidateQueries({ queryKey: scheduleImageKeys.all });

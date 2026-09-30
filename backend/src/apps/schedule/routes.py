@@ -16,7 +16,7 @@ schedule_image_router = APIRouter(prefix="/schedule_images", tags=["schedule_ima
 
 
 class ScheduleImageForm:
-    """Метаданные расписания из multipart-формы (для чистого Swagger UI)."""
+    """Метаданные расписания из multipart-формы."""
 
     def __init__(
         self,
@@ -27,6 +27,20 @@ class ScheduleImageForm:
         self.name = name
         self.day_of_week = day_of_week
         self.is_active = is_active
+
+
+class ScheduleImageLocalForm:
+    def __init__(
+        self,
+        name: Annotated[str, Form(min_length=1, max_length=255)],
+        day_of_week: Annotated[DayOfWeek, Form()],
+        is_active: Annotated[bool, Form()] = True,
+        filename: Annotated[str, Form()] = "",
+    ) -> None:
+        self.name = name
+        self.day_of_week = day_of_week
+        self.is_active = is_active
+        self.filename = filename
 
 
 @schedule_image_router.post(
@@ -44,6 +58,23 @@ async def create_schedule(
     )
     content = await image.read()
     return await manager.create(schedule, content, image.filename)
+
+
+@schedule_image_router.post(
+    "/create_local",
+    response_model=ScheduleImageGet,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_local_schedule(
+    data: Annotated[ScheduleImageLocalForm, Depends()],
+    manager: Annotated[ScheduleImageManager, Depends()],
+) -> ScheduleImageGet:
+    schedule = ScheduleImageCreate(
+        name=data.name,
+        is_active=data.is_active,
+        day_of_week=data.day_of_week,
+    )
+    return await manager.create_local(data.filename, schedule)
 
 
 @schedule_image_router.get(
@@ -65,8 +96,12 @@ async def get_all_schedules(
     status_code=status.HTTP_200_OK,
 )
 async def get_single_schedule(
+    response: Response,
     manager: Annotated[ScheduleImageManager, Depends()],
 ) -> ScheduleImageGet:
+    # Метаданные активного расписания не должны кешироваться — клиент каждый
+    # раз должен видеть актуальную версию (и, следовательно, свежий файл).
+    response.headers["Cache-Control"] = "no-store"
     return await manager.get_single_schedule()
 
 

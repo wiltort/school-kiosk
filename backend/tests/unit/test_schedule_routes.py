@@ -208,3 +208,22 @@ def test_get_single_schedule(client):
     response = client.get("/api/v1/schedule_images/get_single_schedule")
     assert response.status_code == 200
     assert response.json() == created_1
+
+
+def test_create_local_schedule(client):
+    response = client.post(
+        f"{CREATE_URL}create_local/",
+        data={
+            "name": "local schedule",
+            "day_of_week": DayOfWeek.FRIDAY.value,
+            "is_active": False,
+            "filename": "1.jpg",
+        },
+    )
+    assert response.status_code == 201
+    schedule = response.json()
+    assert schedule["name"] == "local schedule"
+    assert schedule["day_of_week"] == DayOfWeek.FRIDAY.value
+    assert schedule["is_active"] is False
+    assert schedule["image"] == "local/1.jpg"
+    assert schedule["is_local"] is True

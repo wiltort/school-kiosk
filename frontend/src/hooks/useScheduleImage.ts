@@ -7,7 +7,7 @@ export const scheduleImageKeys = {
 };
 
 /**
- * Активное изображение расписания (GET /api/v1/schedule_images_local/).
+ * Активное изображение расписания (GET /api/v1/schedule_images/get_single_schedule/).
  */
 export function useScheduleImage() {
   return useQuery({
@@ -16,5 +16,9 @@ export function useScheduleImage() {
     staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
+    // Киоск работает в полноэкранном режиме без смены фокуса: чтобы изменения,
+    // сделанные админом с другого устройства, подхватывались автоматически,
+    // периодически опрашиваем активное расписание.
+    refetchInterval: 60_000,
   });
 }

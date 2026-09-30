@@ -384,8 +384,12 @@ function SchedulesPanel() {
     setFormError(null);
     try {
       if (dialog?.mode === "create") {
-        if (!file) {
+        if (!values.is_local && !file) {
           setFormError("Выберите файл изображения.");
+          return;
+        }
+        if (values.is_local && !values.filename.trim()) {
+          setFormError("Укажите имя файла локального изображения.");
           return;
         }
         await createMutation.mutateAsync({ values, file });
@@ -405,6 +409,9 @@ function SchedulesPanel() {
       if (scheduleMode === "single") {
         await activateMutation.mutateAsync(schedule.id);
       } else {
+        // В недельном режиме активация — обычный PATCH метаданных. Бэкенд
+        // принимает только name/day_of_week/is_active, поэтому is_local
+        // и filename в запрос не уходят (см. ScheduleUpdateValues).
         await updateMutation.mutateAsync({
           id: schedule.id,
           values: {
@@ -601,12 +608,20 @@ function ScheduleFormDialog({
   const [name, setName] = useState(schedule?.name ?? "");
   const [dayOfWeek, setDayOfWeek] = useState(schedule?.day_of_week ?? 1);
   const [isActive, setIsActive] = useState(schedule?.is_active ?? false);
+  const [isLocal, setIsLocal] = useState(schedule?.is_local ?? false);
   const [file, setFile] = useState<File | null>(null);
+  const [filename, setFilename] = useState("");
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     onSubmit(
-      { name: name.trim(), day_of_week: dayOfWeek, is_active: isActive },
+      {
+        name: name.trim(),
+        day_of_week: dayOfWeek,
+        is_active: isActive,
+        is_local: isLocal,
+        filename: filename.trim(),
+      },
       file
     );
   };
@@ -629,7 +644,16 @@ function ScheduleFormDialog({
             autoFocus
           />
         </label>
-
+        {isCreate && (
+          <label className="admin-check">
+            <input
+              type="checkbox"
+              checked={isLocal}
+              onChange={(e) => setIsLocal(e.target.checked)}
+            />
+            <span>Сделать локальным</span>
+          </label>
+        )}
         <label className="admin-field">
           <span>День недели</span>
           <select
@@ -644,7 +668,7 @@ function ScheduleFormDialog({
           </select>
         </label>
 
-        {isCreate && (
+        {isCreate && !isLocal && (
           <label className="admin-field">
             <span>Файл изображения</span>
             <input
@@ -654,6 +678,24 @@ function ScheduleFormDialog({
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
             <small>JPG или PNG — изображение, которое увидит киоск.</small>
+          </label>
+        )}
+
+        {isCreate && isLocal && (
+          <label className="admin-field">
+            <span>Имя файла локального изображения</span>
+            <input
+              type="text"
+              value={filename}
+              maxLength={255}
+              required
+              placeholder="например: 1.jpg"
+              onChange={(e) => setFilename(e.target.value)}
+              autoFocus
+            />
+            <small>
+              Имя файла в каталоге локальных расписаний, например 1.jpg.
+            </small>
           </label>
         )}
 

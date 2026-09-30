@@ -42,7 +42,11 @@ export function scheduleImageUrl(
 ): string {
   const { apiBaseUrl } = getKioskConfig();
   // Статика раздаётся вне api-префикса: убираем "/api/v1" и подставляем "/uploads".
-  const staticRoot = apiBaseUrl.replace(/\/api\/v1\/?$/, "") || "";
+  // Завершающий слэш тоже убираем, чтобы не получить двойной слеш в URL.
+  const staticRoot = (apiBaseUrl.replace(/\/api\/v1\/?$/, "") || "").replace(
+    /\/+$/,
+    ""
+  );
   const base = `${staticRoot}/uploads/schedule_images/${path.replace(/^\/+/, "")}`;
   if (cacheBust !== undefined && cacheBust !== null && cacheBust !== "") {
     return `${base}?v=${encodeURIComponent(String(cacheBust))}`;
@@ -196,6 +200,15 @@ export interface ScheduleFormValues {
   name: string;
   day_of_week: number;
   is_active: boolean;
+  is_local: boolean;
+  filename: string;
+}
+
+/** Поля метаданных, допустимые при обновлении (PATCH) расписания. */
+export interface ScheduleUpdateValues {
+  name: string;
+  day_of_week: number;
+  is_active: boolean;
 }
 
 /**
@@ -225,7 +238,7 @@ export async function fetchSchedules(): Promise<ScheduleImage[]> {
  */
 export async function createSchedule(
   values: ScheduleFormValues,
-  file: File
+  file: File | null
 ): Promise<ScheduleImage> {
   const token = getAdminToken();
   if (!token) {
@@ -235,10 +248,25 @@ export async function createSchedule(
   formData.append("name", values.name);
   formData.append("day_of_week", String(values.day_of_week));
   formData.append("is_active", String(values.is_active));
-  formData.append("image", file);
+  if (values.is_local) {
+    formData.append("filename", String(values.filename));
+  } else {
+    if (!file) {
+      throw new Error("Файл изображения не выбран");
+    }
+    formData.append("image", file);
+  }
 
   const { apiBaseUrl } = getKioskConfig();
-  const response = await fetch(`${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/`, {
+  let url: string;
+  if (values.is_local) {
+    // Точное совпадение с маршрутом POST /schedule_images/create_local:
+    // без завершающего слеша (старые версии бэкенда не выполняют redirect).
+    url = `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/create_local`;
+  } else {
+    url = `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/`;
+  }
+  const response = await fetch(url, {
     method: "POST",
     headers: bearerHeaders(token),
     body: formData,
@@ -256,7 +284,7 @@ export async function createSchedule(
  */
 export async function updateSchedule(
   id: string,
-  values: ScheduleFormValues
+  values: ScheduleUpdateValues
 ): Promise<ScheduleImage> {
   const token = getAdminToken();
   if (!token) {

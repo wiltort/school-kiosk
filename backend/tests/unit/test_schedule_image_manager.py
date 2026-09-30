@@ -546,7 +546,7 @@ async def test_create_local_missing_source_raises_500(manager_factory):
     with pytest.raises(Exception) as excinfo:
         await _create_local(manager)
 
-    assert excinfo.value.status_code == 500
+    assert excinfo.value.status_code == 400
     assert "не найден" in excinfo.value.detail
 
 

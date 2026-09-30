@@ -157,7 +157,7 @@ class ScheduleImageManager:
         """
         data = self.storage.read_file(path=filename, is_local=True)
         if data is None:
-            raise HTTPException(500, detail=f"Файл расписания {filename} не найден")
+            raise HTTPException(400, detail=f"Файл расписания {filename} не найден")
         payload = schedule.model_dump(exclude_none=True)
         payload["is_local"] = True
         return await self._create(

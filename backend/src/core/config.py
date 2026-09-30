@@ -48,16 +48,35 @@ def _resolve_legacy_settings_file() -> Path | None:
     return None
 
 
+def _resource_dir() -> Path:
+    """Каталог ресурсов приложения (``pyproject.toml`` и т. п.).
+
+    В PyInstaller-сборке данные, добавленные через ``--add-data``, распаковываются
+    в ``sys._MEIPASS``; в dev-режиме это корень пакета backend (``BASE_DIR``).
+    """
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", BASE_DIR))
+    return BASE_DIR
+
+
 def _read_app_version() -> str:
+    """Версия приложения из ``pyproject.toml``; ``0.0.0``, если её нет.
+
+    Никогда не возвращает ``None``: в frozen-сборке pyproject.toml может
+    отсутствовать в бандле, и ``None`` сломал бы pydantic-валидацию Settings.
+    """
     try:
         import tomllib
 
-        pyproject = BASE_DIR / "pyproject.toml"
+        pyproject = _resource_dir() / "pyproject.toml"
         if pyproject.is_file():
             data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-            return data["project"]["version"]
+            version = data["project"]["version"]
+            if isinstance(version, str) and version:
+                return version
     except OSError, KeyError, tomllib.TOMLDecodeError:
-        return "0.0.0"
+        pass
+    return "0.0.0"
 
 
 class Settings(BaseSettings):

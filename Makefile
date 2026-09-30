@@ -29,6 +29,7 @@ build-backend: ## Собрать Python-бэкенд в standalone .exe (PyInsta
 		--hidden-import aiosqlite \
 		--add-data "alembic;alembic" \
 		--add-data "alembic.ini;." \
+		--add-data "pyproject.toml;." \
 		run_backend.py
 	mkdir -p $(TAURI)/binaries
 	@host=$$(rustc -vV | sed -n 's/^host: //p'); \

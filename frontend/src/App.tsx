@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { isDesktopApp } from "./config/kioskConfig";
 import { useIdleTimeout } from "./hooks/useIdleTimeout";
 import { useKioskConfig } from "./hooks/useKioskConfig";
+import { useDesktopAdminPoll } from "./hooks/useDesktopAdminPoll";
 import AdminPersonIcon from "./components/AdminPersonIcon";
 import HomeView from "./views/HomeView";
 import ScheduleView from "./views/ScheduleView";
@@ -12,13 +13,11 @@ import {
   AdminMenuBar,
   AdminPanel,
   type AdminSection,
-} from "./views/AdminView";
-import { isAdminLoggedIn, logoutAdmin } from "./services/api";
+} from "./views/admin";
+import { isAdminLoggedIn } from "./services/http";
+import { logoutAdmin } from "./services/admin/auth";
 
 type View = "home" | "schedule" | "weather" | "login" | "admin";
-
-/** Интервал опроса админ-режима на десктопе (Ctrl+Shift+A). */
-const ADMIN_POLL_MS = 1000;
 
 /**
  * Корневой компонент киоск-режима.
@@ -33,41 +32,13 @@ export default function App() {
 
   const { data: config, refetch: refetchConfig } = useKioskConfig();
 
-  const viewRef = useRef<View>(view);
-  useEffect(() => {
-    viewRef.current = view;
-  }, [view]);
-
-  const isAdminRef = useRef(isAdmin);
-  useEffect(() => {
-    isAdminRef.current = isAdmin;
-  }, [isAdmin]);
-
   // Десктоп: Ctrl+Shift+A переключает админ-режим (kiosk.rs) — открываем форму входа.
-  useEffect(() => {
-    if (!desktop) {
-      return undefined;
-    }
-    let cancelled = false;
-    const timerId = window.setInterval(async () => {
-      if (cancelled || isAdminRef.current || viewRef.current === "login") {
-        return;
-      }
-      try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        const active = await invoke<boolean>("is_admin_active");
-        if (active && !cancelled) {
-          setView("login");
-        }
-      } catch {
-        /* Tauri invoke недоступен — игнорируем */
-      }
-    }, ADMIN_POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timerId);
-    };
-  }, [desktop]);
+  useDesktopAdminPoll({
+    desktop,
+    isAdmin,
+    onLoginView: view === "login",
+    onAdminActivate: () => setView("login"),
+  });
 
   const goHome = useCallback(() => setView("home"), []);
   const openSchedule = useCallback(() => setView("schedule"), []);

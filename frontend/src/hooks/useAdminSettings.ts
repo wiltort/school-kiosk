@@ -3,7 +3,7 @@ import {
   fetchAdminSettings,
   updateAdminSettings,
   type AdminSettings,
-} from "../services/api";
+} from "../services/admin/settings";
 import { kioskConfigKeys } from "./useKioskConfig";
 
 /** Ключ кеша настроек админки. */

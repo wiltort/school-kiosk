@@ -1,6 +1,6 @@
 import HomeButton from "../components/HomeButton";
 import { useScheduleImage } from "../hooks/useScheduleImage";
-import { scheduleImageUrl } from "../services/api";
+import { scheduleImageUrl } from "../services/kiosk";
 
 interface ScheduleViewProps {
   onHome: () => void;

@@ -7,7 +7,7 @@ import {
   updateSchedule,
   type ScheduleFormValues,
   type ScheduleUpdateValues,
-} from "../services/api";
+} from "../services/admin/schedules";
 import { scheduleImageKeys } from "./useScheduleImage";
 
 /** Ключ кеша списка расписаний (админ-раздел «Расписания»). */

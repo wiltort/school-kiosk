@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchScheduleImage } from "../services/api";
+import { fetchScheduleImage } from "../services/kiosk";
 
 /** Ключ кеша активного изображения расписания. */
 export const scheduleImageKeys = {

@@ -1,0 +1,37 @@
+/* ============================= Иконка входа в админку ============================= */
+.admin-icon-button {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.admin-icon-button:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* Неавторизованный киоск: красный крестик на иконке */
+.admin-icon-button--guest {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.admin-icon-button--guest:hover {
+  color: #f87171;
+  border-color: #f87171;
+}

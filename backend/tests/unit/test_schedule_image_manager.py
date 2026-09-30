@@ -97,7 +97,11 @@ class LocalSyncStorage:
 
     def read_file(self, path: str, is_local: bool = False) -> bytes | None:  # noqa: ARG002
         if is_local:
-            return None if self.local_missing else self.local_data
+            return (
+                None
+                if self.local_missing or (path in self.deleted)
+                else self.local_data
+            )
         return self.static_data
 
     def read_file_metadata(
@@ -106,7 +110,7 @@ class LocalSyncStorage:
         is_local: bool = False,
     ) -> dict | None:
         if is_local:
-            if self.local_missing:
+            if self.local_missing or (path in self.deleted):
                 return None
             return self._meta(self.local_data)
         return self._meta(self.static_data)
@@ -635,3 +639,60 @@ async def test_get_single_active_returns_schedule(manager_factory):
 
     inactive = await manager.get(inactive.id)
     assert inactive.is_active is False
+
+
+@pytest.mark.asyncio
+async def test_local_sync_updates_changed_file(manager_factory, async_session_maker):
+    """Синхронизация обновляет статическую копию при изменении файла."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+    created = await _create_local(manager, "1.jpg")
+
+    storage.local_data = b"local-v2"
+    saves_before = len(storage.saved)
+
+    synced = await manager.all_local_schedules_sync()
+    updated = await manager.get(created.id)
+
+    assert synced == 1
+
+    assert created.image == updated.image
+    assert created.created_at == updated.created_at
+    assert created.updated_at != updated.updated_at
+    assert len(storage.saved) == saves_before + 1
+    assert storage.saved[-1][0] == b"local-v2"
+
+    async with async_session_maker() as session:
+        obj = await session.get(ScheduleImage, created.id)
+        assert obj.file_hash == hashlib.sha256(b"local-v2").hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_local_sync_noop_when_file_unchanged(manager_factory):
+    """Cинхронизация без изменений не пересохраняет файл."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+    await _create_local(manager, "1.jpg")
+
+    saves_before = len(storage.saved)
+
+    synced = await manager.all_local_schedules_sync()
+
+    assert synced == 1
+    assert len(storage.saved) == saves_before
+
+
+@pytest.mark.asyncio
+async def test_local_sync_missing_source_returns_none(manager_factory):
+    """Если файл-источник исчез — синхронизация ничего не меняет."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+
+    created = await _create_local(manager, "1.jpg")
+    storage.delete("1.jpg")
+
+    result = await manager.all_local_schedules_sync()
+
+    assert result == 0
+    updated = await manager.get(created.id)
+    assert created == updated

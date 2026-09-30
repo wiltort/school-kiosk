@@ -103,6 +103,8 @@ class Settings(BaseSettings):
     upload_url: str = "/uploads"
     max_image_size: int = 10 * 1024 * 1024
 
+    cron_enabled: bool = True
+
     @property
     def data_dir(self) -> Path:
         """Каталог данных."""

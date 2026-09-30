@@ -168,6 +168,31 @@ class ScheduleImageManager:
             is_local=True,
         )
 
+    async def all_local_schedules_sync(self) -> int:
+        """Синхронизирует локальные расписания с их файлами-источниками.
+
+        Returns:
+            Количество синхронизированных экземпляров
+        """
+        async with self.db.db_session() as session:
+            locals = await self.image_repo.filter(
+                session, is_local=True, is_active=True
+            )
+        if not locals:
+            return 0
+        synced = 0
+        for schedule in locals:
+            try:
+                await self.update(
+                    id=schedule.id,
+                    schedule=ScheduleImageUpdate(),
+                    is_local=True,
+                )
+                synced += 1
+            except HTTPException as e:
+                logger.warning("Ошибка синхронизации: %s", e)
+        return synced
+
     @handle_db_errors
     async def get(self, id: uuid.UUID) -> ScheduleImageGet:
         """Возвращает расписание-изображение по идентификатору.
@@ -266,19 +291,12 @@ class ScheduleImageManager:
                 old_image = None
                 new_image = None
                 try:
-                    # Перечитывание под локом. Обычный session.get() вернул бы
-                    # объект из identity map текущей транзакции без запроса
-                    # к БД, поэтому сначала завершаем read-транзакцию (записей
-                    # ещё нет), а затем выполняем реальный SELECT с
-                    # populate_existing — в обход кеша сессии.
                     await session.rollback()
                     schedule_image = await self.image_repo.get(
                         session, id, populate_existing=True
                     )
                     if not schedule_image:
                         raise HTTPException(404, detail="Запись не найдена")
-                    # Состояние записи могло измениться между первым чтением
-                    # и взятием лока — повторяем проверки инвариантов ветки.
                     if file_data and filename and schedule_image.is_local:
                         raise HTTPException(
                             400,
@@ -294,7 +312,6 @@ class ScheduleImageManager:
                     new_image = None
                     meta = None
                     if file_data and filename:
-                        # подгрузка нового файла (не для локального расписания)
                         new_image = self.storage.save(file_data, filename)
                         if new_image is None:
                             raise HTTPException(400, detail="Ошибка сохранения файла")

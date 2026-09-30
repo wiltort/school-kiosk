@@ -88,6 +88,24 @@ def test_backend_log_written_and_migrations_applied(run_backend, tmp_path):
     assert "Не удалось применить Alembic-миграции" not in text
 
 
+def test_cron_scheduler_starts_and_registers_job(run_backend, tmp_path):
+    """Планировщик fastapi-crons стартует в frozen-сборке и регистрирует джоб.
+
+    Ловит регрессии PyInstaller-сборки: если из onefile выпал какой-то модуль
+    fastapi-crons или его транзитивных зависимостей (aiohttp, typer, rich,
+    redis, croniter), приложение стартует, но планировщик молча не поднимается —
+    первый тик джоба был бы только через N минут в проде.
+    """
+    bp = run_backend(tmp_path / "data")
+    log = bp.data_dir / "logs" / "backend.log"
+    assert log.is_file(), "Лог-файл не создан"
+    text = log.read_text(encoding="utf-8")
+    # Джоб зарегистрирован ровно один (без дубликатов) — столько джобов
+    # регистрирует register_cron_jobs.
+    assert "Starting cron scheduler with 1 jobs" in text
+    assert "Starting job loop for 'periodic_local_schedules_sync'" in text
+
+
 def test_restart_on_existing_db_is_stable(run_backend, tmp_path):
     """Повторный запуск на существующей БД не ломает её (сценарий апдейта)."""
     data = tmp_path / "data"

@@ -48,12 +48,43 @@ def _resolve_legacy_settings_file() -> Path | None:
     return None
 
 
+def _resource_dir() -> Path:
+    """Каталог ресурсов приложения (``pyproject.toml`` и т. п.).
+
+    В PyInstaller-сборке данные, добавленные через ``--add-data``, распаковываются
+    в ``sys._MEIPASS``; в dev-режиме это корень пакета backend (``BASE_DIR``).
+    """
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", BASE_DIR))
+    return BASE_DIR
+
+
+def _read_app_version() -> str:
+    """Версия приложения из ``pyproject.toml``; ``0.0.0``, если её нет.
+
+    Никогда не возвращает ``None``: в frozen-сборке pyproject.toml может
+    отсутствовать в бандле, и ``None`` сломал бы pydantic-валидацию Settings.
+    """
+    try:
+        import tomllib
+
+        pyproject = _resource_dir() / "pyproject.toml"
+        if pyproject.is_file():
+            data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+            version = data["project"]["version"]
+            if isinstance(version, str) and version:
+                return version
+    except OSError, KeyError, tomllib.TOMLDecodeError:
+        pass
+    return "0.0.0"
+
+
 class Settings(BaseSettings):
     model_config = {"env_prefix": "BACKEND_"}
 
     app_name: str = "School Kiosk API"
     app_description: str = "API backend for School Kiosk"
-    app_version: str = "0.1.0"
+    app_version: str = _read_app_version()
 
     debug: bool = False
     log_level: str = "INFO"
@@ -72,19 +103,16 @@ class Settings(BaseSettings):
     upload_url: str = "/uploads"
     max_image_size: int = 10 * 1024 * 1024
 
+    cron_enabled: bool = True
+
     @property
     def data_dir(self) -> Path:
-        """Каталог данных (вычисляется каждый раз — дёшево и позволяет env)."""
+        """Каталог данных."""
         return _resolve_data_dir()
 
     @property
     def app_settings(self) -> AppSettingsStore:
-        """Хранилище настроек приложения (settings.json в каталоге данных).
-
-        Владелец настроек — бэкенд (см. src/core/app_settings.py). Создаётся
-        на лету и перечитывает файл при каждом обращении — это дёшево и
-        позволяет сразу видеть изменения, сделанные из админ-панели.
-        """
+        """Хранилище настроек приложения (settings.json в каталоге данных)."""
         return AppSettingsStore(self.data_dir, _resolve_legacy_settings_file())
 
     @property

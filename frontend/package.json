@@ -13,6 +13,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.104.0",
     "@tauri-apps/api": "^2.0.0",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",

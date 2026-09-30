@@ -6,14 +6,12 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-# Чтобы юнит-тесты не зависели от наличия собранного фронтенда локально,
-# указываем несуществующий каталог SPA: корень тогда отдаёт JSON-health,
-# а не index.html. Ставим ДО импорта `src.main`, т.к. модуль `app` создаётся
-# при импорте и решает про SPA-раздачу в этот момент.
 os.environ.setdefault(
     "SCHOOL_KIOSK_FRONTEND_DIR",
     str(Path(__file__).resolve().parent / "__no_frontend_build__"),
 )
+
+os.environ.setdefault("BACKEND_CRON_ENABLED", "0")
 
 import pytest
 import pytest_asyncio
@@ -50,7 +48,8 @@ class FakeImageStorage:
         is_local: bool = False,  # noqa: ARG002
     ) -> str:
         self.saved.append((data, filename))
-        return self.saved_path
+        subdir = subdir or "stored"
+        return f"{subdir}/{filename}"
 
     def delete(self, path: str) -> None:
         self.deleted.append(path)
@@ -63,6 +62,16 @@ class FakeImageStorage:
 
     def lock(self, key: str) -> asyncio.Lock:
         return self._locks[key]
+
+    def read_file(self, path: str, is_local: bool = False):
+        if is_local:
+            return b"image"
+        try:
+            file = filter(lambda x: x[1] == path, self.saved)
+        except Exception:
+            return None
+        if file:
+            return list(file)[0][0]
 
 
 @pytest_asyncio.fixture(scope="session")

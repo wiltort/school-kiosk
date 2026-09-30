@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
 import { getKioskConfig } from "../config/kioskConfig";
 import type { NetworkInfo } from "../types/network";
 
@@ -46,7 +45,6 @@ export default function LanInfoPanel() {
 
   return (
     <aside className="lan-panel">
-      <QRCodeSVG value={primaryUrl} size={150} level="M" />
       <div className="lan-panel__text">
         <span className="lan-panel__label">Подключиться по сети</span>
         <code className="lan-panel__url">{primaryUrl}</code>

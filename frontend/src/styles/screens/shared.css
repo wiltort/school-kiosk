@@ -1,0 +1,15 @@
+/* ============================= Общий каркас экранов «Расписание» и «Погода» ============================= */
+.schedule,
+.weather {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.schedule__topbar,
+.weather__topbar {
+  display: flex;
+  align-items: center;
+  padding: 24px 28px;
+}

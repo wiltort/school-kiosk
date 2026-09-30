@@ -20,6 +20,20 @@ logger = getLogger(__name__)
 
 
 class ScheduleImageManager:
+    """Менеджер операций над расписаниями в виде изображений.
+
+    Отвечает за CRUD-операции над сущностью :class:`ScheduleImage`,
+    включая синхронизацию статической копии с локальным файлом-источником
+    (``create_local`` и ``update`` с ``is_local=True``) и активацию
+    единственного активного расписания (``set_single_active``).
+    Все методы работают в рамках отдельной сессии базы данных,
+    открываемой через ``self.db.db_session()``.
+
+    Raises:
+        HTTPException: с кодом 400 при нарушении целостности данных
+            и с кодом 404, когда запись не найдена.
+    """
+
     @staticmethod
     def _same_content(meta_a: dict | None, meta_b: dict | None) -> bool:
         """Сравнивает метаданные файлов по содержимому (хеш и размер).
@@ -34,17 +48,6 @@ class ScheduleImageManager:
         return meta_a.get("file_hash") == meta_b.get("file_hash") and meta_a.get(
             "file_size"
         ) == meta_b.get("file_size")
-
-    """Менеджер операций над расписаниями в виде изображений.
-
-    Отвечает за CRUD-операции над сущностью :class:`ScheduleImage`.
-    Все методы работают в рамках отдельной сессии базы данных,
-    открываемой через ``self.db.db_session()``.
-
-    Raises:
-        HTTPException: с кодом 400 при нарушении целостности данных
-            и с кодом 404, когда запись не найдена.
-    """
 
     def __init__(
         self,
@@ -154,7 +157,7 @@ class ScheduleImageManager:
         """
         data = self.storage.read_file(path=filename, is_local=True)
         if data is None:
-            raise HTTPException(500, detail=f"Файл расписания {filename} не найден")
+            raise HTTPException(400, detail=f"Файл расписания {filename} не найден")
         payload = schedule.model_dump(exclude_none=True)
         payload["is_local"] = True
         return await self._create(
@@ -164,6 +167,31 @@ class ScheduleImageManager:
             payload=payload,
             is_local=True,
         )
+
+    async def all_local_schedules_sync(self) -> int:
+        """Синхронизирует локальные расписания с их файлами-источниками.
+
+        Returns:
+            Количество синхронизированных экземпляров
+        """
+        async with self.db.db_session() as session:
+            locals = await self.image_repo.filter(
+                session, is_local=True, is_active=True
+            )
+        if not locals:
+            return 0
+        synced = 0
+        for schedule in locals:
+            try:
+                await self.update(
+                    id=schedule.id,
+                    schedule=ScheduleImageUpdate(),
+                    is_local=True,
+                )
+                synced += 1
+            except HTTPException as e:
+                logger.warning("Ошибка синхронизации: %s", e)
+        return synced
 
     @handle_db_errors
     async def get(self, id: uuid.UUID) -> ScheduleImageGet:
@@ -219,6 +247,10 @@ class ScheduleImageManager:
                 перезаписывает статическую копию и обновляет метаданные
                 изображения. Позволяет вызывать метод с пустым
                 ``schedule`` (только синхронизация файла).
+            filename: Имя файла для подгрузки нового изображения
+                (недоступно для локальных расписаний).
+            file_data: Содержимое нового файла изображения; вместе с
+                ``filename`` заменяет файл нелокального расписания.
 
         Returns:
             Обновлённое расписание в виде схемы :class:`ScheduleImageGet`.
@@ -259,19 +291,12 @@ class ScheduleImageManager:
                 old_image = None
                 new_image = None
                 try:
-                    # Перечитывание под локом. Обычный session.get() вернул бы
-                    # объект из identity map текущей транзакции без запроса
-                    # к БД, поэтому сначала завершаем read-транзакцию (записей
-                    # ещё нет), а затем выполняем реальный SELECT с
-                    # populate_existing — в обход кеша сессии.
                     await session.rollback()
                     schedule_image = await self.image_repo.get(
                         session, id, populate_existing=True
                     )
                     if not schedule_image:
                         raise HTTPException(404, detail="Запись не найдена")
-                    # Состояние записи могло измениться между первым чтением
-                    # и взятием лока — повторяем проверки инвариантов ветки.
                     if file_data and filename and schedule_image.is_local:
                         raise HTTPException(
                             400,
@@ -287,7 +312,6 @@ class ScheduleImageManager:
                     new_image = None
                     meta = None
                     if file_data and filename:
-                        # подгрузка нового файла (не для локального расписания)
                         new_image = self.storage.save(file_data, filename)
                         if new_image is None:
                             raise HTTPException(400, detail="Ошибка сохранения файла")
@@ -354,6 +378,7 @@ class ScheduleImageManager:
                         self.storage.restore_file(old_image)
                     raise
 
+    @handle_db_errors
     async def delete(self, id: uuid.UUID) -> None:
         """Удаляет расписание-изображение по идентификатору.
 
@@ -380,3 +405,58 @@ class ScheduleImageManager:
                 await with_retry_commit(session)
                 if is_local:
                     self.storage.delete(schedule.image)
+
+    @handle_db_errors
+    async def set_single_active(self, id: uuid.UUID) -> ScheduleImageGet:
+        """Активирует указанное расписание и деактивирует остальные.
+
+        Устанавливает ``is_active=True`` для записи с переданным
+        идентификатором и сбрасывает ``is_active=False`` у всех остальных
+        активных расписаний. Изменения фиксируются одной транзакцией.
+
+        Args:
+            id: Уникальный идентификатор расписания, которое нужно
+                активировать.
+
+        Returns:
+            Активированное расписание в виде схемы :class:`ScheduleImageGet`.
+
+        Raises:
+            HTTPException: с кодом 404, если запись не найдена.
+        """
+        async with self.db.db_session() as session:
+            schedule = await self.image_repo.get(session, id)
+            if not schedule:
+                raise HTTPException(status_code=404, detail="Расписание не найдено")
+            active_schedules = await self.image_repo.filter(session, is_active=True)
+            for instance in active_schedules:
+                if instance.id != id:
+                    await self.image_repo.update(
+                        session, instance, {"is_active": False}
+                    )
+            updated_schedule = await self.image_repo.update(
+                session, schedule, {"is_active": True}
+            )
+            await with_retry_commit(session)
+            return ScheduleImageGet.model_validate(updated_schedule)
+
+    @handle_db_errors
+    async def get_single_schedule(self) -> ScheduleImageGet:
+        """Получает единственное активное расписание (для сингл режима).
+
+        Returns: Активное расписание в виде схемы :class:`ScheduleImageGet`.
+
+        Raises:
+            HTTPException с кодом 400 если активное расписание не одно или вообще нет.
+        """
+        async with self.db.db_session() as session:
+            active_schedules = await self.image_repo.filter(session, is_active=True)
+            if not active_schedules:
+                raise HTTPException(
+                    status_code=400, detail="Активных расписаний не найдено"
+                )
+            if not len(active_schedules) == 1:
+                raise HTTPException(
+                    status_code=400, detail="Выберите единственное расписание"
+                )
+            return ScheduleImageGet.model_validate(active_schedules[0])

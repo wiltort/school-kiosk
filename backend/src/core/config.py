@@ -86,17 +86,12 @@ class Settings(BaseSettings):
 
     @property
     def data_dir(self) -> Path:
-        """Каталог данных (вычисляется каждый раз — дёшево и позволяет env)."""
+        """Каталог данных."""
         return _resolve_data_dir()
 
     @property
     def app_settings(self) -> AppSettingsStore:
-        """Хранилище настроек приложения (settings.json в каталоге данных).
-
-        Владелец настроек — бэкенд (см. src/core/app_settings.py). Создаётся
-        на лету и перечитывает файл при каждом обращении — это дёшево и
-        позволяет сразу видеть изменения, сделанные из админ-панели.
-        """
+        """Хранилище настроек приложения (settings.json в каталоге данных)."""
         return AppSettingsStore(self.data_dir, _resolve_legacy_settings_file())
 
     @property

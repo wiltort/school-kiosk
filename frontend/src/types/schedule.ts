@@ -8,6 +8,8 @@ export interface ScheduleImage {
   /** Относительный путь к файлу в хранилище (например, "2026/09/uuid.png"). */
   image: string;
   is_active: boolean;
+  /** Локальное расписание (файл из каталога локальных расписаний). */
+  is_local: boolean;
   day_of_week: number;
   created_at: string;
   updated_at: string;

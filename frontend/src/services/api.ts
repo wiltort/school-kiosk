@@ -1,7 +1,8 @@
 import { getKioskConfig } from "../config/kioskConfig";
 import type { ScheduleImage, ScheduleMode } from "../types/schedule";
 
-const SCHEDULE_IMAGES_PATH = "/schedule_images_local/";
+// const SCHEDULE_IMAGES_PATH = "/schedule_images_local/";
+const GET_SINGLE_SCHEDULE_PATH = "/schedule_images/get_single_schedule";
 
 const ADMIN_TOKEN_KEY = "school_kiosk_admin_token";
 
@@ -14,7 +15,7 @@ const ADMIN_TOKEN_KEY = "school_kiosk_admin_token";
 export async function fetchScheduleImage(): Promise<ScheduleImage> {
   const { apiBaseUrl } = getKioskConfig();
   // Не брать метаданные из кеша: расписание могло измениться.
-  const response = await fetch(`${apiBaseUrl}${SCHEDULE_IMAGES_PATH}`, {
+  const response = await fetch(`${apiBaseUrl}${GET_SINGLE_SCHEDULE_PATH}`, {
     cache: "no-store",
   });
   if (!response.ok) {
@@ -42,7 +43,7 @@ export function scheduleImageUrl(
   const { apiBaseUrl } = getKioskConfig();
   // Статика раздаётся вне api-префикса: убираем "/api/v1" и подставляем "/uploads".
   const staticRoot = apiBaseUrl.replace(/\/api\/v1\/?$/, "") || "";
-  const base = `${staticRoot}/uploads/${path.replace(/^\/+/, "")}`;
+  const base = `${staticRoot}/uploads/schedule_images/${path.replace(/^\/+/, "")}`;
   if (cacheBust !== undefined && cacheBust !== null && cacheBust !== "") {
     return `${base}?v=${encodeURIComponent(String(cacheBust))}`;
   }
@@ -182,4 +183,142 @@ export async function updateAdminSettings(settings: {
     throw new Error(`Ошибка сохранения настроек: HTTP ${response.status}`);
   }
   return (await response.json()) as AdminSettings;
+}
+
+// ============================================================================
+// Расписания (админ-панель)
+// ============================================================================
+
+const SCHEDULE_IMAGES_ADMIN_PATH = "/schedule_images";
+
+/** Значения формы расписания (создание/редактирование). */
+export interface ScheduleFormValues {
+  name: string;
+  day_of_week: number;
+  is_active: boolean;
+}
+
+/**
+ * Возвращает список всех расписаний. Используется в админ-разделе «Расписания».
+ *
+ * @throws Error с понятным сообщением при неудачном запросе.
+ */
+export async function fetchSchedules(): Promise<ScheduleImage[]> {
+  const token = getAdminToken();
+  const { apiBaseUrl } = getKioskConfig();
+  const response = await fetch(`${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/`, {
+    headers: token ? bearerHeaders(token) : undefined,
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Ошибка загрузки списка расписаний: HTTP ${response.status}`
+    );
+  }
+  return (await response.json()) as ScheduleImage[];
+}
+
+/**
+ * Создаёт расписание: multipart-форма с метаданными и файлом изображения.
+ *
+ * @throws Error с понятным сообщением при неудачном запросе.
+ */
+export async function createSchedule(
+  values: ScheduleFormValues,
+  file: File
+): Promise<ScheduleImage> {
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Нет авторизации");
+  }
+  const formData = new FormData();
+  formData.append("name", values.name);
+  formData.append("day_of_week", String(values.day_of_week));
+  formData.append("is_active", String(values.is_active));
+  formData.append("image", file);
+
+  const { apiBaseUrl } = getKioskConfig();
+  const response = await fetch(`${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/`, {
+    method: "POST",
+    headers: bearerHeaders(token),
+    body: formData,
+  });
+  if (!response.ok) {
+    throw new Error(`Ошибка добавления расписания: HTTP ${response.status}`);
+  }
+  return (await response.json()) as ScheduleImage;
+}
+
+/**
+ * Обновляет метаданные расписания (JSON-патч).
+ *
+ * @throws Error с понятным сообщением при неудачном запросе.
+ */
+export async function updateSchedule(
+  id: string,
+  values: ScheduleFormValues
+): Promise<ScheduleImage> {
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Нет авторизации");
+  }
+  const { apiBaseUrl } = getKioskConfig();
+  const response = await fetch(
+    `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/${id}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...bearerHeaders(token) },
+      body: JSON.stringify(values),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Ошибка сохранения расписания: HTTP ${response.status}`);
+  }
+  return (await response.json()) as ScheduleImage;
+}
+
+/** Удаляет расписание вместе с файлом изображения. */
+export async function deleteSchedule(id: string): Promise<void> {
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Нет авторизации");
+  }
+  const { apiBaseUrl } = getKioskConfig();
+  const response = await fetch(
+    `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/${id}`,
+    {
+      method: "DELETE",
+      headers: bearerHeaders(token),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Ошибка удаления расписания: HTTP ${response.status}`);
+  }
+}
+
+/**
+ * Активирует единственное расписание в сингл-режиме: деактивирует остальные
+ * одной транзакцией на бэкенде.
+ *
+ * @throws Error с понятным сообщением при неудачном запросе.
+ */
+export async function setSingleActiveSchedule(
+  id: string
+): Promise<ScheduleImage> {
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Нет авторизации");
+  }
+  const { apiBaseUrl } = getKioskConfig();
+  const response = await fetch(
+    `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/${id}/set_single_active`,
+    {
+      method: "POST",
+      headers: bearerHeaders(token),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Ошибка активации расписания: HTTP ${response.status}`);
+  }
+  return (await response.json()) as ScheduleImage;
 }

@@ -4,10 +4,7 @@ import type { NetworkInfo } from "../types/network";
 
 /**
  * Панель «подключиться по локальной сети»: показывает адрес киоска (по имени
- * компьютера и по IP) и QR-код, который можно отсканировать с телефона.
- *
- * Данные берутся с GET /api/v1/network/info. В браузере на удалённой машине
- * отображается только в том случае, если страницу открыли с самого киоска.
+ * компьютера и по IP)
  */
 export default function LanInfoPanel() {
   const [info, setInfo] = useState<NetworkInfo | null>(null);

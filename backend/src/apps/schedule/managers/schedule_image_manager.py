@@ -10,6 +10,7 @@ from src.apps.schedule.schemas import (
     ScheduleImageCreate,
     ScheduleImageGet,
     ScheduleImageUpdate,
+    SetAllInactiveResponse,
 )
 from src.core.database import DBDependency, get_db_dependency
 from src.core.storage import ImageStorage
@@ -464,13 +465,18 @@ class ScheduleImageManager:
             return ScheduleImageGet.model_validate(active_schedules[0])
 
     @handle_db_errors
-    async def set_all_inactive(self) -> None:
+    async def set_all_inactive(self) -> SetAllInactiveResponse:
         """Деактивирует все расписания."""
         async with self.db.db_session() as session:
             active_schedules = await self.image_repo.filter(session, is_active=True)
             for instance in active_schedules:
                 await self.image_repo.update(session, instance, {"is_active": False})
             await with_retry_commit(session)
+            return SetAllInactiveResponse(
+                status="OK",
+                message=f"Все расписания деактивированы: {len(active_schedules)} деактивировано",
+                count=len(active_schedules),
+            )
 
     @handle_db_errors
     async def set_active_at_day_of_week(self, id: uuid.UUID) -> ScheduleImageGet:

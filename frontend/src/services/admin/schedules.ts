@@ -2,7 +2,7 @@ import { getKioskConfig } from "../../config/kioskConfig";
 import { bearerHeaders, getAdminToken, requireAdminToken } from "../http";
 import type { ScheduleImage } from "../../types/schedule";
 
-const SCHEDULE_IMAGES_ADMIN_PATH = "/schedule_images";
+const SCHEDULE_IMAGES_ADMIN_PATH = "/schedule-images";
 
 /** Значения формы расписания (создание/редактирование). */
 export interface ScheduleFormValues {
@@ -66,9 +66,9 @@ export async function createSchedule(
   const { apiBaseUrl } = getKioskConfig();
   let url: string;
   if (values.is_local) {
-    // Точное совпадение с маршрутом POST /schedule_images/create_local:
+    // Точное совпадение с маршрутом POST /schedule-images/create-local:
     // без завершающего слеша (старые версии бэкенда не выполняют redirect).
-    url = `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/create_local`;
+    url = `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/create-local`;
   } else {
     url = `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/`;
   }
@@ -136,7 +136,7 @@ export async function setSingleActiveSchedule(
   const token = requireAdminToken();
   const { apiBaseUrl } = getKioskConfig();
   const response = await fetch(
-    `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/${id}/set_single_active`,
+    `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/${id}/set-single-active`,
     {
       method: "POST",
       headers: bearerHeaders(token),

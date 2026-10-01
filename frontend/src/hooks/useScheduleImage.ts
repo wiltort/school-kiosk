@@ -7,7 +7,7 @@ export const scheduleImageKeys = {
 };
 
 /**
- * Активное изображение расписания (GET /api/v1/schedule_images/get_single_schedule/).
+ * Активное изображение расписания (GET /api/v1/schedule-images/get-single-schedule/).
  */
 export function useScheduleImage() {
   return useQuery({

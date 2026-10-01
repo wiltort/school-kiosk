@@ -1,7 +1,7 @@
 import { getKioskConfig } from "../config/kioskConfig";
 import type { ScheduleImage } from "../types/schedule";
 
-const GET_SINGLE_SCHEDULE_PATH = "/schedule_images/get_single_schedule";
+const GET_SINGLE_SCHEDULE_PATH = "/schedule-images/get-single-schedule";
 
 /**
  * Загружает активное изображение расписания с бэкенда.

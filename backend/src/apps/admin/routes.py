@@ -5,12 +5,14 @@
 """
 
 import secrets
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from src.apps.admin import autostart
 from src.apps.admin.auth import create_token, get_current_admin, revoke_token
+from src.apps.schedule.managers.schedule_image_manager import ScheduleImageManager
 from src.core.config import settings
 from src.enums.schedule_modes import ScheduleMode
 
@@ -78,12 +80,14 @@ async def get_settings(_: str = Depends(get_current_admin)) -> SettingsResponse:
 @admin_router.put("/settings", response_model=SettingsResponse)
 async def update_settings(
     payload: SettingsUpdate,
+    schedule_manager: Annotated[ScheduleImageManager, Depends()],
     _: str = Depends(get_current_admin),
 ) -> SettingsResponse:
     """Сохраняет настройки и применяет автозагрузку сразу.
 
     Смена ``local_image_dir`` (папка локальных расписаний) сохраняется
-    и используется бэкендом сразу.
+    и используется бэкендом сразу. При смене режима сбрасывает все активные
+    расписания.
     """
     store = settings.app_settings
     store.update(
@@ -92,6 +96,8 @@ async def update_settings(
         welcome_message=payload.welcome_message,
         autostart=payload.autostart,
     )
+    if payload.schedule_mode:
+        await schedule_manager.set_all_inactive()
     autostart.set_enabled(payload.autostart)
 
     return SettingsResponse(

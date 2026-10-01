@@ -710,11 +710,11 @@ async def test_set_inactive_sets_is_active_to_false(manager_factory):
         filename="2.jpg",
     )
 
-    await manager.set_all_inactive()
-
+    result = await manager.set_all_inactive()
+    assert result.status == "OK"
+    assert result.count == 2
     created_1 = await manager.get(created_1.id)
     created_2 = await manager.get(created_2.id)
-
     assert created_1.is_active is False
     assert created_2.is_active is False
 

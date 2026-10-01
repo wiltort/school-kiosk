@@ -241,3 +241,12 @@ class AddLessonToScheduleColumn(LessonBase):
     schedule_column_id: uuid.UUID = Field(
         ..., description="ID столбца", examples=[uuid.uuid4()]
     )
+
+
+class SimpleResponse(BaseModel):
+    status: str = Field(..., description="Статус", examples=["ok"])
+    message: str = Field(..., description="Сообщение", examples=["Успешно"])
+
+
+class SetAllInactiveResponse(SimpleResponse):
+    count: int = Field(..., description="Количество записей", examples=[10])

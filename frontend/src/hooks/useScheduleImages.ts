@@ -16,7 +16,7 @@ export const scheduleImagesKeys = {
 };
 
 /**
- * Список всех расписаний (GET /api/v1/schedule_images/).
+ * Список всех расписаний (GET /api/v1/schedule-images/).
  * Панель рендерится только в админ-режиме, поэтому запрос безопасен.
  */
 export function useScheduleImages() {

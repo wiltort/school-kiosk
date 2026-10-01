@@ -70,10 +70,10 @@ def test_fresh_install_creates_db_with_full_schema(run_backend, tmp_path):
 def test_api_endpoints_respond(run_backend, tmp_path):
     """Основные API-эндпоинты отвечают корректно."""
     bp = run_backend(tmp_path / "data")
-    status, body = bp.get_json("/api/v1/schedule_images")
+    status, body = bp.get_json("/api/v1/schedule-images")
     assert status == 200
     assert body == []
-    status, _ = bp.get_json("/api/v1/schedule_images_local")
+    status, _ = bp.get_json("/api/v1/schedule-images-local")
     assert status == 200
 
 

@@ -8,6 +8,7 @@ from datetime import UTC
 from pathlib import Path
 
 import pytest
+from freezegun import freeze_time
 from sqlalchemy import select
 from src.apps.schedule.managers import ScheduleImageManager
 from src.apps.schedule.repositories import ScheduleImageRepository
@@ -696,3 +697,91 @@ async def test_local_sync_missing_source_returns_none(manager_factory):
     assert result == 0
     updated = await manager.get(created.id)
     assert created == updated
+
+
+@pytest.mark.asyncio
+async def test_set_inactive_sets_is_active_to_false(manager_factory):
+    """set_inactive устанавливает is_active в False."""
+    manager = _make_manager(manager_factory, LocalSyncStorage(local_data=b"local-v1"))
+    created_1 = await _create(manager, _sample_create(name="Active", is_active=True))
+    created_2 = await manager.create(
+        schedule=ScheduleImageCreate(name="Active2", is_active=True),
+        data=b"nonlocal",
+        filename="2.jpg",
+    )
+
+    await manager.set_all_inactive()
+
+    created_1 = await manager.get(created_1.id)
+    created_2 = await manager.get(created_2.id)
+
+    assert created_1.is_active is False
+    assert created_2.is_active is False
+
+
+@pytest.mark.asyncio
+async def test_set_active_at_day_of_week(manager_factory):
+    """set_active_at_day_of_week устанавливает is_active в True для записи с day_of_week."""
+    manager = _make_manager(manager_factory, LocalSyncStorage(local_data=b"local-v1"))
+    created_1 = await _create(
+        manager, _sample_create(name="Active", is_active=True, day_of_week=1)
+    )
+    created_2 = await manager.create(
+        schedule=ScheduleImageCreate(name="Active2", is_active=False, day_of_week=2),
+        data=b"nonlocal",
+        filename="2.jpg",
+    )
+    created_3 = await manager.create(
+        schedule=ScheduleImageCreate(name="Active3", is_active=True, day_of_week=2),
+        data=b"nonlocal2",
+        filename="3.jpg",
+    )
+
+    await manager.set_active_at_day_of_week(created_2.id)
+
+    created_1 = await manager.get(created_1.id)
+    created_2 = await manager.get(created_2.id)
+    created_3 = await manager.get(created_3.id)
+
+    assert created_1.is_active is True
+    assert created_2.is_active is True
+    assert created_3.is_active is False
+
+
+@freeze_time("2026-10-01 12:00:00")  # Четверг
+@pytest.mark.asyncio
+async def test_get_today_schedule(manager_factory):
+    """get_today_schedule возвращает расписание на сегодня."""
+    manager = _make_manager(manager_factory, LocalSyncStorage(local_data=b"local-v1"))
+    await _create(manager, _sample_create(name="Active", is_active=True, day_of_week=1))
+    created_2 = await manager.create(
+        schedule=ScheduleImageCreate(name="Active2", is_active=True, day_of_week=4),
+        data=b"nonlocal",
+        filename="2.jpg",
+    )
+    today_schedule = await manager.get_today_schedule()
+
+    assert today_schedule == created_2
+
+
+@freeze_time("2026-10-01 12:00:00")  # Четверг
+@pytest.mark.asyncio
+async def test_get_next_schedule(manager_factory):
+    """get_next_schedule возвращает расписание на следующий день."""
+    manager = _make_manager(manager_factory, LocalSyncStorage(local_data=b"local-v1"))
+    created = await _create(
+        manager, _sample_create(name="Active", is_active=True, day_of_week=1)
+    )
+    await manager.create(
+        schedule=ScheduleImageCreate(name="Active1", is_active=True, day_of_week=3),
+        data=b"nonlocal1",
+        filename="3.jpg",
+    )
+    await manager.create(
+        schedule=ScheduleImageCreate(name="Active2", is_active=True, day_of_week=4),
+        data=b"nonlocal",
+        filename="2.jpg",
+    )
+    next_schedule = await manager.get_next_day_schedule()
+
+    assert next_schedule == created

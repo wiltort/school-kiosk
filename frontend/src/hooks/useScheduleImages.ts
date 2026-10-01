@@ -5,6 +5,7 @@ import {
   fetchSchedules,
   setSingleActiveSchedule,
   updateSchedule,
+  resetAllSchedules,
   type ScheduleFormValues,
   type ScheduleUpdateValues,
 } from "../services/admin/schedules";
@@ -80,6 +81,18 @@ export function useSetSingleActive() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: setSingleActiveSchedule,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: scheduleImagesKeys.all });
+      void queryClient.invalidateQueries({ queryKey: scheduleImageKeys.all });
+    },
+  });
+}
+
+/** Деактивация всех расписаний. */
+export function useResetAllSchedules() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: resetAllSchedules,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: scheduleImagesKeys.all });
       void queryClient.invalidateQueries({ queryKey: scheduleImageKeys.all });

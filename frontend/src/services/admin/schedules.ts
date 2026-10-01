@@ -1,6 +1,9 @@
 import { getKioskConfig } from "../../config/kioskConfig";
 import { bearerHeaders, getAdminToken, requireAdminToken } from "../http";
-import type { ScheduleImage } from "../../types/schedule";
+import type {
+  ScheduleImage,
+  ResetAllSchedulesResponse,
+} from "../../types/schedule";
 
 const SCHEDULE_IMAGES_ADMIN_PATH = "/schedule-images";
 
@@ -146,4 +149,20 @@ export async function setSingleActiveSchedule(
     throw new Error(`Ошибка активации расписания: HTTP ${response.status}`);
   }
   return (await response.json()) as ScheduleImage;
+}
+
+export async function resetAllSchedules(): Promise<ResetAllSchedulesResponse> {
+  const token = requireAdminToken();
+  const { apiBaseUrl } = getKioskConfig();
+  const response = await fetch(
+    `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/reset-schedules`,
+    {
+      method: "POST",
+      headers: bearerHeaders(token),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Ошибка активации расписания: HTTP ${response.status}`);
+  }
+  return (await response.json()) as ResetAllSchedulesResponse;
 }

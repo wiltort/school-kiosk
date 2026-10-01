@@ -14,3 +14,10 @@ export interface ScheduleImage {
   created_at: string;
   updated_at: string;
 }
+
+/** Ответ на запрос на сброс всех расписаний. */
+export interface ResetAllSchedulesResponse {
+  status: string;
+  message: string;
+  count: number;
+}

@@ -90,13 +90,14 @@ async def update_settings(
     расписания.
     """
     store = settings.app_settings
+    schedule_mode_changed = store.schedule_mode() != payload.schedule_mode
     store.update(
         local_image_dir=payload.local_image_dir,
         schedule_mode=payload.schedule_mode,
         welcome_message=payload.welcome_message,
         autostart=payload.autostart,
     )
-    if payload.schedule_mode:
+    if schedule_mode_changed:
         await schedule_manager.set_all_inactive()
     autostart.set_enabled(payload.autostart)
 

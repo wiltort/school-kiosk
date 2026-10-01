@@ -6,6 +6,7 @@ import {
   useScheduleImages,
   useSetSingleActive,
   useUpdateSchedule,
+  useResetAllSchedules,
 } from "../../hooks/useScheduleImages";
 import type { ScheduleFormValues } from "../../services/admin/schedules";
 import type { ScheduleImage } from "../../types/schedule";
@@ -31,6 +32,8 @@ export function SchedulesPanel() {
   const updateMutation = useUpdateSchedule();
   const deleteMutation = useDeleteSchedule();
   const activateMutation = useSetSingleActive();
+  const deactivateMutation = useResetAllSchedules();
+  const [isDeactivating, setIsDeactivating] = useState(false);
 
   const [dialog, setDialog] = useState<ScheduleDialogState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ScheduleImage | null>(null);
@@ -102,9 +105,25 @@ export function SchedulesPanel() {
     }
   };
 
+  const handleDeactivate = async () => {
+    try {
+      await deactivateMutation.mutateAsync();
+      setIsDeactivating(false);
+    } catch {
+      /* ошибка показывается через deactivateMutation.error ниже */
+    }
+  };
+
   return (
     <div className="schedule-admin">
       <div className="schedule-admin__toolbar">
+        <button
+          type="button"
+          className="admin-button"
+          onClick={() => setIsDeactivating(true)}
+        >
+          Выключить все расписания
+        </button>
         <button
           type="button"
           className="admin-button"
@@ -165,6 +184,13 @@ export function SchedulesPanel() {
             : "Не удалось удалить расписание"}
         </p>
       )}
+      {deactivateMutation.isError && (
+        <p className="admin-error">
+          {deactivateMutation.error instanceof Error
+            ? deactivateMutation.error.message
+            : "Не удалось деактивировать расписания"}
+        </p>
+      )}
 
       {dialog && (
         <ScheduleFormDialog
@@ -191,6 +217,16 @@ export function SchedulesPanel() {
           submitting={deleteMutation.isPending}
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+      {isDeactivating && (
+        <ConfirmDialog
+          title="Деактивировать расписания?"
+          text="Вы уверены, что хотите деактивировать все расписания? Киоск перестанет его показывать."
+          confirmLabel="Деактивировать"
+          submitting={activateMutation.isPending}
+          onConfirm={handleDeactivate}
+          onCancel={() => setIsDeactivating(false)}
         />
       )}
     </div>

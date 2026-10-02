@@ -2,7 +2,7 @@
 
 [![backend CI](https://github.com/wiltort/school-kiosk/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/wiltort/school-kiosk/actions/workflows/backend-ci.yml)
 [![Frontend & Tauri CI](https://github.com/wiltort/school-kiosk/actions/workflows/frontend-tauri-ci.yml/badge.svg)](https://github.com/wiltort/school-kiosk/actions/workflows/frontend-tauri-ci.yml)
-[![Release build](https://github.com/wiltort/school-kiosk/actions/workflows/release-build.yml/badge.svg?branch=main)](https://github.com/ВАШ_ЮЗЕР/school-kiosk/actions/workflows/release-build.yml)
+[![Release build](https://github.com/wiltort/school-kiosk/actions/workflows/release-build.yml/badge.svg?branch=main)](https://github.com/wiltort/school-kiosk/actions/workflows/release-build.yml)
 [![Release smoke test](https://github.com/wiltort/school-kiosk/actions/workflows/release-smoke.yml/badge.svg?branch=main)](https://github.com/wiltort/school-kiosk/actions/workflows/release-smoke.yml)
 [![Release](https://img.shields.io/github/v/release/wiltort/school-kiosk?include_prereleases&filter=main-v*&label=release&sort=semver)](https://github.com/wiltort/school-kiosk/releases)
 [![License: MIT](https://img.shields.io/github/license/wiltort/school-kiosk?label=license)](https://github.com/wiltort/school-kiosk/blob/main/LICENSE)
@@ -39,7 +39,10 @@
 
 ## Как установить
 **Для школы (Windows):**
-1. Скачайте установщик `School.Kiosk_X.Y.Z-main.N_x64-setup.exe` из [последнего main релиза](https://github.com/wiltort/school-kiosk/releases). Релизы с тегом `dev` предназначены для тестов.
+1. Скачайте установщик `School.Kiosk_X.Y.Z-main.N_x64-setup.exe` из [последнего main релиза](https://github.com/wiltort/school-kiosk/releases).</br>
+**Какой релиз скачивать:**
+    - `main-v*` — **стабильные** версии. Для школ.
+    - `dev-v*` — **тестовые** версии. Для разработчиков.
 2. Запустите его и следуйте инструкциям.
 3. После установки запустите приложение - киоск готов.
 4. Доступ к админским настройкам - по ссылке на главном экране киоска через локальную сеть. По умолчанию логин - `admin`, пароль - `admin`.

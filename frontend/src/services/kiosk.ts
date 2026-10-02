@@ -2,6 +2,8 @@ import { getKioskConfig } from "../config/kioskConfig";
 import type { ScheduleImage } from "../types/schedule";
 
 const GET_SINGLE_SCHEDULE_PATH = "/schedule-images/get-single-schedule";
+const GET_TODAY_SCHEDULE_PATH = "/schedule-images/get-today-schedule";
+const GET_NEXT_SCHEDULE_PATH = "/schedule-images/get-next-schedule";
 
 /**
  * Загружает активное изображение расписания с бэкенда.
@@ -13,6 +15,44 @@ export async function fetchScheduleImage(): Promise<ScheduleImage> {
   const { apiBaseUrl } = getKioskConfig();
   // Не брать метаданные из кеша: расписание могло измениться.
   const response = await fetch(`${apiBaseUrl}${GET_SINGLE_SCHEDULE_PATH}`, {
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(`Ошибка загрузки расписания: HTTP ${response.status}`);
+  }
+  return (await response.json()) as ScheduleImage;
+}
+
+/**
+ * Загружает активное расписание на сегодня (недельный режим).
+ *
+ * @returns Изображение расписания на сегодняшний день.
+ * @throws Ошибка при неудачном запросе.
+ */
+export async function fetchTodaySchedule(): Promise<ScheduleImage> {
+  const { apiBaseUrl } = getKioskConfig();
+  const response = await fetch(`${apiBaseUrl}${GET_TODAY_SCHEDULE_PATH}`, {
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(`Ошибка загрузки расписания: HTTP ${response.status}`);
+  }
+  return (await response.json()) as ScheduleImage;
+}
+
+/**
+ * Загружает активное расписание на следующий учебный день (недельный режим).
+ *
+ * Бэкенд сам находит первый день после сегодняшнего, для которого задано
+ * активное расписание (например, в пятницу это будет понедельник, если на
+ * выходные расписание не загружено).
+ *
+ * @returns Изображение расписания на следующий день.
+ * @throws Ошибка при неудачном запросе.
+ */
+export async function fetchNextSchedule(): Promise<ScheduleImage> {
+  const { apiBaseUrl } = getKioskConfig();
+  const response = await fetch(`${apiBaseUrl}${GET_NEXT_SCHEDULE_PATH}`, {
     cache: "no-store",
   });
   if (!response.ok) {

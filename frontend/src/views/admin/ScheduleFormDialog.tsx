@@ -129,7 +129,7 @@ export function ScheduleFormDialog({
           <input
             type="checkbox"
             checked={isActive}
-            disabled={scheduleMode === "single"}
+            disabled={scheduleMode === "single" || scheduleMode === "week"}
             onChange={(e) => setIsActive(e.target.checked)}
           />
           <span>Сделать активным</span>
@@ -140,7 +140,12 @@ export function ScheduleFormDialog({
             «Активировать».
           </small>
         )}
-
+        {scheduleMode === "week" && (
+          <small className="admin-hint">
+            В режиме «расписание на неделю» активация выполняется кнопкой
+            «Активировать».
+          </small>
+        )}
         {error && <p className="admin-error">{error}</p>}
 
         <div className="admin-modal__actions">

@@ -7,6 +7,7 @@ import {
   useSetSingleActive,
   useUpdateSchedule,
   useResetAllSchedules,
+  useSetActiveScheduleAtDay,
 } from "../../hooks/useScheduleImages";
 import type { ScheduleFormValues } from "../../services/admin/schedules";
 import type { ScheduleImage } from "../../types/schedule";
@@ -33,6 +34,7 @@ export function SchedulesPanel() {
   const updateMutation = useUpdateSchedule();
   const deleteMutation = useDeleteSchedule();
   const activateMutation = useSetSingleActive();
+  const activateAtDayMutation = useSetActiveScheduleAtDay();
   const deactivateMutation = useResetAllSchedules();
   const [isDeactivating, setIsDeactivating] = useState(false);
 
@@ -76,18 +78,9 @@ export function SchedulesPanel() {
     try {
       if (scheduleMode === "single") {
         await activateMutation.mutateAsync(schedule.id);
-      } else {
-        // В недельном режиме активация — обычный PATCH метаданных. Бэкенд
-        // принимает только name/day_of_week/is_active, поэтому is_local
-        // и filename в запрос не уходят (см. ScheduleUpdateValues).
-        await updateMutation.mutateAsync({
-          id: schedule.id,
-          values: {
-            name: schedule.name,
-            day_of_week: schedule.day_of_week,
-            is_active: true,
-          },
-        });
+      }
+      if (scheduleMode === "week") {
+        await activateAtDayMutation.mutateAsync(schedule.id);
       }
     } catch {
       /* ошибка показывается через mutation.error ниже */

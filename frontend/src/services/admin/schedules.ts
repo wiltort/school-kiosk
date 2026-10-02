@@ -171,7 +171,34 @@ export async function resetAllSchedules(): Promise<ResetAllSchedulesResponse> {
     }
   );
   if (!response.ok) {
-    throw new Error(`Ошибка активации расписания: HTTP ${response.status}`);
+    throw new Error(`Ошибка деактивации расписания: HTTP ${response.status}`);
   }
   return (await response.json()) as ResetAllSchedulesResponse;
+}
+
+export async function setActiveScheduleAtDay(
+  id: string
+): Promise<ScheduleImage> {
+  const token = requireAdminToken();
+  const { apiBaseUrl } = getKioskConfig();
+  const response = await fetch(
+    `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/${id}/set-active-at-day`,
+    {
+      method: "POST",
+      headers: bearerHeaders(token),
+    }
+  );
+  if (!response.ok) {
+    let detail: string | null = null;
+    try {
+      const data = await response.json();
+      detail = data.detail;
+    } catch {
+      // ignore
+    }
+    throw new Error(
+      detail ?? `Ошибка активации расписания: HTTP ${response.status}`
+    );
+  }
+  return (await response.json()) as ScheduleImage;
 }

@@ -9,137 +9,72 @@
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/wiltort/school-kiosk/releases)
 
 <img src="media/logo-color.jpeg" alt="Логотип" width="200" height="200"><br>
-Информационный киоск для школ и учебных заведений
+**Бесплатный информационный киоск для школ и учебных заведений.**
+
+Приложение показывает расписание, объявления и другую информацию о школе
+на сенсорном экране. Работает автономно — не требует интернета,
+сервера и установки Python/Rust/Node на компьютер школы.
+
+![Главный экран](media/screenshots/home.png)
+
+---
+
+## Возможности
+- **Расписание** - на день и на неделю (реализовано).
+- **Объявления** - бегущая строка и лента новостей (в планах).
+- **Прогноз погоды** - погода в вашем населенном пункте (в планах).
+- **Режим простоя** - слайд-шоу когда никто не взаимодействует.
+- **Автообновления** - приложение обновляется само (реализовано).
+- **Автономность** - работает локально на киоске.
+- **Удаленное администрирование** - подключение к киоску по локальной сети для управления.
+
+---
+
+## Скриншоты
+![Расписание](media/screenshots/next_day_schedule.png)
+![Настройки](media/screenshots/settings.png)
+![Редактирование расписаний](media/screenshots/schedules.png)
+
+---
+
+## Как установить
+**Для школы (Windows):**
+1. Скачайте установщик `School.Kiosk_X.Y.Z-main.N_x64-setup.exe` из [последнего main релиза](https://github.com/wiltort/school-kiosk/releases). Релизы с тегом `dev` предназначены для тестов.
+2. Запустите его и следуйте инструкциям.
+3. После установки запустите приложение - киоск готов.
+4. Доступ к админским настройкам - по ссылке на главном экране киоска через локальную сеть. По умолчанию логин - `admin`, пароль - `admin`.
+
+Руководство пользователя - [docs/user-manual/MAIN.md](docs/user-manual/MAIN.md)
+
+---
+
+## Обратная связь
+Если вы хотите оставить отзыв или сообщить о проблеме, напишите на:
+**school-kiosk@yandex.ru**
+
+Мы не собираем статистику автоматически. Если вы напишете нам,
+мы будем использовать ваш email только для ответа вам.
 
 ## Разработка
+Проект — монорепозиторий: Python-бэкенд (FastAPI + SQLAlchemy),
+фронтенд (React + TypeScript + Vite) и десктоп-оболочка (Tauri + Rust).
 
-### Pre-commit (обязательный)
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — как запустить локально.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — как помочь проекту.
+- [CHANGELOG.md](CHANGELOG.md) — что меняется между версиями.
+- [ROADMAP.md](ROADMAP.md) — куда движется проект.
 
-В репозитории единый [`pre-commit`](.pre-commit-config.yaml) на весь монорепо:
-Python-бэкенд (ruff + pytest), TS/React-фронтенд (tsc + eslint + prettier) и
-Tauri/Rust (cargo fmt + clippy). Rust-хуки запускаются только при изменении
-`src-tauri/*.rs`; `cargo test` в pre-commit намеренно не добавлен из-за долгой
-компиляции (он выполняется в CI).
+---
 
-Установка хуков:
+## Лицензия
 
-```bash
-make pre-commit-install   # установит hook в .git/hooks/
-```
+MIT. Подробности — в [LICENSE](LICENSE).
 
-Ручной запуск по всем файлам:
+---
 
-```bash
-make pre-commit
-```
+## ⚠️ Важно
 
-Требования:
-
-- Python-бэкенд и предустановленный `poetry` (через `backend/pyproject.toml`);
-- зависимости фронтенда: `cd frontend && npm install`;
-- Rust toolchain (`cargo`) для проверок `src-tauri`.
-
-Отдельные проверки:
-
-```bash
-make lint           # ruff (backend)
-make lint-frontend  # eslint + tsc + prettier --check (frontend)
-make format-frontend # prettier --write (frontend)
-make lint-rust      # cargo fmt --check + cargo clippy (src-tauri)
-```
-
-## Сборка установщика (без Python/Rust на целевой машине)
-
-Приложение можно собрать в автономный Windows-инсталлятор. Конечному
-пользователю ничего устанавливать не нужно (Python, Rust, Node не требуются):
-Tauri-оболочка запускает Python-бэкенд, упакованный PyInstaller'ом в один
-`python-backend.exe`.
-
-Сборка:
-
-```bash
-make build
-```
-
-Что происходит по шагам:
-
-1. `build-backend` — PyInstaller собирает бэкенд из [`backend/run_backend.py`](backend/run_backend.py)
-   в standalone-файл и кладёт его в `src-tauri/binaries/python-backend.exe`.
-2. `cargo tauri build` — собирает frontend (`npm run build`) и Rust-оболочку,
-   включает `python-backend.exe` (через `externalBin` в
-   [`tauri.conf.json`](src-tauri/tauri.conf.json)) и формирует NSIS-установщик
-   `School Kiosk 0.1.0 Setup.exe`.
-
-Только сборку бэкенда (без Tauri) можно выполнить отдельно:
-
-```bash
-make build-backend
-```
-
-Важные моменты:
-
-- **Release** (`cargo tauri build`): Rust запускает `python-backend.exe`,
-  лежащий рядом с `kiosk.exe`, и передаёт ему каталог данных через
-  `SCHOOL_KIOSK_DATA_DIR` (см. [`src-tauri/src/process.rs`](src-tauri/src/process.rs)).
-- **Данные** (SQLite-БД и загрузки изображений) хранятся в каталоге данных
-  приложения, а не в папке программы (см. [`backend/src/core/config.py`](backend/src/core/config.py)).
-- **WebView2 Runtime**: установщик при необходимости сам докачивает и ставит
-  WebView2 (`webviewInstallMode: downloadBootstrapper` в
-  [`tauri.conf.json`](src-tauri/tauri.conf.json)).
-- Перед первым `make build` должен быть установлен Tauri CLI
-  (`make install-tauri`) и зависимости (`make install`).
-
-> Как поставить dev/main версию на другой компьютер — см.
-> [docs/INSTALLATION.md](docs/INSTALLATION.md).
-
-## Автообновление
-
-Приложение обновляется из своей ветки: сборка из `dev` проверяет только канал
-`dev`, из `main` — только канал `main`. Обновление скачивается тихо в фоне и
-устанавливается при следующем запуске (NSIS, per-user, без UAC). Так как
-Python-бэкенд упакован внутрь установщика (`externalBin`), обновляется всё сразу.
-
-Архитектура (см. [`src-tauri/src/updater.rs`](src-tauri/src/updater.rs)):
-
-- **Канал** запекается на этапе сборки через `KIOSK_CHANNEL` (`dev`/`main`),
-  который выставляет CI.
-- **Фид** `latest.json` на канал лежит в ветке `update-feed` репозитория по
-  пути `<channel>/latest.json` и отдаётся через raw.githubusercontent.com.
-- **Установщики** публикуются в GitHub Releases с тегом `<channel>-v<version>`.
-- **Версия** монотонна внутри канала: `0.1.0-<channel>.<build_number>`.
-- Подпись minisign: публичный ключ зашит в
-  [`tauri.conf.json`](src-tauri/tauri.conf.json) (`plugins.updater.pubkey`),
-  приватный хранится в секретах GitHub (`MINISIGN_PRIVATE_KEY`).
-
-### Подготовка (один раз)
-
-1. Сгенерировать ключи:
-
-   ```bash
-   make update-keys
-   ```
-
-   Скрипт создаст пару файлов и подскажет шаги.
-
-2. Скопировать **публичный** ключ (строка `RWR...`) из `<name>.pub` в
-   [`tauri.conf.json`](src-tauri/tauri.conf.json) → `plugins.updater.pubkey`
-   (пока там пусто — автообновление не работает и релизная сборка требует ключа).
-
-3. В секреты GitHub добавить:
-   - `MINISIGN_PRIVATE_KEY` — содержимое приватного ключа;
-   - `MINISIGN_PRIVATE_KEY_PASSWORD` — пароль, заданный при генерации.
-
-4. Убедиться, что приватный ключ не попал в git (он в `.gitignore`).
-
-### Публикация обновления
-
-Достаточно запушить в `dev` или `main` — workflow
-[`.github/workflows/release-build.yml`](.github/workflows/release-build.yml)
-соберёт установщик, подпишет его, создаст релиз и обновит фид нужного канала.
-Приложение само подтянет и установит новую версию при следующем запуске.
-
-Локальная простановка версии (если нужно вручную):
-
-```bash
-make update-version v="0.1.0-dev.42"
-```
+Этот проект предоставляется **бесплатно и "как есть"**.
+Разработчик не несёт ответственности за любые последствия
+использования программы. Подробности — в
+[docs/legal/TERMS.md](docs/legal/TERMS.md).

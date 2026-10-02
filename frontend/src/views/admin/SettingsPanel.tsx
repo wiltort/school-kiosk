@@ -20,6 +20,8 @@ export function SettingsPanel({ onSaved }: SettingsPanelProps) {
   const [autostart, setAutostart] = useState(false);
   const [autostartSupported, setAutostartSupported] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+  const [oldScheduleMode, setOldScheduleMode] =
+    useState<ScheduleMode>("single");
 
   // Синхронизируем поля формы с настройками из React Query-кеша.
   useEffect(() => {
@@ -28,6 +30,7 @@ export function SettingsPanel({ onSaved }: SettingsPanelProps) {
     }
     setLocalImageDir(settings.local_image_dir ?? "");
     setScheduleMode(settings.schedule_mode);
+    setOldScheduleMode(settings.schedule_mode);
     setWelcomeMessage(settings.welcome_message ?? "");
     setAutostart(settings.autostart);
     setAutostartSupported(settings.autostart_supported);
@@ -90,6 +93,11 @@ export function SettingsPanel({ onSaved }: SettingsPanelProps) {
           Как киоск показывает расписание: одним изображением или недельным
           набором.
         </small>
+        {oldScheduleMode !== scheduleMode && (
+          <small className="admin-hint admin-hint--accent">
+            Будут деактивированы все расписания.
+          </small>
+        )}
       </label>
 
       <label className="admin-field">

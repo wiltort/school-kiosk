@@ -29,6 +29,9 @@
   font-size: 0.82rem;
   line-height: 1.4;
 }
+.admin-hint.admin-hint--accent {
+  color: var(--color-accent);
+}
 
 .admin-field input[type="file"] {
   padding: 8px;

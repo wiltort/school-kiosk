@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 from logging import getLogger
 from pathlib import Path
 
@@ -9,9 +10,11 @@ from src.apps.schedule.schemas import (
     ScheduleImageCreate,
     ScheduleImageGet,
     ScheduleImageUpdate,
+    SetAllInactiveResponse,
 )
 from src.core.database import DBDependency, get_db_dependency
 from src.core.storage import ImageStorage
+from src.enums.schedule import DayOfWeek
 from src.utils.decorators import handle_db_errors
 from src.utils.locking import maybe_lock
 from src.utils.retry import with_retry_commit
@@ -460,3 +463,94 @@ class ScheduleImageManager:
                     status_code=400, detail="Выберите единственное расписание"
                 )
             return ScheduleImageGet.model_validate(active_schedules[0])
+
+    @handle_db_errors
+    async def set_all_inactive(self) -> SetAllInactiveResponse:
+        """Деактивирует все расписания."""
+        async with self.db.db_session() as session:
+            active_schedules = await self.image_repo.filter(session, is_active=True)
+            for instance in active_schedules:
+                await self.image_repo.update(session, instance, {"is_active": False})
+            await with_retry_commit(session)
+            return SetAllInactiveResponse(
+                status="OK",
+                message=f"Все расписания деактивированы: {len(active_schedules)} деактивировано",
+                count=len(active_schedules),
+            )
+
+    @handle_db_errors
+    async def set_active_at_day_of_week(self, id: uuid.UUID) -> ScheduleImageGet:
+        """Устанавливает активное расписание на день недели.
+
+        Args:
+            id: Уникальный идентификатор расписания.
+            day_of_week: День недели (от 1 до 7).
+
+        Raises:
+            HTTPException: с кодом 404, если запись не найдена.
+
+        Returns:
+            Расписание в виде схемы :class:`ScheduleImageGet`.
+        """
+        async with self.db.db_session() as session:
+            schedule = await self.image_repo.get(session, id)
+            if not schedule:
+                raise HTTPException(status_code=404, detail="Расписание не найдено")
+            day_of_week = schedule.day_of_week
+            schedules_to_inactivate = await self.image_repo.filter(
+                session, is_active=True, day_of_week=day_of_week
+            )
+            for instance in schedules_to_inactivate:
+                if instance.id != id:
+                    await self.image_repo.update(
+                        session, instance, {"is_active": False}
+                    )
+            if not schedule.is_active:
+                schedule = await self.image_repo.update(
+                    session, schedule, {"is_active": True}
+                )
+            await with_retry_commit(session)
+            return ScheduleImageGet.model_validate(schedule)
+
+    @handle_db_errors
+    async def get_today_schedule(self):
+        """Получает расписание на сегодня.
+
+        Returns:
+            Расписание на сегодня в виде схемы :class:`ScheduleImageGet`.
+        """
+        async with self.db.db_session() as session:
+            today = DayOfWeek(datetime.now(UTC).isoweekday())
+            schedules = await self.image_repo.filter(
+                session, day_of_week=today, is_active=True
+            )
+            if not schedules:
+                raise HTTPException(status_code=404, detail="Расписание не найдено")
+            if len(schedules) > 1:
+                raise HTTPException(
+                    status_code=400, detail="Найдено больше одного расписания"
+                )
+            schedule = schedules[0]
+            return ScheduleImageGet.model_validate(schedule)
+
+    async def get_next_day_schedule(self):
+        """Получает расписание на следующий день.
+
+        Returns:
+            Расписание на следующий день в виде схемы :class:`ScheduleImageGet`.
+        """
+        async with self.db.db_session() as session:
+            today = datetime.now(UTC).isoweekday()
+            for i in range(6):
+                next_day = (today + i) % 7 + 1
+                schedules = await self.image_repo.filter(
+                    session, day_of_week=DayOfWeek(next_day), is_active=True
+                )
+                if not schedules:
+                    continue
+                if not len(schedules) == 1:
+                    raise HTTPException(
+                        status_code=400, detail="Найдено больше одного расписания"
+                    )
+                return ScheduleImageGet.model_validate(schedules[0])
+            raise HTTPException(status_code=404, detail="Расписание не найдено")

@@ -5,6 +5,8 @@ import {
   fetchSchedules,
   setSingleActiveSchedule,
   updateSchedule,
+  resetAllSchedules,
+  setActiveScheduleAtDay,
   type ScheduleFormValues,
   type ScheduleUpdateValues,
 } from "../services/admin/schedules";
@@ -16,7 +18,7 @@ export const scheduleImagesKeys = {
 };
 
 /**
- * Список всех расписаний (GET /api/v1/schedule_images/).
+ * Список всех расписаний (GET /api/v1/schedule-images/).
  * Панель рендерится только в админ-режиме, поэтому запрос безопасен.
  */
 export function useScheduleImages() {
@@ -80,6 +82,30 @@ export function useSetSingleActive() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: setSingleActiveSchedule,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: scheduleImagesKeys.all });
+      void queryClient.invalidateQueries({ queryKey: scheduleImageKeys.all });
+    },
+  });
+}
+
+/** Деактивация всех расписаний. */
+export function useResetAllSchedules() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: resetAllSchedules,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: scheduleImagesKeys.all });
+      void queryClient.invalidateQueries({ queryKey: scheduleImageKeys.all });
+    },
+  });
+}
+
+/** Активация расписания в недельном режиме. */
+export function useSetActiveScheduleAtDay() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: setActiveScheduleAtDay,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: scheduleImagesKeys.all });
       void queryClient.invalidateQueries({ queryKey: scheduleImageKeys.all });

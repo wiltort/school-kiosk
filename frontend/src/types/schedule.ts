@@ -1,7 +1,7 @@
 /** Режим отображения расписания (совпадает с backend ScheduleMode). */
 export type ScheduleMode = "single" | "week";
 
-/** Изображение расписания (ответ GET /api/v1/schedule_images/). */
+/** Изображение расписания (ответ GET /api/v1/schedule-images/). */
 export interface ScheduleImage {
   id: string;
   name: string;
@@ -13,4 +13,11 @@ export interface ScheduleImage {
   day_of_week: number;
   created_at: string;
   updated_at: string;
+}
+
+/** Ответ на запрос на сброс всех расписаний. */
+export interface ResetAllSchedulesResponse {
+  status: string;
+  message: string;
+  count: number;
 }

@@ -1,8 +1,11 @@
 import { getKioskConfig } from "../../config/kioskConfig";
 import { bearerHeaders, getAdminToken, requireAdminToken } from "../http";
-import type { ScheduleImage } from "../../types/schedule";
+import type {
+  ScheduleImage,
+  ResetAllSchedulesResponse,
+} from "../../types/schedule";
 
-const SCHEDULE_IMAGES_ADMIN_PATH = "/schedule_images";
+const SCHEDULE_IMAGES_ADMIN_PATH = "/schedule-images";
 
 /** Значения формы расписания (создание/редактирование). */
 export interface ScheduleFormValues {
@@ -66,9 +69,9 @@ export async function createSchedule(
   const { apiBaseUrl } = getKioskConfig();
   let url: string;
   if (values.is_local) {
-    // Точное совпадение с маршрутом POST /schedule_images/create_local:
+    // Точное совпадение с маршрутом POST /schedule-images/create-local:
     // без завершающего слеша (старые версии бэкенда не выполняют redirect).
-    url = `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/create_local`;
+    url = `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/create-local`;
   } else {
     url = `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/`;
   }
@@ -78,7 +81,16 @@ export async function createSchedule(
     body: formData,
   });
   if (!response.ok) {
-    throw new Error(`Ошибка добавления расписания: HTTP ${response.status}`);
+    let detail: string | null = null;
+    try {
+      const data = await response.json();
+      detail = data.detail;
+    } catch {
+      // ignore
+    }
+    throw new Error(
+      detail ?? `Ошибка добавления расписания: HTTP ${response.status}`
+    );
   }
   return (await response.json()) as ScheduleImage;
 }
@@ -136,7 +148,7 @@ export async function setSingleActiveSchedule(
   const token = requireAdminToken();
   const { apiBaseUrl } = getKioskConfig();
   const response = await fetch(
-    `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/${id}/set_single_active`,
+    `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/${id}/set-single-active`,
     {
       method: "POST",
       headers: bearerHeaders(token),
@@ -144,6 +156,49 @@ export async function setSingleActiveSchedule(
   );
   if (!response.ok) {
     throw new Error(`Ошибка активации расписания: HTTP ${response.status}`);
+  }
+  return (await response.json()) as ScheduleImage;
+}
+
+export async function resetAllSchedules(): Promise<ResetAllSchedulesResponse> {
+  const token = requireAdminToken();
+  const { apiBaseUrl } = getKioskConfig();
+  const response = await fetch(
+    `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/reset-schedules`,
+    {
+      method: "POST",
+      headers: bearerHeaders(token),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Ошибка деактивации расписания: HTTP ${response.status}`);
+  }
+  return (await response.json()) as ResetAllSchedulesResponse;
+}
+
+export async function setActiveScheduleAtDay(
+  id: string
+): Promise<ScheduleImage> {
+  const token = requireAdminToken();
+  const { apiBaseUrl } = getKioskConfig();
+  const response = await fetch(
+    `${apiBaseUrl}${SCHEDULE_IMAGES_ADMIN_PATH}/${id}/set-active-at-day`,
+    {
+      method: "POST",
+      headers: bearerHeaders(token),
+    }
+  );
+  if (!response.ok) {
+    let detail: string | null = null;
+    try {
+      const data = await response.json();
+      detail = data.detail;
+    } catch {
+      // ignore
+    }
+    throw new Error(
+      detail ?? `Ошибка активации расписания: HTTP ${response.status}`
+    );
   }
   return (await response.json()) as ScheduleImage;
 }

@@ -111,7 +111,9 @@ export default function App() {
         </>
       )}
 
-      {view === "schedule" && <ScheduleView onHome={goHome} />}
+      {view === "schedule" && (
+        <ScheduleView onHome={goHome} scheduleMode={config.scheduleMode} />
+      )}
       {view === "weather" && <WeatherView onHome={goHome} />}
       {view === "login" && (
         <AdminLogin onHome={goHome} onSuccess={handleLoginSuccess} />

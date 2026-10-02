@@ -6,12 +6,15 @@ import {
   useScheduleImages,
   useSetSingleActive,
   useUpdateSchedule,
+  useResetAllSchedules,
+  useSetActiveScheduleAtDay,
 } from "../../hooks/useScheduleImages";
 import type { ScheduleFormValues } from "../../services/admin/schedules";
 import type { ScheduleImage } from "../../types/schedule";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ScheduleCard } from "./ScheduleCard";
 import { ScheduleFormDialog } from "./ScheduleFormDialog";
+import { WeekSchedulesBar } from "./WeekSchedules";
 
 /** Состояние открытого диалога формы расписания. */
 type ScheduleDialogState =
@@ -31,6 +34,9 @@ export function SchedulesPanel() {
   const updateMutation = useUpdateSchedule();
   const deleteMutation = useDeleteSchedule();
   const activateMutation = useSetSingleActive();
+  const activateAtDayMutation = useSetActiveScheduleAtDay();
+  const deactivateMutation = useResetAllSchedules();
+  const [isDeactivating, setIsDeactivating] = useState(false);
 
   const [dialog, setDialog] = useState<ScheduleDialogState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ScheduleImage | null>(null);
@@ -72,18 +78,9 @@ export function SchedulesPanel() {
     try {
       if (scheduleMode === "single") {
         await activateMutation.mutateAsync(schedule.id);
-      } else {
-        // В недельном режиме активация — обычный PATCH метаданных. Бэкенд
-        // принимает только name/day_of_week/is_active, поэтому is_local
-        // и filename в запрос не уходят (см. ScheduleUpdateValues).
-        await updateMutation.mutateAsync({
-          id: schedule.id,
-          values: {
-            name: schedule.name,
-            day_of_week: schedule.day_of_week,
-            is_active: true,
-          },
-        });
+      }
+      if (scheduleMode === "week") {
+        await activateAtDayMutation.mutateAsync(schedule.id);
       }
     } catch {
       /* ошибка показывается через mutation.error ниже */
@@ -102,9 +99,25 @@ export function SchedulesPanel() {
     }
   };
 
+  const handleDeactivate = async () => {
+    try {
+      await deactivateMutation.mutateAsync();
+      setIsDeactivating(false);
+    } catch {
+      /* ошибка показывается через deactivateMutation.error ниже */
+    }
+  };
+
   return (
     <div className="schedule-admin">
       <div className="schedule-admin__toolbar">
+        <button
+          type="button"
+          className="admin-button"
+          onClick={() => setIsDeactivating(true)}
+        >
+          Выключить все расписания
+        </button>
         <button
           type="button"
           className="admin-button"
@@ -113,6 +126,10 @@ export function SchedulesPanel() {
           + Добавить расписание
         </button>
       </div>
+
+      {scheduleMode === "week" && !isLoading && !isError && (
+        <WeekSchedulesBar schedules={schedules} />
+      )}
 
       {isLoading && <p className="admin-hint">Загрузка расписаний…</p>}
       {isError && !isLoading && (
@@ -165,6 +182,13 @@ export function SchedulesPanel() {
             : "Не удалось удалить расписание"}
         </p>
       )}
+      {deactivateMutation.isError && (
+        <p className="admin-error">
+          {deactivateMutation.error instanceof Error
+            ? deactivateMutation.error.message
+            : "Не удалось деактивировать расписания"}
+        </p>
+      )}
 
       {dialog && (
         <ScheduleFormDialog
@@ -191,6 +215,16 @@ export function SchedulesPanel() {
           submitting={deleteMutation.isPending}
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+      {isDeactivating && (
+        <ConfirmDialog
+          title="Деактивировать расписания?"
+          text="Вы уверены, что хотите деактивировать все расписания? Киоск перестанет показывать их."
+          confirmLabel="Деактивировать"
+          submitting={deactivateMutation.isPending}
+          onConfirm={handleDeactivate}
+          onCancel={() => setIsDeactivating(false)}
         />
       )}
     </div>

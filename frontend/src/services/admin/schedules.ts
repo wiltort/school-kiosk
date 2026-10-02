@@ -81,7 +81,16 @@ export async function createSchedule(
     body: formData,
   });
   if (!response.ok) {
-    throw new Error(`Ошибка добавления расписания: HTTP ${response.status}`);
+    let detail: string | null = null;
+    try {
+      const data = await response.json();
+      detail = data.detail;
+    } catch {
+      // ignore
+    }
+    throw new Error(
+      detail ?? `Ошибка добавления расписания: HTTP ${response.status}`
+    );
   }
   return (await response.json()) as ScheduleImage;
 }

@@ -13,6 +13,7 @@ import type { ScheduleImage } from "../../types/schedule";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ScheduleCard } from "./ScheduleCard";
 import { ScheduleFormDialog } from "./ScheduleFormDialog";
+import { WeekSchedulesBar } from "./WeekSchedules";
 
 /** Состояние открытого диалога формы расписания. */
 type ScheduleDialogState =
@@ -133,6 +134,10 @@ export function SchedulesPanel() {
         </button>
       </div>
 
+      {scheduleMode === "week" && !isLoading && !isError && (
+        <WeekSchedulesBar schedules={schedules} />
+      )}
+
       {isLoading && <p className="admin-hint">Загрузка расписаний…</p>}
       {isError && !isLoading && (
         <p className="admin-error">
@@ -222,9 +227,9 @@ export function SchedulesPanel() {
       {isDeactivating && (
         <ConfirmDialog
           title="Деактивировать расписания?"
-          text="Вы уверены, что хотите деактивировать все расписания? Киоск перестанет его показывать."
+          text="Вы уверены, что хотите деактивировать все расписания? Киоск перестанет показывать их."
           confirmLabel="Деактивировать"
-          submitting={activateMutation.isPending}
+          submitting={deactivateMutation.isPending}
           onConfirm={handleDeactivate}
           onCancel={() => setIsDeactivating(false)}
         />

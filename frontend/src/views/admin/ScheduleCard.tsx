@@ -1,6 +1,6 @@
 import { scheduleImageUrl } from "../../services/kiosk";
 import type { ScheduleImage } from "../../types/schedule";
-import { dayOfWeekLabel } from "./constants";
+import { dayOfWeekLabel, scheduleCardId } from "./constants";
 
 interface ScheduleCardProps {
   schedule: ScheduleImage;
@@ -17,7 +17,7 @@ export function ScheduleCard({
   onDelete,
 }: ScheduleCardProps) {
   return (
-    <article className="schedule-card">
+    <article className="schedule-card" id={scheduleCardId(schedule.id)}>
       <div className="schedule-card__preview">
         <img
           className="schedule-card__image"

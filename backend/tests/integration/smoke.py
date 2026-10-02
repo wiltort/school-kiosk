@@ -189,6 +189,10 @@ def spawn_backend(exe: Path, data_dir: Path, port: int) -> BackendProcess:
     env["BACKEND_DEBUG"] = "false"
     # Несуществующий каталог SPA: корень отдаёт JSON-health, а не index.html.
     env["SCHOOL_KIOSK_FRONTEND_DIR"] = str(data_dir / "__no_frontend__")
+    # Планировщик включён «как у пользователя»: pytest выставляет
+    # BACKEND_CRON_ENABLED=0 (корневой conftest), и без явной перезаписи
+    # смоук-тесты не проверяли бы запуск планировщика в frozen-сборке.
+    env["BACKEND_CRON_ENABLED"] = "1"
 
     with (
         open(data_dir / "stdout.log", "wb") as stdout_f,

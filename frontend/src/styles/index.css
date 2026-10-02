@@ -1,0 +1,30 @@
+/* =============================
+   Единая точка входа стилей киоска.
+   Импортируется в main.tsx; порядок важен:
+   base → components → screens.
+   ============================= */
+
+/* --- Базовые стили --- */
+@import "./base/tokens.css";
+@import "./base/reset.css";
+@import "./base/layout.css";
+
+/* --- Компоненты (переиспользуемые элементы) --- */
+@import "./components/app-icon.css";
+@import "./components/home-button.css";
+@import "./components/lan-panel.css";
+@import "./components/version-badge.css";
+@import "./components/admin-icon-button.css";
+
+/* --- Экраны --- */
+@import "./screens/home.css";
+@import "./screens/shared.css";
+@import "./screens/schedule.css";
+@import "./screens/weather.css";
+
+/* --- Админ-панель (каркас, меню, контролы, модалки, расписания) --- */
+@import "./screens/admin/admin-view.css";
+@import "./screens/admin/admin-menu.css";
+@import "./screens/admin/admin-controls.css";
+@import "./screens/admin/admin-modal.css";
+@import "./screens/admin/schedule-admin.css";

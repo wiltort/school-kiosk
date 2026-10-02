@@ -29,6 +29,7 @@ build-backend: ## Собрать Python-бэкенд в standalone .exe (PyInsta
 		--hidden-import aiosqlite \
 		--add-data "alembic;alembic" \
 		--add-data "alembic.ini;." \
+		--add-data "pyproject.toml;." \
 		run_backend.py
 	mkdir -p $(TAURI)/binaries
 	@host=$$(rustc -vV | sed -n 's/^host: //p'); \
@@ -47,6 +48,10 @@ run: ## Запустить проект
 .PHONY: run-frontend
 run-frontend: ## Запустить frontend (dev-сервер)
 	$(NPM) dev
+
+.PHONY: build-frontend
+build-frontend: ## Собрать frontend
+	$(NPM) build
 
 .PHONY: install-backend
 install-backend: ## Установить все зависимости (включая dev)

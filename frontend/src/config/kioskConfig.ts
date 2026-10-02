@@ -1,3 +1,5 @@
+import type { ScheduleMode } from "../types/schedule";
+
 /**
  * Настройки киоск-режима.
  *
@@ -14,6 +16,8 @@ export interface KioskConfig {
   apiBaseUrl: string;
   /** Приветственное сообщение на главном экране (пустая строка — стандартный подзаголовок). */
   welcomeMessage: string;
+  /** Режим отображения расписания, заданный на бэкенде (settings.json). */
+  scheduleMode: ScheduleMode;
 }
 
 // Префикс API. В dev-режиме относительный путь проксируется Vite на бэкенд.
@@ -29,6 +33,8 @@ const DEFAULT_CONFIG: KioskConfig = {
   apiBaseUrl: DEV_API_PREFIX,
   // По умолчанию приветствие не задано — главный экран показывает стандартный подзаголовок.
   welcomeMessage: "",
+  // По умолчанию расписание показывается одним изображением.
+  scheduleMode: "single",
 };
 
 const config: KioskConfig = { ...DEFAULT_CONFIG };
@@ -83,19 +89,26 @@ interface KioskPublicConfig {
  */
 export async function loadKioskConfig(): Promise<KioskConfig> {
   const base = getKioskConfig();
+  const url = `${base.apiBaseUrl}/kiosk/config`;
+  // Диагностика: видно, что запрашиваем и что вернул бэкенд.
+  console.info("[kiosk-config] fetch:", url);
   try {
-    const response = await fetch(`${base.apiBaseUrl}/kiosk/config`, {
-      cache: "no-store",
-    });
+    const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) {
+      console.warn(
+        `[kiosk-config] HTTP ${response.status} — возвращаю локальные дефолты`
+      );
       return { ...base };
     }
     const remote = (await response.json()) as KioskPublicConfig;
+    console.info("[kiosk-config] ok:", remote);
     return {
       ...base,
       welcomeMessage: remote.welcome_message ?? "",
+      scheduleMode: remote.schedule_mode,
     };
-  } catch {
+  } catch (e) {
+    console.warn("[kiosk-config] fetch error — возвращаю локальные дефолты", e);
     return { ...base };
   }
 }

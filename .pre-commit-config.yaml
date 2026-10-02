@@ -17,7 +17,7 @@ repos:
       - id: check-json
       - id: check-added-large-files
         args: [--maxkb=500]
-        exclude: '\.icns$'
+        exclude: '\.icns$|^media/'
       - id: check-merge-conflict
       - id: detect-private-key
       - id: mixed-line-ending

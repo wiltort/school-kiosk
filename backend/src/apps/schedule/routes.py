@@ -9,14 +9,15 @@ from src.apps.schedule.schemas import (
     ScheduleImageCreate,
     ScheduleImageGet,
     ScheduleImageUpdate,
+    SetAllInactiveResponse,
 )
 from src.enums.schedule import DayOfWeek
 
-schedule_image_router = APIRouter(prefix="/schedule_images", tags=["schedule_images"])
+schedule_image_router = APIRouter(prefix="/schedule-images", tags=["schedule_images"])
 
 
 class ScheduleImageForm:
-    """Метаданные расписания из multipart-формы (для чистого Swagger UI)."""
+    """Метаданные расписания из multipart-формы."""
 
     def __init__(
         self,
@@ -27,6 +28,20 @@ class ScheduleImageForm:
         self.name = name
         self.day_of_week = day_of_week
         self.is_active = is_active
+
+
+class ScheduleImageLocalForm:
+    def __init__(
+        self,
+        name: Annotated[str, Form(min_length=1, max_length=255)],
+        day_of_week: Annotated[DayOfWeek, Form()],
+        is_active: Annotated[bool, Form()] = True,
+        filename: Annotated[str, Form()] = "",
+    ) -> None:
+        self.name = name
+        self.day_of_week = day_of_week
+        self.is_active = is_active
+        self.filename = filename
 
 
 @schedule_image_router.post(
@@ -47,6 +62,56 @@ async def create_schedule(
 
 
 @schedule_image_router.get(
+    "/get-today-schedule",
+    response_model=ScheduleImageGet,
+    status_code=status.HTTP_200_OK,
+)
+async def get_today_schedule(
+    manager: Annotated[ScheduleImageManager, Depends()],
+) -> ScheduleImageGet:
+    return await manager.get_today_schedule()
+
+
+@schedule_image_router.post(
+    "/reset-schedules",
+    response_model=SetAllInactiveResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def reset_schedules(
+    manager: Annotated[ScheduleImageManager, Depends()],
+) -> SetAllInactiveResponse:
+    return await manager.set_all_inactive()
+
+
+@schedule_image_router.get(
+    "/get-next-schedule",
+    response_model=ScheduleImageGet,
+    status_code=status.HTTP_200_OK,
+)
+async def get_next_schedule(
+    manager: Annotated[ScheduleImageManager, Depends()],
+) -> ScheduleImageGet:
+    return await manager.get_next_day_schedule()
+
+
+@schedule_image_router.post(
+    "/create-local",
+    response_model=ScheduleImageGet,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_local_schedule(
+    data: Annotated[ScheduleImageLocalForm, Depends()],
+    manager: Annotated[ScheduleImageManager, Depends()],
+) -> ScheduleImageGet:
+    schedule = ScheduleImageCreate(
+        name=data.name,
+        is_active=data.is_active,
+        day_of_week=data.day_of_week,
+    )
+    return await manager.create_local(data.filename, schedule)
+
+
+@schedule_image_router.get(
     "/", response_model=list[ScheduleImageGet], status_code=status.HTTP_200_OK
 )
 async def get_all_schedules(
@@ -57,6 +122,21 @@ async def get_all_schedules(
     # видеть актуальное состояние (и, следовательно, свежий файл картинки).
     response.headers["Cache-Control"] = "no-store"
     return await manager.get_all()
+
+
+@schedule_image_router.get(
+    "/get-single-schedule",
+    response_model=ScheduleImageGet,
+    status_code=status.HTTP_200_OK,
+)
+async def get_single_schedule(
+    response: Response,
+    manager: Annotated[ScheduleImageManager, Depends()],
+) -> ScheduleImageGet:
+    # Метаданные активного расписания не должны кешироваться — клиент каждый
+    # раз должен видеть актуальную версию (и, следовательно, свежий файл).
+    response.headers["Cache-Control"] = "no-store"
+    return await manager.get_single_schedule()
 
 
 @schedule_image_router.get("/{id}", response_model=ScheduleImageGet)
@@ -86,7 +166,7 @@ async def delete_schedule(
 
 
 local_schedule_image_router = APIRouter(
-    prefix="/schedule_images_local", tags=["local_schedule_images"]
+    prefix="/schedule-images-local", tags=["local_schedule_images"]
 )
 
 
@@ -102,8 +182,33 @@ async def get_local_schedule(response: Response) -> ScheduleImageGet:
         name="Локальное расписание",
         image="1.jpg",
         is_active=True,
+        is_local=True,
         day_of_week=1,
-        created_at=datetime.datetime.now(),
-        updated_at=datetime.datetime.now(),
+        created_at=datetime.datetime.now(datetime.UTC),
+        updated_at=datetime.datetime.now(datetime.UTC),
     )
     return schedule
+
+
+@schedule_image_router.post(
+    "/{id}/set-single-active",
+    response_model=ScheduleImageGet,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def set_single_active(
+    id: uuid.UUID,
+    manager: Annotated[ScheduleImageManager, Depends()],
+) -> ScheduleImageGet:
+    return await manager.set_single_active(id)
+
+
+@schedule_image_router.post(
+    "/{id}/set-active-at-day",
+    response_model=ScheduleImageGet,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def set_active_at_day(
+    id: uuid.UUID,
+    manager: Annotated[ScheduleImageManager, Depends()],
+) -> ScheduleImageGet:
+    return await manager.set_active_at_day_of_week(id)

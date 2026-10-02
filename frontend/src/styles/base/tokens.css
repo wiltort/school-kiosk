@@ -1,0 +1,14 @@
+/* ============================= Дизайн-токены ============================= */
+:root {
+  --color-bg: #0f172a;
+  --color-bg-elevated: #1e293b;
+  --color-surface: rgba(30, 41, 59, 0.55);
+  --color-border: rgba(148, 163, 184, 0.18);
+  --color-text: #e2e8f0;
+  --color-text-muted: #94a3b8;
+  --color-accent: #38bdf8;
+  --color-accent-2: #818cf8;
+  --radius-lg: 28px;
+  --radius-md: 18px;
+  --shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.45);
+}

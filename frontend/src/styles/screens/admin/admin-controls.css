@@ -1,0 +1,105 @@
+/* ===================== Общие контролы админки (поля, кнопки) ===================== */
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.95rem;
+}
+
+.admin-field input[type="text"],
+.admin-field input[type="password"],
+.admin-field select {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--color-text);
+  font-size: 1rem;
+  outline: none;
+}
+
+.admin-field input:focus,
+.admin-field select:focus {
+  border-color: var(--color-accent);
+}
+
+.admin-field small,
+.admin-hint {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.admin-hint.admin-hint--accent {
+  color: var(--color-accent);
+}
+
+.admin-field input[type="file"] {
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.admin-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.admin-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+}
+
+.admin-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.admin-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: #0b1220;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: filter 0.2s ease;
+}
+
+.admin-button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.admin-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-button-ghost {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.admin-button-danger {
+  background: #f87171;
+  color: #0b1220;
+}
+
+.admin-button-danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* Компактные кнопки внутри карточек расписания */
+.admin-button--small {
+  padding: 7px 12px;
+  font-size: 0.9rem;
+}

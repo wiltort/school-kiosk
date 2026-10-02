@@ -8,6 +8,7 @@ from datetime import UTC
 from pathlib import Path
 
 import pytest
+from freezegun import freeze_time
 from sqlalchemy import select
 from src.apps.schedule.managers import ScheduleImageManager
 from src.apps.schedule.repositories import ScheduleImageRepository
@@ -97,7 +98,11 @@ class LocalSyncStorage:
 
     def read_file(self, path: str, is_local: bool = False) -> bytes | None:  # noqa: ARG002
         if is_local:
-            return None if self.local_missing else self.local_data
+            return (
+                None
+                if self.local_missing or (path in self.deleted)
+                else self.local_data
+            )
         return self.static_data
 
     def read_file_metadata(
@@ -106,7 +111,7 @@ class LocalSyncStorage:
         is_local: bool = False,
     ) -> dict | None:
         if is_local:
-            if self.local_missing:
+            if self.local_missing or (path in self.deleted):
                 return None
             return self._meta(self.local_data)
         return self._meta(self.static_data)
@@ -515,3 +520,268 @@ async def test_update_local_file_failure(manager_factory):
     assert excinfo.value.status_code == 400
     assert storage.restored == ["local/current_schedule.jpg"]
     assert storage.deleted == []
+
+
+@pytest.mark.asyncio
+async def test_create_local_saves_file_and_metadata(
+    manager_factory, async_session_maker
+):
+    """create_local сохраняет локальный файл и метаданные, помечает is_local."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+
+    created = await _create_local(manager)
+
+    assert created.is_local is True
+    assert created.image == "local/current_schedule.jpg"
+    assert storage.saved[-1] == (b"local-v1", "current_schedule.jpg", "local", True)
+
+    async with async_session_maker() as session:
+        obj = await session.get(ScheduleImage, created.id)
+        assert obj.file_hash == hashlib.sha256(b"local-v1").hexdigest()
+        assert obj.file_size == len(b"local-v1")
+
+
+@pytest.mark.asyncio
+async def test_create_local_missing_source_raises_500(manager_factory):
+    """create_local без файла-источника — HTTP 500."""
+    storage = LocalSyncStorage(local_data=b"local-v1", local_missing=True)
+    manager = _make_manager(manager_factory, storage)
+
+    with pytest.raises(Exception) as excinfo:
+        await _create_local(manager)
+
+    assert excinfo.value.status_code == 400
+    assert "не найден" in excinfo.value.detail
+
+
+@pytest.mark.asyncio
+async def test_create_local_updates_existing_active_record(
+    manager_factory, async_session_maker
+):
+    """Повторное создание локального расписания с тем же именем обновляет
+    существующую запись вместо создания новой."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+    created = await _create_local(manager, name="Расписание 1")
+
+    storage.local_data = b"local-v2"
+    created_again = await _create_local(manager, name="Расписание 1")
+
+    async with async_session_maker() as session:
+        rows = (await session.execute(select(ScheduleImage))).scalars().all()
+
+    assert len(rows) == 1
+    assert rows[0].id == created.id == created_again.id
+    assert rows[0].file_hash == hashlib.sha256(b"local-v2").hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_set_single_active_activates_target(manager_factory, async_session_maker):
+    """Активирует целевое расписание и деактивирует остальные активные."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+    first = await _create(manager, _sample_create(name="A"))
+    second = await _create(manager, _sample_create(name="B", is_active=True))
+
+    activated = await manager.set_single_active(first.id)
+
+    assert activated.id == first.id
+    assert activated.is_active is True
+
+    async with async_session_maker() as session:
+        rows = (await session.execute(select(ScheduleImage))).scalars().all()
+    states = {row.id: row.is_active for row in rows}
+    assert states[first.id] is True
+    assert states[second.id] is False
+
+
+@pytest.mark.asyncio
+async def test_set_single_active_keeps_only_target_active(
+    manager_factory, async_session_maker
+):
+    """Если целевая запись уже активна, остальные остаются неактивными."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+    active = await _create(manager, _sample_create(name="Active", is_active=True))
+    inactive = await _create(manager, _sample_create(name="Inactive"))
+
+    result = await manager.set_single_active(active.id)
+
+    assert result.id == active.id
+    assert result.is_active is True
+
+    async with async_session_maker() as session:
+        row = await session.get(ScheduleImage, inactive.id)
+        assert row.is_active is False
+
+
+@pytest.mark.asyncio
+async def test_set_single_active_missing_raises_404(manager_factory):
+    """set_single_active для несуществующей записи — HTTP 404."""
+    manager = _make_manager(manager_factory, LocalSyncStorage(local_data=b"x"))
+
+    with pytest.raises(Exception) as excinfo:
+        await manager.set_single_active(uuid.uuid4())
+
+    assert excinfo.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_single_active_returns_schedule(manager_factory):
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+    active = await _create(manager, _sample_create(name="Active", is_active=True))
+    inactive = await _create(manager, _sample_create(name="Inactive", is_active=False))
+    active = await manager.get(active.id)
+
+    result = await manager.get_single_schedule()
+    assert result == active
+
+    inactive = await manager.get(inactive.id)
+    assert inactive.is_active is False
+
+
+@pytest.mark.asyncio
+async def test_local_sync_updates_changed_file(manager_factory, async_session_maker):
+    """Синхронизация обновляет статическую копию при изменении файла."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+    created = await _create_local(manager, "1.jpg")
+
+    storage.local_data = b"local-v2"
+    saves_before = len(storage.saved)
+
+    synced = await manager.all_local_schedules_sync()
+    updated = await manager.get(created.id)
+
+    assert synced == 1
+
+    assert created.image == updated.image
+    assert created.created_at == updated.created_at
+    assert created.updated_at != updated.updated_at
+    assert len(storage.saved) == saves_before + 1
+    assert storage.saved[-1][0] == b"local-v2"
+
+    async with async_session_maker() as session:
+        obj = await session.get(ScheduleImage, created.id)
+        assert obj.file_hash == hashlib.sha256(b"local-v2").hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_local_sync_noop_when_file_unchanged(manager_factory):
+    """Cинхронизация без изменений не пересохраняет файл."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+    await _create_local(manager, "1.jpg")
+
+    saves_before = len(storage.saved)
+
+    synced = await manager.all_local_schedules_sync()
+
+    assert synced == 1
+    assert len(storage.saved) == saves_before
+
+
+@pytest.mark.asyncio
+async def test_local_sync_missing_source_returns_none(manager_factory):
+    """Если файл-источник исчез — синхронизация ничего не меняет."""
+    storage = LocalSyncStorage(local_data=b"local-v1")
+    manager = _make_manager(manager_factory, storage)
+
+    created = await _create_local(manager, "1.jpg")
+    storage.delete("1.jpg")
+
+    result = await manager.all_local_schedules_sync()
+
+    assert result == 0
+    updated = await manager.get(created.id)
+    assert created == updated
+
+
+@pytest.mark.asyncio
+async def test_set_inactive_sets_is_active_to_false(manager_factory):
+    """set_inactive устанавливает is_active в False."""
+    manager = _make_manager(manager_factory, LocalSyncStorage(local_data=b"local-v1"))
+    created_1 = await _create(manager, _sample_create(name="Active", is_active=True))
+    created_2 = await manager.create(
+        schedule=ScheduleImageCreate(name="Active2", is_active=True),
+        data=b"nonlocal",
+        filename="2.jpg",
+    )
+
+    result = await manager.set_all_inactive()
+    assert result.status == "OK"
+    assert result.count == 2
+    created_1 = await manager.get(created_1.id)
+    created_2 = await manager.get(created_2.id)
+    assert created_1.is_active is False
+    assert created_2.is_active is False
+
+
+@pytest.mark.asyncio
+async def test_set_active_at_day_of_week(manager_factory):
+    """set_active_at_day_of_week устанавливает is_active в True для записи с day_of_week."""
+    manager = _make_manager(manager_factory, LocalSyncStorage(local_data=b"local-v1"))
+    created_1 = await _create(
+        manager, _sample_create(name="Active", is_active=True, day_of_week=1)
+    )
+    created_2 = await manager.create(
+        schedule=ScheduleImageCreate(name="Active2", is_active=False, day_of_week=2),
+        data=b"nonlocal",
+        filename="2.jpg",
+    )
+    created_3 = await manager.create(
+        schedule=ScheduleImageCreate(name="Active3", is_active=True, day_of_week=2),
+        data=b"nonlocal2",
+        filename="3.jpg",
+    )
+
+    await manager.set_active_at_day_of_week(created_2.id)
+
+    created_1 = await manager.get(created_1.id)
+    created_2 = await manager.get(created_2.id)
+    created_3 = await manager.get(created_3.id)
+
+    assert created_1.is_active is True
+    assert created_2.is_active is True
+    assert created_3.is_active is False
+
+
+@freeze_time("2026-10-01 12:00:00")  # Четверг
+@pytest.mark.asyncio
+async def test_get_today_schedule(manager_factory):
+    """get_today_schedule возвращает расписание на сегодня."""
+    manager = _make_manager(manager_factory, LocalSyncStorage(local_data=b"local-v1"))
+    await _create(manager, _sample_create(name="Active", is_active=True, day_of_week=1))
+    created_2 = await manager.create(
+        schedule=ScheduleImageCreate(name="Active2", is_active=True, day_of_week=4),
+        data=b"nonlocal",
+        filename="2.jpg",
+    )
+    today_schedule = await manager.get_today_schedule()
+
+    assert today_schedule == created_2
+
+
+@freeze_time("2026-10-01 12:00:00")  # Четверг
+@pytest.mark.asyncio
+async def test_get_next_schedule(manager_factory):
+    """get_next_schedule возвращает расписание на следующий день."""
+    manager = _make_manager(manager_factory, LocalSyncStorage(local_data=b"local-v1"))
+    created = await _create(
+        manager, _sample_create(name="Active", is_active=True, day_of_week=1)
+    )
+    await manager.create(
+        schedule=ScheduleImageCreate(name="Active1", is_active=True, day_of_week=3),
+        data=b"nonlocal1",
+        filename="3.jpg",
+    )
+    await manager.create(
+        schedule=ScheduleImageCreate(name="Active2", is_active=True, day_of_week=4),
+        data=b"nonlocal",
+        filename="2.jpg",
+    )
+    next_schedule = await manager.get_next_day_schedule()
+
+    assert next_schedule == created

@@ -70,10 +70,10 @@ def test_fresh_install_creates_db_with_full_schema(run_backend, tmp_path):
 def test_api_endpoints_respond(run_backend, tmp_path):
     """Основные API-эндпоинты отвечают корректно."""
     bp = run_backend(tmp_path / "data")
-    status, body = bp.get_json("/api/v1/schedule_images")
+    status, body = bp.get_json("/api/v1/schedule-images")
     assert status == 200
     assert body == []
-    status, _ = bp.get_json("/api/v1/schedule_images_local")
+    status, _ = bp.get_json("/api/v1/schedule-images-local")
     assert status == 200
 
 
@@ -86,6 +86,24 @@ def test_backend_log_written_and_migrations_applied(run_backend, tmp_path):
     assert "School Kiosk backend: запуск" in text
     # Миграции должны быть ПРИМЕНЕНЫ (alembic-ресурсы в сборке), фолбэка нет.
     assert "Не удалось применить Alembic-миграции" not in text
+
+
+def test_cron_scheduler_starts_and_registers_job(run_backend, tmp_path):
+    """Планировщик fastapi-crons стартует в frozen-сборке и регистрирует джоб.
+
+    Ловит регрессии PyInstaller-сборки: если из onefile выпал какой-то модуль
+    fastapi-crons или его транзитивных зависимостей (aiohttp, typer, rich,
+    redis, croniter), приложение стартует, но планировщик молча не поднимается —
+    первый тик джоба был бы только через N минут в проде.
+    """
+    bp = run_backend(tmp_path / "data")
+    log = bp.data_dir / "logs" / "backend.log"
+    assert log.is_file(), "Лог-файл не создан"
+    text = log.read_text(encoding="utf-8")
+    # Джоб зарегистрирован ровно один (без дубликатов) — столько джобов
+    # регистрирует register_cron_jobs.
+    assert "Starting cron scheduler with 1 jobs" in text
+    assert "Starting job loop for 'periodic_local_schedules_sync'" in text
 
 
 def test_restart_on_existing_db_is_stable(run_backend, tmp_path):

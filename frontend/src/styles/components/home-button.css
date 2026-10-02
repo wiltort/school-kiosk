@@ -1,0 +1,30 @@
+/* ============================= Кнопка «Домой» ============================= */
+.home-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 26px;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(6px);
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.home-button:hover {
+  border-color: var(--color-accent-2);
+  background: rgba(129, 140, 248, 0.14);
+}
+
+.home-button:active {
+  transform: scale(0.96);
+}

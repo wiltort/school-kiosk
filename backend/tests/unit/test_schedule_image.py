@@ -138,3 +138,187 @@ async def test_repository_get_populate_existing_bypasses_identity_map(
         fresh = await repo.get(session, image.id, populate_existing=True)
         assert fresh is loaded  # тот же экземпляр, но атрибуты перечитаны
         assert fresh.name == "Untitled"
+
+
+@pytest.mark.asyncio
+async def test_repository_get_local_by_name_finds_active_local(async_session_maker):
+    """get_local_by_name находит активную локальную запись по имени."""
+    repo = ScheduleImageRepository()
+    async with async_session_maker() as session:
+        image = ScheduleImage(
+            image="local/a.png", name="Локальное", is_local=True, is_active=True
+        )
+        session.add(image)
+        await session.commit()
+
+        found = await repo.get_local_by_name(session, "Локальное")
+
+        assert found is not None
+        assert found.id == image.id
+
+
+@pytest.mark.asyncio
+async def test_repository_get_local_by_name_ignores_inactive(async_session_maker):
+    """get_local_by_name игнорирует неактивные записи."""
+    repo = ScheduleImageRepository()
+    async with async_session_maker() as session:
+        session.add(
+            ScheduleImage(
+                image="local/a.png", name="Локальное", is_local=True, is_active=False
+            )
+        )
+        await session.commit()
+
+        found = await repo.get_local_by_name(session, "Локальное")
+
+        assert found is None
+
+
+@pytest.mark.asyncio
+async def test_repository_get_local_by_name_ignores_non_local(async_session_maker):
+    """get_local_by_name игнорирует нелокальные записи."""
+    repo = ScheduleImageRepository()
+    async with async_session_maker() as session:
+        session.add(
+            ScheduleImage(
+                image="a.png", name="Локальное", is_local=False, is_active=True
+            )
+        )
+        await session.commit()
+
+        found = await repo.get_local_by_name(session, "Локальное")
+
+        assert found is None
+
+
+@pytest.mark.asyncio
+async def test_repository_get_local_by_name_missing_returns_none(async_session_maker):
+    """get_local_by_name возвращает None для несуществующего имени."""
+    repo = ScheduleImageRepository()
+    async with async_session_maker() as session:
+        session.add(
+            ScheduleImage(
+                image="local/a.png", name="Другое", is_local=True, is_active=True
+            )
+        )
+        await session.commit()
+
+        found = await repo.get_local_by_name(session, "Локальное")
+
+        assert found is None
+
+
+@pytest.mark.asyncio
+async def test_repository_get_by_path_finds_by_image_path(async_session_maker):
+    """get_by_path ищет записи по пути файла (колонка image)."""
+    repo = ScheduleImageRepository()
+    async with async_session_maker() as session:
+        image = ScheduleImage(image="local/a.png", is_active=True)
+        session.add(image)
+        await session.commit()
+
+        found = await repo.get_by_path(session, "local/a.png")
+
+        assert found is not None
+        assert found.id == image.id
+
+
+@pytest.mark.asyncio
+async def test_repository_get_by_path_with_is_local_filter(async_session_maker):
+    """get_by_path учитывает фильтр is_local."""
+    repo = ScheduleImageRepository()
+    async with async_session_maker() as session:
+        image = ScheduleImage(image="local/a.png", is_local=True, is_active=True)
+        session.add(image)
+        await session.commit()
+
+        found = await repo.get_by_path(session, "local/a.png", is_local=True)
+        assert found is not None and found.id == image.id
+
+        missing = await repo.get_by_path(session, "local/a.png", is_local=False)
+        assert missing is None
+
+
+@pytest.mark.asyncio
+async def test_repository_get_by_path_ignores_inactive_by_default(
+    async_session_maker,
+):
+    """get_by_path по умолчанию ищет только активные записи."""
+    repo = ScheduleImageRepository()
+    async with async_session_maker() as session:
+        image = ScheduleImage(image="local/a.png", is_active=False)
+        session.add(image)
+        await session.commit()
+
+        assert await repo.get_by_path(session, "local/a.png") is None
+
+        found = await repo.get_by_path(session, "local/a.png", is_active=False)
+        assert found is not None and found.id == image.id
+
+
+@pytest.mark.asyncio
+async def test_repository_get_by_path_missing_returns_none(async_session_maker):
+    """get_by_path возвращает None для отсутствующего пути."""
+    repo = ScheduleImageRepository()
+    async with async_session_maker() as session:
+        session.add(ScheduleImage(image="local/a.png", is_active=True))
+        await session.commit()
+
+        found = await repo.get_by_path(session, "local/ghost.png")
+
+        assert found is None
+
+
+@pytest.mark.asyncio
+async def test_repository_filter_by_single_field(async_session_maker):
+    """filter возвращает записи по одному условию."""
+    repo = ScheduleImageRepository()
+    async with async_session_maker() as session:
+        active = ScheduleImage(image="a.png", is_active=True)
+        inactive = ScheduleImage(image="b.png", is_active=False)
+        session.add_all([active, inactive])
+        await session.commit()
+
+        found = await repo.filter(session, is_active=True)
+
+        assert [item.id for item in found] == [active.id]
+
+
+@pytest.mark.asyncio
+async def test_repository_filter_by_multiple_fields(async_session_maker):
+    """filter объединяет несколько условий через AND."""
+    repo = ScheduleImageRepository()
+    async with async_session_maker() as session:
+        first = ScheduleImage(image="a.png", name="A", is_local=True, is_active=True)
+        second = ScheduleImage(image="b.png", name="B", is_local=True, is_active=True)
+        third = ScheduleImage(image="c.png", name="C", is_local=False, is_active=True)
+        session.add_all([first, second, third])
+        await session.commit()
+
+        found = await repo.filter(session, is_local=True, is_active=True)
+
+        assert {item.id for item in found} == {first.id, second.id}
+
+
+@pytest.mark.asyncio
+async def test_repository_filter_empty_kwargs_returns_empty(async_session_maker):
+    """filter без условий возвращает пустой список."""
+    repo = ScheduleImageRepository()
+    async with async_session_maker() as session:
+        session.add(ScheduleImage(image="a.png", is_active=True))
+        await session.commit()
+
+        assert await repo.filter(session) == []
+
+
+@pytest.mark.asyncio
+async def test_repository_filter_no_match_returns_empty(async_session_maker):
+    """filter возвращает пустой список, если записи не найдены."""
+    repo = ScheduleImageRepository()
+    async with async_session_maker() as session:
+        session.add(ScheduleImage(image="a.png", is_active=False))
+        await session.commit()
+
+        found = await repo.filter(session, is_active=True)
+
+        assert found == []

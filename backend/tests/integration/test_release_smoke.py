@@ -4,12 +4,14 @@
 сценарии, которые ломались в CI-релизах:
 
 * свежая установка: бэкенд стартует, создаёт БД, применяет Alembic-миграции
-  (то есть alembic-ресурсы реально попали в onefile-сборку);
+  (то есть alembic-ресурсы реально попали в onefile-сборку), а дефолтный
+  администратор создаётся с корректным хэшем пароля;
 * API отвечает;
 * бэкенд пишет лог в ``<data_dir>/logs/backend.log``;
 * повторный запуск на существующей БД стабилен (сценарий автообновления);
 * апгрейд «старой» БД (созданной только через ``create_all``, без
-  ``alembic_version``) проходит без потери данных.
+  ``alembic_version``) проходит без потери данных и добавляет дефолтного
+  администратора.
 
 Если ``python-backend.exe`` не собран — модуль пропускается целиком.
 """
@@ -17,6 +19,8 @@
 import sqlite3
 
 import pytest
+from src.core.config import settings
+from src.core.security import verify_password
 
 from tests.integration.smoke import (
     create_legacy_db,
@@ -27,6 +31,7 @@ from tests.integration.smoke import (
 
 EXPECTED_TABLES = {
     "alembic_version",
+    "admin_profiles",
     "schedule_images",
     "schedule_tables",
     "schedule_columns",
@@ -39,6 +44,32 @@ if _EXE is None:
         "python-backend.exe не собран (make build-backend) — интеграционные "
         "тесты релизного билда пропущены",
         allow_module_level=True,
+    )
+
+
+def _read_default_admin(data_dir) -> tuple | None:
+    """Возвращает строку (login, password_hash, is_active, is_default)
+    дефолтного администратора из БД или None, если его нет."""
+    conn = sqlite3.connect(data_dir / "school_kiosk.db")
+    try:
+        return conn.execute(
+            "SELECT login, password_hash, is_active, is_default "
+            "FROM admin_profiles WHERE is_default = 1"
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def _assert_default_admin_created(data_dir) -> None:
+    """Дефолтный администратор существует и его пароль проверяется."""
+    row = _read_default_admin(data_dir)
+    assert row is not None, "Дефолтный администратор не создан"
+    login, password_hash, is_active, is_default = row
+    assert login == settings.default_admin_login
+    assert is_active == 1
+    assert is_default == 1
+    assert verify_password(settings.default_admin_password, password_hash), (
+        "Хэш пароля дефолтного администратора не проверяется"
     )
 
 
@@ -65,6 +96,8 @@ def test_fresh_install_creates_db_with_full_schema(run_backend, tmp_path):
         f"alembic_version={version!r}, ожидался head {head_revision()!r} — "
         "похоже, alembic-ресурсы не попали в onefile-сборку"
     )
+    # Вторая миграция создаёт дефолтного администратора с корректным хэшем.
+    _assert_default_admin_created(bp.data_dir)
 
 
 def test_api_endpoints_respond(run_backend, tmp_path):
@@ -143,4 +176,7 @@ def test_upgrade_from_legacy_db_without_alembic_version(run_backend, tmp_path):
     finally:
         conn.close()
     assert names == ["legacy-запись"], "Данные старой БД потеряны при апгрейде"
+    # При апгрейде старой БД миграции не реплеятся (только stamp), но
+    # дефолтный администратор всё равно должен появиться.
+    _assert_default_admin_created(data)
     assert bp.is_alive()

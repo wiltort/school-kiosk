@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +10,18 @@ class AdminRepository:
     """Репозиторий для работы с администраторами."""
 
     model = AdminProfile
+
+    async def get(self, session: AsyncSession, id: uuid.UUID) -> AdminProfile | None:
+        """Получить администратора по ID.
+
+        Args:
+            session (AsyncSession): Сессия базы данных.
+            id (uuid.UUID): ID админа.
+
+        Returns
+            AdminProfile: Администратор.
+        """
+        return await session.get(self.model, id)
 
     async def get_by_login(self, session: AsyncSession, login: str) -> AdminProfile:
         """Получить администратора по логину.

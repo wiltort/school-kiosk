@@ -1,6 +1,9 @@
 """Тесты HTTP-эндпоинтов админ-панели (src/apps/admin/routes.py)."""
 
+import pytest
+from src.apps.admin.repositories import AdminRepository
 from src.core.config import settings
+from src.core.security import hash_password
 
 
 def test_login_with_wrong_credentials(client):
@@ -192,3 +195,35 @@ def test_changing_schedule_mode_inactivates_all_schedules(
     response = client.get(f"/api/v1/schedule-images/{schedule['id']}")
     assert response.status_code == 200
     assert response.json()["is_active"] is False
+
+
+@pytest.mark.asyncio
+async def test_default_admin_login_blocked_when_non_default_exists(
+    client, async_session_maker
+):
+    """Вход под дефолтным админом невозможен, если есть недефолтные админы."""
+    # Недефолтный админ добавляется напрямую в БД (через API его не создать).
+    repo = AdminRepository()
+    async with async_session_maker() as session:
+        await repo.create(
+            session,
+            {
+                "login": "custom-admin",
+                "password_hash": hash_password("custom-pass"),
+                "email": None,
+                "fullname": "Пользовательский админ",
+                "is_active": True,
+                "is_default": False,
+            },
+        )
+        await session.commit()
+
+    response = client.post(
+        "/api/v1/admin/login",
+        json={
+            "login": settings.default_admin_login,
+            "password": settings.default_admin_password,
+        },
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Неверный логин или пароль"

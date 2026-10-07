@@ -57,7 +57,11 @@ class AdminProfileManager:
         """Обновить профиль администратора."""
         async with self.db.db_session() as session:
             admin_existing = await self.admin_repo.get(session, id)
-            if not admin_existing:
+            if (
+                not admin_existing
+                or admin_existing.is_default is True
+                or admin_existing.is_active is False
+            ):
                 raise HTTPException(status_code=404, detail="Админ не найден")
             payload = admin.model_dump(exclude_unset=True)
             if not payload:
@@ -78,7 +82,7 @@ class AdminProfileManager:
         """Удалить профиль администратора."""
         async with self.db.db_session() as session:
             admin = await self.admin_repo.get(session, id)
-            if not admin:
+            if not admin or admin.is_default is True:
                 raise HTTPException(404, detail="Админ не найден")
             await self.admin_repo.delete(session, admin)
             await with_retry_commit(session)
@@ -91,6 +95,11 @@ class AdminProfileManager:
                 raise HTTPException(status_code=400, detail="Логин не передан")
             admin_profile = await self.admin_repo.get_by_login(session, admin.login)
             if not admin_profile:
+                raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+            if (
+                admin_profile.is_default
+                and await self.admin_repo.non_default_admin_exists(session)
+            ):
                 raise HTTPException(status_code=401, detail="Неверный логин или пароль")
             if not verify_password(admin.password, admin_profile.password_hash):
                 raise HTTPException(status_code=401, detail="Неверный логин или пароль")

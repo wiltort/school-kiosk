@@ -7,6 +7,7 @@ from src.apps.admin.auth import AuthManager
 from src.apps.admin.managers import AdminProfileManager
 from src.apps.admin.repositories import AdminRepository, AdminTokenRepository
 from src.apps.admin.schemas import AdminAuth, AdminProfileCreate, AdminProfileUpdate
+from src.core.security import hash_password
 
 
 def _sample_admin_profile(**overrides) -> AdminProfileCreate:
@@ -127,3 +128,85 @@ async def test_auth_after_deleting_admin(manager_factory):
 
     assert excinfo.value.status_code == 401
     assert excinfo.value.detail == "Неверный логин или пароль"
+
+
+def _raw_admin_data(
+    login: str,
+    password: str,
+    *,
+    is_default: bool = False,  # noqa: S107
+) -> dict:
+    """Данные AdminProfile для прямой вставки через репозиторий
+    (например, для создания дефолтного администратора)."""
+    return {
+        "login": login,
+        "password_hash": hash_password(password),
+        "email": None,
+        "fullname": None,
+        "is_active": True,
+        "is_default": is_default,
+    }
+
+
+@pytest.mark.asyncio
+async def test_authenticate_default_admin_blocked_when_non_default_exists(
+    manager_factory, async_session
+):
+    """Дефолтный админ не может войти, если существуют недефолтные админы."""
+    repo = AdminRepository()
+    await repo.create(
+        async_session,
+        _raw_admin_data("default-admin", "default-pass", is_default=True),
+    )
+    await repo.create(async_session, _raw_admin_data("custom-admin", "custom-pass"))
+    await async_session.commit()
+
+    manager = _admin_profile_manager(manager_factory)
+    auth = AdminAuth(login="default-admin", password="default-pass")  # noqa S106
+
+    with pytest.raises(Exception) as excinfo:
+        await manager.authenticate(auth)
+
+    assert excinfo.value.status_code == 401
+    assert excinfo.value.detail == "Неверный логин или пароль"
+
+
+@pytest.mark.asyncio
+async def test_authenticate_default_admin_allowed_when_no_non_default(
+    manager_factory, async_session
+):
+    """Дефолтный админ входит, пока не создано ни одного недефолтного админа."""
+    repo = AdminRepository()
+    await repo.create(
+        async_session,
+        _raw_admin_data("default-admin", "default-pass", is_default=True),
+    )
+    await async_session.commit()
+
+    manager = _admin_profile_manager(manager_factory)
+    auth = AdminAuth(login="default-admin", password="default-pass")  # noqa S106
+
+    token_data = await manager.authenticate(auth)
+    assert token_data.token is not None
+    assert isinstance(token_data.token, str)
+
+
+@pytest.mark.asyncio
+async def test_authenticate_non_default_admin_allowed_with_default_present(
+    manager_factory, async_session
+):
+    """Недефолтный админ продолжает входить при наличии дефолтного."""
+    repo = AdminRepository()
+    await repo.create(
+        async_session,
+        _raw_admin_data("default-admin", "default-pass", is_default=True),
+    )
+    await repo.create(async_session, _raw_admin_data("custom-admin", "custom-pass"))
+    await async_session.commit()
+
+    manager = _admin_profile_manager(manager_factory)
+    auth = AdminAuth(login="custom-admin", password="custom-pass")  # noqa S106
+
+    token_data = await manager.authenticate(auth)
+    assert token_data.token is not None
+    assert isinstance(token_data.token, str)

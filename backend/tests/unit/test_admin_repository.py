@@ -5,14 +5,18 @@ from src.apps.admin.repositories import AdminRepository
 from src.core.security import hash_password
 
 
-def _admin_data(login: str, password: str = "secret") -> dict:  # noqa: S107
+def _admin_data(
+    login: str,
+    password: str = "secret",  # noqa: S107
+    is_default: bool = False,
+) -> dict:
     """Данные для создания AdminProfile через репозиторий."""
     return {
         "login": login,
         "password_hash": hash_password(password),
         "email": None,
         "is_active": True,
-        "is_default": False,
+        "is_default": is_default,
     }
 
 
@@ -79,3 +83,40 @@ async def test_count_counts_all_admins(async_session):
     await repo.create(async_session, _admin_data("count-2"))
 
     assert await repo.count(async_session) == 2
+
+
+@pytest.mark.asyncio
+async def test_non_default_admin_exists_false_when_empty(async_session):
+    """non_default_admin_exists() возвращает False, если админов нет вовсе."""
+    repo = AdminRepository()
+    assert await repo.non_default_admin_exists(async_session) is False
+
+
+@pytest.mark.asyncio
+async def test_non_default_admin_exists_false_when_only_default(async_session):
+    """non_default_admin_exists() возвращает False, если есть только дефолтные."""
+    repo = AdminRepository()
+    await repo.create(async_session, _admin_data("default-1", is_default=True))
+    await repo.create(async_session, _admin_data("default-2", is_default=True))
+
+    assert await repo.non_default_admin_exists(async_session) is False
+
+
+@pytest.mark.asyncio
+async def test_non_default_admin_exists_true_when_non_default_present(async_session):
+    """non_default_admin_exists() возвращает True при наличии недефолтного админа."""
+    repo = AdminRepository()
+    await repo.create(async_session, _admin_data("custom-1"))
+
+    assert await repo.non_default_admin_exists(async_session) is True
+
+
+@pytest.mark.asyncio
+async def test_non_default_admin_exists_true_with_mixed_admins(async_session):
+    """non_default_admin_exists() возвращает True, если есть и дефолтный,
+    и недефолтный администраторы."""
+    repo = AdminRepository()
+    await repo.create(async_session, _admin_data("default-1", is_default=True))
+    await repo.create(async_session, _admin_data("custom-1"))
+
+    assert await repo.non_default_admin_exists(async_session) is True

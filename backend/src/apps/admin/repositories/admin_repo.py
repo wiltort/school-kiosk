@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import AdminProfile
@@ -92,3 +92,9 @@ class AdminRepository:
         query = select(func.count(self.model.id))
         result = await session.execute(query)
         return result.scalar_one()
+
+    async def non_default_admin_exists(self, session: AsyncSession) -> bool:
+        """Проверка существования недефолтных админов."""
+        query = select(exists().where(self.model.is_default.is_(False)))
+        result = await session.execute(query)
+        return bool(result.scalar())

@@ -3,8 +3,9 @@
 import uuid
 
 import pytest
+from src.apps.admin.auth import AuthManager
 from src.apps.admin.managers import AdminProfileManager
-from src.apps.admin.repositories import AdminRepository
+from src.apps.admin.repositories import AdminRepository, AdminTokenRepository
 from src.apps.admin.schemas import AdminAuth, AdminProfileCreate, AdminProfileUpdate
 
 
@@ -18,10 +19,23 @@ def _sample_admin_profile(**overrides) -> AdminProfileCreate:
     return AdminProfileCreate(**payload)
 
 
+def _admin_profile_manager(manager_factory):
+    token_repo = AdminTokenRepository()
+    return manager_factory(
+        AdminProfileManager,
+        admin_repo=AdminRepository(),
+        token_repo=token_repo,
+        auth_manager=manager_factory(
+            AuthManager,
+            token_repo=token_repo,
+        ),
+    )
+
+
 @pytest.mark.asyncio
 async def test_create_admin_profile(manager_factory):
     """Проверка создания профиля админа."""
-    manager = manager_factory(AdminProfileManager, repository=AdminRepository())
+    manager = _admin_profile_manager(manager_factory)
     created = await manager.create(_sample_admin_profile())
     created_dict = created.model_dump()
     assert isinstance(created_dict.pop("id"), uuid.UUID)
@@ -42,7 +56,7 @@ async def test_create_admin_profile(manager_factory):
 async def test_update_admin_profile(manager_factory):
     """Проверка редактирования профиля"""
 
-    manager = manager_factory(AdminProfileManager, repository=AdminRepository())
+    manager = _admin_profile_manager(manager_factory)
     created = await manager.create(_sample_admin_profile())
     payload = AdminProfileUpdate(login="admin_2", fullname="Петров")
 
@@ -65,7 +79,7 @@ async def test_update_admin_profile(manager_factory):
 @pytest.mark.asyncio
 async def test_delete_admin(manager_factory):
     """Проверка удаления профиля"""
-    manager = manager_factory(AdminProfileManager, repository=AdminRepository())
+    manager = _admin_profile_manager(manager_factory)
 
     created = await manager.create(_sample_admin_profile())
 
@@ -81,7 +95,7 @@ async def test_delete_admin(manager_factory):
 @pytest.mark.asyncio
 async def test_authenticate_admin(manager_factory):
     """Проверка аутентификации."""
-    manager = manager_factory(AdminProfileManager, repository=AdminRepository())
+    manager = _admin_profile_manager(manager_factory)
 
     await manager.create(_sample_admin_profile())
     auth = AdminAuth(login="admin_1", password="password")  # noqa S106
@@ -92,15 +106,11 @@ async def test_authenticate_admin(manager_factory):
     assert isinstance(token, str)
     assert len(token) == 43
 
-    from src.apps.admin.auth import _tokens
-
-    assert token in _tokens
-
 
 @pytest.mark.asyncio
 async def test_auth_after_deleting_admin(manager_factory):
     """Проверка авторизации после удаления админа."""
-    manager = manager_factory(AdminProfileManager, repository=AdminRepository())
+    manager = _admin_profile_manager(manager_factory)
 
     created = await manager.create(_sample_admin_profile())
     auth = AdminAuth(login="admin_1", password="password")  # noqa S106
@@ -111,13 +121,9 @@ async def test_auth_after_deleting_admin(manager_factory):
     assert isinstance(token, str)
     assert len(token) == 43
 
-    from src.apps.admin.auth import _tokens
-
-    assert token in _tokens
-
     await manager.delete(created.id)
     with pytest.raises(Exception) as excinfo:
         await manager.authenticate(auth)
 
-    assert excinfo.value.status_code == 404
-    assert excinfo.value.detail == "Администратор не найден"
+    assert excinfo.value.status_code == 401
+    assert excinfo.value.detail == "Неверный логин или пароль"

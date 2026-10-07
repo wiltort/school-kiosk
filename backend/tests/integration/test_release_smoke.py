@@ -36,6 +36,7 @@ EXPECTED_TABLES = {
     "schedule_tables",
     "schedule_columns",
     "lessons",
+    "admin_tokens",
 }
 
 _EXE = resolve_backend_exe()
@@ -133,9 +134,7 @@ def test_cron_scheduler_starts_and_registers_job(run_backend, tmp_path):
     log = bp.data_dir / "logs" / "backend.log"
     assert log.is_file(), "Лог-файл не создан"
     text = log.read_text(encoding="utf-8")
-    # Джоб зарегистрирован ровно один (без дубликатов) — столько джобов
-    # регистрирует register_cron_jobs.
-    assert "Starting cron scheduler with 1 jobs" in text
+    assert "Starting cron scheduler with 2 jobs" in text
     assert "Starting job loop for 'periodic_local_schedules_sync'" in text
 
 

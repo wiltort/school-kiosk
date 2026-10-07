@@ -3,6 +3,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.enums.schedule_modes import ScheduleMode
+
 
 class AdminAuth(BaseModel):
     login: str = Field(..., description="Логин", examples=["admin"], max_length=255)
@@ -77,3 +79,27 @@ class AdminProfileUpdate(BaseModel):
         examples=["Иванов Иван Иванович"],
         max_length=255,
     )
+
+
+class AdminTokenSchema(BaseModel):
+    admin_id: uuid.UUID
+    token_hash: str
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+
+class SettingsResponse(BaseModel):
+    local_image_dir: str | None
+    schedule_mode: ScheduleMode
+    welcome_message: str | None
+    autostart: bool
+    autostart_supported: bool
+
+
+class SettingsUpdate(BaseModel):
+    local_image_dir: str | None = None
+    schedule_mode: ScheduleMode = ScheduleMode.SINGLE
+    welcome_message: str | None = None
+    autostart: bool = False

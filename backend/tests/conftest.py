@@ -20,6 +20,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
+from src.core import migrations
 from src.core.database import DBDependency, get_db_dependency
 from src.core.storage import ImageStorage
 from src.main import app
@@ -110,7 +111,7 @@ async def async_session(async_session_maker):
 
 
 @pytest_asyncio.fixture(scope="function")
-async def client(async_session_maker):
+async def client(async_engine, async_session_maker):
     """Тестовый клиент FastAPI с подменой зависимости БД на асинхронную."""
 
     def override_get_db():
@@ -120,6 +121,16 @@ async def client(async_session_maker):
     def override_image_storage():
         """Подменяет хранилище файлов заглушкой."""
         return FakeImageStorage()
+
+    # In-memory тестовая БД создаётся через Base.metadata.create_all, поэтому
+    # дефолтного администратора в ней нет (в проде его создаёт миграция
+    # 5b857b4a2e4c / apply_schema; до реальной файловой БД миграции на старте
+    # тестов действительно применяются, но запросы идут в in-memory БД).
+    # Добавляем админа здесь, иначе POST /api/v1/admin/login с дефолтными
+    # учётными данными вернёт 401. Фикстура function-scope: clean_db стирает
+    # строки после каждого теста, а репозиторные тесты (count == 0) не
+    # используют client и остаются с пустой таблицей.
+    await migrations._ensure_default_admin(async_engine)
 
     app.dependency_overrides[get_db_dependency] = override_get_db
     app.dependency_overrides[ImageStorage] = override_image_storage

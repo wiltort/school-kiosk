@@ -4,68 +4,47 @@
 т.к. оба загружают SPA с одного origin. Настройки хранит бэкенд без БД.
 """
 
-import secrets
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Header, status
 
 from src.apps.admin import autostart
-from src.apps.admin.auth import create_token, get_current_admin, revoke_token
+from src.apps.admin.auth import AuthManager, get_current_admin_dependency
+from src.apps.admin.managers import AdminProfileManager
+from src.apps.admin.schemas import (
+    AdminAuth,
+    AdminAuthResponse,
+    AdminProfileResponse,
+    AdminTokenSchema,
+    SettingsResponse,
+    SettingsUpdate,
+)
 from src.apps.schedule.managers.schedule_image_manager import ScheduleImageManager
 from src.core.config import settings
-from src.enums.schedule_modes import ScheduleMode
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-class LoginRequest(BaseModel):
-    login: str
-    password: str
-
-
-class LoginResponse(BaseModel):
-    token: str
-
-
-class SettingsResponse(BaseModel):
-    local_image_dir: str | None
-    schedule_mode: ScheduleMode
-    welcome_message: str | None
-    autostart: bool
-    autostart_supported: bool
-
-
-class SettingsUpdate(BaseModel):
-    local_image_dir: str | None = None
-    schedule_mode: ScheduleMode = ScheduleMode.SINGLE
-    welcome_message: str | None = None
-    autostart: bool = False
-
-
-@admin_router.post("/login", response_model=LoginResponse)
-async def login(payload: LoginRequest) -> LoginResponse:
+@admin_router.post("/login", response_model=AdminAuthResponse)
+async def login(
+    payload: AdminAuth, manager: Annotated[AdminProfileManager, Depends()]
+) -> AdminAuthResponse:
     """Вход в админку: проверяет логин/пароль и выдаёт Bearer-токен."""
-    login_ok = secrets.compare_digest(payload.login or "", settings.default_admin_login)
-    password_ok = secrets.compare_digest(
-        payload.password or "", settings.default_admin_password
-    )
-    if not (login_ok and password_ok):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неверный логин или пароль",
-        )
-    return LoginResponse(token=create_token())
+    return await manager.authenticate(payload)
 
 
 @admin_router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(token: str = Depends(get_current_admin)) -> None:
-    """Выход из админки: инвалидирует текущий токен."""
-    revoke_token(token)
+async def logout(
+    auth_manager: Annotated[AuthManager, Depends()],
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    await auth_manager.revoke_current_token(authorization)
 
 
 @admin_router.get("/settings", response_model=SettingsResponse)
-async def get_settings(_: str = Depends(get_current_admin)) -> SettingsResponse:
+async def get_settings(
+    _: Annotated[AdminTokenSchema, Depends(get_current_admin_dependency)],
+) -> SettingsResponse:
     """Возвращает текущие настройки приложения."""
     store = settings.app_settings
     return SettingsResponse(
@@ -81,7 +60,7 @@ async def get_settings(_: str = Depends(get_current_admin)) -> SettingsResponse:
 async def update_settings(
     payload: SettingsUpdate,
     schedule_manager: Annotated[ScheduleImageManager, Depends()],
-    _: str = Depends(get_current_admin),
+    _: Annotated[AdminTokenSchema, Depends(get_current_admin_dependency)],
 ) -> SettingsResponse:
     """Сохраняет настройки и применяет автозагрузку сразу.
 
@@ -108,3 +87,13 @@ async def update_settings(
         autostart=store.autostart(),
         autostart_supported=autostart.is_supported(),
     )
+
+
+@admin_router.get(
+    "/me", response_model=AdminProfileResponse, status_code=status.HTTP_200_OK
+)
+async def get_me(
+    token: Annotated[AdminTokenSchema, Depends(get_current_admin_dependency)],
+    manager: Annotated[AdminProfileManager, Depends()],
+) -> AdminProfileResponse:
+    return await manager.get_by_token(token)

@@ -38,7 +38,7 @@ def test_register_cron_jobs_registers_periodic_file_sync():
 
     register_cron_jobs(fake)
 
-    assert len(fake.jobs) == 1
+    assert len(fake.jobs) == 2
     job = fake.jobs[0]
     assert job.name == PERIODIC_FILE_SYNC_JOB_NAME
     assert job.expr == PERIODIC_FILE_SYNC_CRON
@@ -52,5 +52,5 @@ def test_register_cron_jobs_is_idempotent():
     register_cron_jobs(fake)
     register_cron_jobs(fake)
 
-    assert len(fake.jobs) == 1
+    assert len(fake.jobs) == 2
     assert fake.jobs[0].name == PERIODIC_FILE_SYNC_JOB_NAME

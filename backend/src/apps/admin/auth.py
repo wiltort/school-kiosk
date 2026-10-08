@@ -8,7 +8,8 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.apps.admin.repositories import AdminTokenRepository
@@ -16,6 +17,11 @@ from src.apps.admin.schemas import AdminTokenSchema
 from src.core.database import DBDependency, get_db_dependency
 from src.core.security import generate_token, hash_token
 from src.utils.retry import with_retry_commit
+
+bearer_scheme = HTTPBearer(
+    auto_error=False,
+    description="Bearer-токен, полученный через POST /admin/login",
+)
 
 
 class AuthManager:
@@ -79,22 +85,13 @@ class AuthManager:
 
     async def get_current_admin(
         self,
-        authorization: str | None = Header(default=None),
+        token: str,
     ) -> AdminTokenSchema:
-        """FastAPI-dependency: возвращает токен, если он валиден и не истёк."""
-        if not authorization:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Отсутствует токен авторизации",
-            )
+        """Возвращает токен, если он валиден и не истёк.
 
-        scheme, _, token = authorization.partition(" ")
-        if scheme.lower() != "bearer" or not token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Недействительный формат токена",
-            )
-
+        ``token`` — «сырое» значение без префикса ``Bearer `` (его отделяет
+        ``HTTPBearer``).
+        """
         token_hash = hash_token(token)
 
         async with self.db.db_session() as session:
@@ -110,13 +107,13 @@ class AuthManager:
 
     async def revoke_current_token(
         self,
-        authorization: str | None,
+        token: str | None,
     ) -> None:
-        """Отзывает текущий токен (logout)."""
-        if not authorization:
-            return
-        scheme, _, token = authorization.partition(" ")
-        if scheme.lower() != "bearer" or not token:
+        """Отзывает текущий токен (logout).
+
+        ``token`` — «сырое» значение без префикса ``Bearer ``.
+        """
+        if not token:
             return
         token_hash = hash_token(token)
         async with self.db.db_session() as session:
@@ -135,7 +132,14 @@ class AuthManager:
 
 async def get_current_admin_dependency(
     auth_manager: Annotated[AuthManager, Depends()],
-    authorization: Annotated[str | None, Header()] = None,
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(bearer_scheme)
+    ] = None,
 ) -> AdminTokenSchema:
     """FastAPI-dependency для получения токена."""
-    return await auth_manager.get_current_admin(authorization)
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Отсутствует токен авторизации",
+        )
+    return await auth_manager.get_current_admin(credentials.credentials)

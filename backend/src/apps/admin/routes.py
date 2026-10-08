@@ -6,10 +6,11 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, status
+from fastapi import APIRouter, Depends, status
+from fastapi.security import HTTPAuthorizationCredentials
 
 from src.apps.admin import autostart
-from src.apps.admin.auth import AuthManager, get_current_admin_dependency
+from src.apps.admin.auth import AuthManager, bearer_scheme, get_current_admin_dependency
 from src.apps.admin.managers import AdminProfileManager
 from src.apps.admin.schemas import (
     AdminAuth,
@@ -36,9 +37,14 @@ async def login(
 @admin_router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     auth_manager: Annotated[AuthManager, Depends()],
-    authorization: Annotated[str | None, Header()] = None,
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(bearer_scheme)
+    ] = None,
 ) -> None:
-    await auth_manager.revoke_current_token(authorization)
+    """Выход: отзывает переданный Bearer-токен (если он есть)."""
+    await auth_manager.revoke_current_token(
+        credentials.credentials if credentials else None
+    )
 
 
 @admin_router.get("/settings", response_model=SettingsResponse)

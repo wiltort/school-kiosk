@@ -32,37 +32,60 @@ export default function App() {
 
   const { data: config, refetch: refetchConfig } = useKioskConfig();
 
-  // Десктоп: Ctrl+Shift+A переключает админ-режим (kiosk.rs) — открываем форму входа.
+  const goHome = useCallback(() => setView("home"), []);
+  const openSchedule = useCallback(() => setView("schedule"), []);
+  const openWeather = useCallback(() => setView("weather"), []);
+  const openLogin = useCallback(() => setView("login"), []);
+
+  // Десктоп: Ctrl+Shift+A переключает админ-режим (kiosk.rs) — открывает
+  // форму входа, повторное нажатие закрывает её.
   useDesktopAdminPoll({
     desktop,
     isAdmin,
     onLoginView: view === "login",
     onAdminActivate: () => setView("login"),
+    onAdminDeactivate: goHome,
   });
-
-  const goHome = useCallback(() => setView("home"), []);
-  const openSchedule = useCallback(() => setView("schedule"), []);
-  const openWeather = useCallback(() => setView("weather"), []);
-  const openLogin = useCallback(() => setView("login"), []);
 
   const openAdminSection = useCallback((section: AdminSection) => {
     setAdminSection(section);
     setView("admin");
   }, []);
 
+  /**
+   * Разрешение на выход из киоска (Ctrl+Alt+X в kiosk.rs) — только после
+   * успешного входа в админку. Ошибки не критичны: выход просто не сработает.
+   */
+  const setExitAllowed = useCallback(
+    async (allowed: boolean) => {
+      if (!desktop) {
+        return;
+      }
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("set_exit_allowed", { allowed });
+      } catch (e) {
+        console.warn("[kiosk] не удалось изменить разрешение на выход:", e);
+      }
+    },
+    [desktop]
+  );
+
   /** Успешный вход: остаёмся на главном экране, включаем режим администратора. */
   const handleLoginSuccess = useCallback(() => {
     setIsAdmin(true);
     setView("home");
-  }, []);
+    void setExitAllowed(true);
+  }, [setExitAllowed]);
 
   /** Выход из режима администратора. */
   const handleLogout = useCallback(async () => {
+    await setExitAllowed(false);
     await logoutAdmin();
     setIsAdmin(false);
     setAdminSection("settings");
     setView("home");
-  }, []);
+  }, [setExitAllowed]);
 
   /** Перезагрузка настроек киоска (например, после сохранения в админке). */
   const reloadConfig = useCallback(() => {

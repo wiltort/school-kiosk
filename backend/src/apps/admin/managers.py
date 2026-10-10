@@ -63,6 +63,14 @@ class AdminProfileManager:
                 or admin_existing.is_active is False
             ):
                 raise HTTPException(status_code=404, detail="Админ не найден")
+            if admin.login:
+                admin_with_login = await self.admin_repo.get_by_login(
+                    session, admin.login
+                )
+                if admin_with_login and admin_with_login.id != admin_existing.id:
+                    raise HTTPException(
+                        status_code=400, detail="Админ с таким логином уже существует"
+                    )
             payload = admin.model_dump(exclude_unset=True)
             if not payload:
                 raise HTTPException(status_code=400, detail="Нет данных для обновления")

@@ -15,7 +15,9 @@ from src.apps.admin.managers import AdminProfileManager
 from src.apps.admin.schemas import (
     AdminAuth,
     AdminAuthResponse,
+    AdminProfileCreate,
     AdminProfileResponse,
+    AdminProfileUpdate,
     AdminTokenSchema,
     SettingsResponse,
     SettingsUpdate,
@@ -102,4 +104,28 @@ async def get_me(
     token: Annotated[AdminTokenSchema, Depends(get_current_admin_dependency)],
     manager: Annotated[AdminProfileManager, Depends()],
 ) -> AdminProfileResponse:
+    """Получает данные о текущем админе."""
     return await manager.get_by_token(token)
+
+
+@admin_router.patch(
+    "/me", response_model=AdminProfileResponse, status_code=status.HTTP_200_OK
+)
+async def update_me(
+    token: Annotated[AdminTokenSchema, Depends(get_current_admin_dependency)],
+    manager: Annotated[AdminProfileManager, Depends()],
+    payload: AdminProfileUpdate,
+) -> AdminProfileResponse:
+    """Редактирует данные текущего админа."""
+    return await manager.update(id=token.admin_id, admin=payload)
+
+
+@admin_router.post(
+    "/", response_model=AdminProfileResponse, status_code=status.HTTP_201_CREATED
+)
+async def create_admin_profile(
+    _: Annotated[AdminTokenSchema, Depends(get_current_admin_dependency)],
+    payload: AdminProfileCreate,
+    manager: Annotated[AdminProfileManager, Depends()],
+) -> AdminProfileResponse:
+    return await manager.create(payload)

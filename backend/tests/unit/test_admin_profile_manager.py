@@ -78,6 +78,20 @@ async def test_update_admin_profile(manager_factory):
 
 
 @pytest.mark.asyncio
+async def test_update_login_with_collision(manager_factory):
+    manager = _admin_profile_manager(manager_factory)
+    await manager.create(_sample_admin_profile())
+    admin_to_update = await manager.create(_sample_admin_profile(login="admin_2"))
+    payload = AdminProfileUpdate(login="admin_1")
+
+    with pytest.raises(Exception) as excinfo:
+        await manager.update(admin_to_update.id, payload)
+
+    assert excinfo.value.status_code == 400
+    assert excinfo.value.detail == "Админ с таким логином уже существует"
+
+
+@pytest.mark.asyncio
 async def test_delete_admin(manager_factory):
     """Проверка удаления профиля"""
     manager = _admin_profile_manager(manager_factory)

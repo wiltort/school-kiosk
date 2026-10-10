@@ -13,7 +13,7 @@ from src.apps.schedule.schemas import (
     SetAllInactiveResponse,
 )
 from src.core.database import DBDependency, get_db_dependency
-from src.core.storage import ImageStorage
+from src.core.storage import ImageStorage, get_image_storage
 from src.enums.schedule import DayOfWeek
 from src.utils.decorators import handle_db_errors
 from src.utils.locking import maybe_lock
@@ -56,7 +56,7 @@ class ScheduleImageManager:
         self,
         db: DBDependency = Depends(get_db_dependency),
         image_repo: ScheduleImageRepository = Depends(),
-        storage: ImageStorage = Depends(),
+        storage: ImageStorage = Depends(get_image_storage),
     ) -> None:
         """Инициализирует менеджер.
 

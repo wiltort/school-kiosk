@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 from src.core import migrations
 from src.core.database import DBDependency, get_db_dependency
-from src.core.storage import ImageStorage
+from src.core.storage import get_image_storage
 from src.main import app
 from src.models.base import Base
 
@@ -133,7 +133,7 @@ async def client(async_engine, async_session_maker):
     await migrations._ensure_default_admin(async_engine)
 
     app.dependency_overrides[get_db_dependency] = override_get_db
-    app.dependency_overrides[ImageStorage] = override_image_storage
+    app.dependency_overrides[get_image_storage] = override_image_storage
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

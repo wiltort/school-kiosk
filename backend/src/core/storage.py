@@ -6,6 +6,7 @@ import time
 import uuid
 from collections import defaultdict
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 
 from src.core.config import settings
@@ -215,3 +216,8 @@ class ImageStorage:
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(backup, dest)
         return True
+
+
+@lru_cache
+def get_image_storage() -> ImageStorage:
+    return ImageStorage()

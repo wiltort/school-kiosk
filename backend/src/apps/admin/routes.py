@@ -129,3 +129,11 @@ async def create_admin_profile(
     manager: Annotated[AdminProfileManager, Depends()],
 ) -> AdminProfileResponse:
     return await manager.create(payload)
+
+
+@admin_router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_me(
+    token: Annotated[AdminTokenSchema, Depends(get_current_admin_dependency)],
+    manager: Annotated[AdminProfileManager, Depends()],
+) -> None:
+    return await manager.delete(token.admin_id)

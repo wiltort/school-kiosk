@@ -7,9 +7,11 @@ from src.enums.schedule_modes import ScheduleMode
 
 
 class AdminAuth(BaseModel):
-    login: str = Field(..., description="Логин", examples=["admin"], max_length=255)
+    login: str = Field(
+        ..., description="Логин", examples=["admin"], max_length=255, min_length=3
+    )
     password: str = Field(
-        ..., description="Пароль", examples=["password"], max_length=255
+        ..., description="Пароль", examples=["password"], max_length=255, min_length=5
     )
 
 

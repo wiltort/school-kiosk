@@ -496,3 +496,65 @@ def test_patch_me_password_change_revokes_tokens(client):
         ).status_code
         == 200
     )
+
+
+def test_delete_me_requires_auth(client):
+    """DELETE /me недоступен без Bearer-токена."""
+    assert client.delete("/api/v1/admin/me").status_code == 401
+
+
+def test_delete_me_rejected_for_default_admin(client):
+    """DELETE /me для дефолтного админа запрещён (404), профиль сохраняется."""
+    headers = _login_default_admin(client)
+
+    response = client.delete("/api/v1/admin/me", headers=headers)
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Админ не найден"
+
+    # Дефолтный админ не удалён и продолжает работать.
+    assert client.get("/api/v1/admin/me", headers=headers).status_code == 200
+
+
+def test_delete_me_removes_admin_and_blocks_his_tokens(client):
+    """DELETE /me удаляет недефолтного админа и делает его токен/пароль недействительными."""
+    headers = _login_default_admin(client)
+    _create_admin_via_api(
+        client,
+        headers,
+        login="teacher",
+        password="teacher-pass",  # noqa S106
+        fullname="Учитель",
+    )
+
+    teacher_login = client.post(
+        "/api/v1/admin/login",
+        json={"login": "teacher", "password": "teacher-pass"},
+    )
+    teacher_headers = {"Authorization": f"Bearer {teacher_login.json()['token']}"}
+    assert client.get("/api/v1/admin/me", headers=teacher_headers).status_code == 200
+
+    deleted = client.delete("/api/v1/admin/me", headers=teacher_headers)
+    assert deleted.status_code == 204
+
+    # Токен удалённого админа больше не даёт доступа к профилю.
+    assert client.get("/api/v1/admin/me", headers=teacher_headers).status_code != 200
+
+    # Вход под удалённым админом невозможен.
+    assert (
+        client.post(
+            "/api/v1/admin/login", json={"login": "teacher", "password": "teacher-pass"}
+        ).status_code
+        == 401
+    )
+
+    # После удаления единственного недефолтного админа дефолтный снова может войти.
+    assert (
+        client.post(
+            "/api/v1/admin/login",
+            json={
+                "login": settings.default_admin_login,
+                "password": settings.default_admin_password,
+            },
+        ).status_code
+        == 200
+    )

@@ -3,6 +3,7 @@ import { SECTION_TITLES, type AdminSection } from "./constants";
 import { SettingsPanel } from "./SettingsPanel";
 import { SchedulesPanel } from "./SchedulesPanel";
 import { AboutPanel } from "./AboutPanel";
+import { ProfilePanel } from "./ProfilePanel";
 
 interface AdminPanelProps {
   /** Выбранный раздел. */
@@ -11,6 +12,8 @@ interface AdminPanelProps {
   onHome: () => void;
   /** Вызывается после сохранения настроек (для обновления главного экрана). */
   onSettingsSaved?: () => void;
+  /** Вызывается после удаления собственного профиля или смены пароля. */
+  onAdminDeleted?: () => void;
 }
 
 /** Контейнер выбранного раздела админки под строкой меню. */
@@ -18,6 +21,7 @@ export function AdminPanel({
   section,
   onHome,
   onSettingsSaved,
+  onAdminDeleted,
 }: AdminPanelProps) {
   return (
     <div className="admin-view">
@@ -29,6 +33,9 @@ export function AdminPanel({
       {section === "settings" && <SettingsPanel onSaved={onSettingsSaved} />}
       {section === "schedules" && <SchedulesPanel />}
       {section === "about" && <AboutPanel />}
+      {section === "profile" && (
+        <ProfilePanel onDeleted={onAdminDeleted ?? (() => {})} />
+      )}
     </div>
   );
 }

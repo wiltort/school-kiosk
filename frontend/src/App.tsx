@@ -146,6 +146,7 @@ export default function App() {
           section={adminSection}
           onHome={goHome}
           onSettingsSaved={reloadConfig}
+          onAdminDeleted={handleLogout}
         />
       )}
 

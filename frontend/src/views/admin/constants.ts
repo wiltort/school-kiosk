@@ -1,10 +1,11 @@
 /** Раздел админ-панели, открываемый из строки меню. */
-export type AdminSection = "settings" | "schedules" | "about";
+export type AdminSection = "settings" | "schedules" | "about" | "profile";
 
 export const SECTION_TITLES: Record<AdminSection, string> = {
   settings: "Настройки",
   schedules: "Расписания",
   about: "О проекте",
+  profile: "Профиль",
 };
 
 export const DAY_OF_WEEK_LABELS: Record<number, string> = {

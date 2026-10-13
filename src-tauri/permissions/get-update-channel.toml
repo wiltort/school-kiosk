@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-get-update-channel"
+description = "Allows getting the update channel of the current build"
+commands.allow = ["get_update_channel"]

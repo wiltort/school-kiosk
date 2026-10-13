@@ -52,12 +52,16 @@ windows = { version = "0.58", features = [
     "Win32_Graphics_Gdi",
 ] }
 
-# Тесты: проверка URLPattern для remote-URL в capabilities (IPC из WebView,
-# который грузит SPA с http://127.0.0.1:8765 в release-сборке).
+# Тесты: проверка URLPattern и разрешения кастомных IPC-команд для remote-URL
+# в capabilities/permissions (IPC из WebView, который грузит SPA с
+# http://127.0.0.1:8765 в release-сборке).
 [dev-dependencies]
 urlpattern = "0.3"
 url = "2"
 regex = "1"
+toml = "0.9"
+serde_json = "1"
+tauri-utils = { version = "2", features = [] }
 
 [profile.release]
 panic = "abort"

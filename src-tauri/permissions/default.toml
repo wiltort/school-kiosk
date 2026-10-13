@@ -1,0 +1,11 @@
+[default]
+description = "Default permissions for the kiosk app (custom IPC commands)"
+permissions = [
+  "allow-exit-app",
+  "allow-restart-app",
+  "allow-is-admin-active",
+  "allow-clear-admin-mode",
+  "allow-set-exit-allowed",
+  "allow-get-update-channel",
+  "allow-get-update-status",
+]

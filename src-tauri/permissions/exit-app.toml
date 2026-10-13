@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-exit-app"
+description = "Allows exiting the kiosk application"
+commands.allow = ["exit_app"]

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-clear-admin-mode"
+description = "Allows clearing the admin mode flag after the frontend reacts to Ctrl+Shift+A"
+commands.allow = ["clear_admin_mode"]

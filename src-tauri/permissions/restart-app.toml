@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-restart-app"
+description = "Allows restarting the kiosk application"
+commands.allow = ["restart_app"]

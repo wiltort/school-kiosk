@@ -3192,6 +3192,7 @@ dependencies = [
 name = "school-kiosk"
 version = "0.1.0-dev.1"
 dependencies = [
+ "regex",
  "serde",
  "serde_json",
  "sha2",
@@ -3202,6 +3203,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "url",
+ "urlpattern",
  "windows 0.58.0",
 ]
 

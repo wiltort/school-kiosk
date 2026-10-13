@@ -100,3 +100,6 @@ jobs:
 
       - name: Lint (cargo clippy)
         run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run tests (cargo test)
+        run: cargo test

@@ -11,11 +11,19 @@ interface ProfilePanelProps {
   /** Вызывается после удаления собственного профиля или смены пароля
    *  (бэкенд отзывает токены — нужен выход из админки). */
   onDeleted: () => void;
+  /** Автоматически открыть форму создания администратора при монтировании. */
+  autoOpenCreate?: boolean;
+  /** Вызывается после обработки autoOpenCreate (для сброса флага). */
+  onAutoOpenConsumed?: () => void;
 }
 
 /** Профиль текущего администратора: редактирование данных, смена пароля,
  *  создание нового админа и удаление собственного профиля (кроме дефолтного). */
-export function ProfilePanel({ onDeleted }: ProfilePanelProps) {
+export function ProfilePanel({
+  onDeleted,
+  autoOpenCreate = false,
+  onAutoOpenConsumed,
+}: ProfilePanelProps) {
   const { data: profile, isLoading, error: loadError } = useAdminProfile();
   const updateMutation = useUpdateAdminProfile();
   const deleteMutation = useDeleteAdminProfile();
@@ -37,6 +45,15 @@ export function ProfilePanel({ onDeleted }: ProfilePanelProps) {
     setLogin(profile.login);
     setFullname(profile.fullname ?? "");
   }, [profile]);
+
+  // Автоматически открываем форму создания администратора (например, после
+  // нажатия «Создать администратора» в напоминании о дефолтной учётке).
+  useEffect(() => {
+    if (autoOpenCreate) {
+      setCreateOpen(true);
+      onAutoOpenConsumed?.();
+    }
+  }, [autoOpenCreate, onAutoOpenConsumed]);
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -227,7 +244,8 @@ export function ProfilePanel({ onDeleted }: ProfilePanelProps) {
 
           {profile.is_default && (
             <small className="admin-hint">
-              Дефолтный администратор не может быть удалён.
+              Дефолтный администратор не может быть удалён или изменен.
+              Рекомендуется создать отдельный профиль администратора.
             </small>
           )}
         </form>

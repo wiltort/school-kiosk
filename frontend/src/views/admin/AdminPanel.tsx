@@ -14,6 +14,10 @@ interface AdminPanelProps {
   onSettingsSaved?: () => void;
   /** Вызывается после удаления собственного профиля или смены пароля. */
   onAdminDeleted?: () => void;
+  /** Автоматически открыть форму создания администратора в разделе «Профиль». */
+  autoOpenCreate?: boolean;
+  /** Вызывается после обработки autoOpenCreate (для сброса флага). */
+  onAutoOpenConsumed?: () => void;
 }
 
 /** Контейнер выбранного раздела админки под строкой меню. */
@@ -22,6 +26,8 @@ export function AdminPanel({
   onHome,
   onSettingsSaved,
   onAdminDeleted,
+  autoOpenCreate = false,
+  onAutoOpenConsumed,
 }: AdminPanelProps) {
   return (
     <div className="admin-view">
@@ -34,7 +40,11 @@ export function AdminPanel({
       {section === "schedules" && <SchedulesPanel />}
       {section === "about" && <AboutPanel />}
       {section === "profile" && (
-        <ProfilePanel onDeleted={onAdminDeleted ?? (() => {})} />
+        <ProfilePanel
+          onDeleted={onAdminDeleted ?? (() => {})}
+          autoOpenCreate={autoOpenCreate}
+          onAutoOpenConsumed={onAutoOpenConsumed}
+        />
       )}
     </div>
   );

@@ -12,10 +12,12 @@ import {
   AdminLogin,
   AdminMenuBar,
   AdminPanel,
+  DefaultAdminReminder,
   type AdminSection,
 } from "./views/admin";
 import { isAdminLoggedIn } from "./services/http";
 import { logoutAdmin } from "./services/admin/auth";
+import { fetchAdminProfile } from "./services/admin/profile";
 
 type View = "home" | "schedule" | "weather" | "login" | "admin";
 
@@ -28,41 +30,86 @@ export default function App() {
   const [view, setView] = useState<View>("home");
   const [adminSection, setAdminSection] = useState<AdminSection>("settings");
   const [isAdmin, setIsAdmin] = useState<boolean>(() => isAdminLoggedIn());
+  const [showDefaultReminder, setShowDefaultReminder] = useState(false);
+  const [autoOpenCreate, setAutoOpenCreate] = useState(false);
   const desktop = isDesktopApp();
 
   const { data: config, refetch: refetchConfig } = useKioskConfig();
-
-  // Десктоп: Ctrl+Shift+A переключает админ-режим (kiosk.rs) — открываем форму входа.
-  useDesktopAdminPoll({
-    desktop,
-    isAdmin,
-    onLoginView: view === "login",
-    onAdminActivate: () => setView("login"),
-  });
 
   const goHome = useCallback(() => setView("home"), []);
   const openSchedule = useCallback(() => setView("schedule"), []);
   const openWeather = useCallback(() => setView("weather"), []);
   const openLogin = useCallback(() => setView("login"), []);
 
+  // Десктоп: Ctrl+Shift+A переключает админ-режим (kiosk.rs) — открывает
+  // форму входа, повторное нажатие закрывает её.
+  useDesktopAdminPoll({
+    desktop,
+    isAdmin,
+    onLoginView: view === "login",
+    onAdminActivate: () => setView("login"),
+    onAdminDeactivate: goHome,
+  });
+
   const openAdminSection = useCallback((section: AdminSection) => {
     setAdminSection(section);
     setView("admin");
   }, []);
 
+  /** Переход к созданию администратора из напоминания о дефолтной учётке. */
+  const handleCreateAdminFromReminder = useCallback(() => {
+    setShowDefaultReminder(false);
+    setAutoOpenCreate(true);
+    openAdminSection("profile");
+  }, [openAdminSection]);
+
+  /** Сброс флага автооткрытия формы создания после его обработки. */
+  const handleAutoOpenConsumed = useCallback(() => {
+    setAutoOpenCreate(false);
+  }, []);
+
+  /**
+   * Разрешение на выход из киоска (Ctrl+Alt+X в kiosk.rs) — только после
+   * успешного входа в админку. Ошибки не критичны: выход просто не сработает.
+   */
+  const setExitAllowed = useCallback(
+    async (allowed: boolean) => {
+      if (!desktop) {
+        return;
+      }
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("set_exit_allowed", { allowed });
+      } catch (e) {
+        console.warn("[kiosk] не удалось изменить разрешение на выход:", e);
+      }
+    },
+    [desktop]
+  );
+
   /** Успешный вход: остаёмся на главном экране, включаем режим администратора. */
-  const handleLoginSuccess = useCallback(() => {
+  const handleLoginSuccess = useCallback(async () => {
     setIsAdmin(true);
     setView("home");
-  }, []);
+    void setExitAllowed(true);
+    // Напоминание о создании недефолтного админа — при каждом входе под
+    // дефолтной учётной записью.
+    try {
+      const profile = await fetchAdminProfile();
+      setShowDefaultReminder(profile.is_default);
+    } catch {
+      setShowDefaultReminder(false);
+    }
+  }, [setExitAllowed]);
 
   /** Выход из режима администратора. */
   const handleLogout = useCallback(async () => {
+    await setExitAllowed(false);
     await logoutAdmin();
     setIsAdmin(false);
     setAdminSection("settings");
     setView("home");
-  }, []);
+  }, [setExitAllowed]);
 
   /** Перезагрузка настроек киоска (например, после сохранения в админке). */
   const reloadConfig = useCallback(() => {
@@ -123,6 +170,17 @@ export default function App() {
           section={adminSection}
           onHome={goHome}
           onSettingsSaved={reloadConfig}
+          onAdminDeleted={handleLogout}
+          autoOpenCreate={autoOpenCreate}
+          onAutoOpenConsumed={handleAutoOpenConsumed}
+        />
+      )}
+
+      {/* Напоминание о создании недефолтного админа — при входе под дефолтной учёткой */}
+      {showDefaultReminder && (
+        <DefaultAdminReminder
+          onClose={() => setShowDefaultReminder(false)}
+          onCreateAdmin={handleCreateAdminFromReminder}
         />
       )}
 

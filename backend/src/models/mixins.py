@@ -41,3 +41,14 @@ class ScheduleMixin(IDMixin, TimestampMixin, DayOfWeekMixin):
 
     def __str__(self):
         return f"{self.__class__.__name__}: {self.name}"
+
+
+class TimeToLiveMixin:
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, default=lambda: datetime.now(UTC)
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        UTCDateTime,
+        nullable=False,
+        index=True,
+    )

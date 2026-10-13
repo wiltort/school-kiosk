@@ -36,7 +36,8 @@ import asyncio
 import logging
 import shutil
 import sys
-from datetime import datetime
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 from alembic import command
@@ -46,6 +47,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from src.core.config import settings
+from src.core.security import hash_password
 from src.models.base import Base
 
 logger = logging.getLogger(__name__)
@@ -96,6 +98,20 @@ async def _table_exists(engine: AsyncEngine, table_name: str) -> bool:
             await conn.execute(
                 text("SELECT 1 FROM sqlite_master WHERE type='table' AND name=:name"),
                 {"name": table_name},
+            )
+        ).fetchone()
+    return row is not None
+
+
+async def _db_has_any_table(engine: AsyncEngine) -> bool:
+    """Есть ли в БД хотя бы одна пользовательская таблица (не sqlite_*)."""
+    async with engine.connect() as conn:
+        row = (
+            await conn.execute(
+                text(
+                    "SELECT 1 FROM sqlite_master "
+                    "WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+                )
             )
         ).fetchone()
     return row is not None
@@ -170,12 +186,23 @@ async def run_migrations(engine: AsyncEngine) -> None:
     logger.info("alembic_version существует: %s", has_version_table)
 
     if not has_version_table:
-        # Пустая БД либо БД, созданная ранее только через create_all: схема
-        # будет (или уже) создана metadata, поэтому стампим head без реплея,
-        # чтобы не наткнуться на "table already exists".
-        _backup_database_if_exists(engine)
-        await asyncio.to_thread(command.stamp, cfg, head)
-        logger.info("БД без alembic_version: схема помечена ревизией %s", head)
+        if await _db_has_any_table(engine):
+            # БД создана ранее только через create_all (без alembic_version):
+            # реплеить первую миграцию нельзя — она создаёт таблицы, которые
+            # уже существуют. Стампим head; недостающие таблицы добавит
+            # create_all, а дефолтного админа — _ensure_default_admin.
+            _backup_database_if_exists(engine)
+            await asyncio.to_thread(command.stamp, cfg, head)
+            logger.info(
+                "БД без alembic_version (создана ранее через create_all): "
+                "схема помечена ревизией %s",
+                head,
+            )
+        else:
+            # Действительно пустая БД: реплеим все миграции — они сами создадут
+            # таблицы и дефолтного администратора.
+            await asyncio.to_thread(command.upgrade, cfg, head)
+            logger.info("Пустая БД: миграции применены до head (%s)", head)
         return
 
     current = await _current_revision(engine)
@@ -189,6 +216,52 @@ async def run_migrations(engine: AsyncEngine) -> None:
     # это невозможно, поэтому выполняем в отдельном потоке.
     await asyncio.to_thread(command.upgrade, cfg, "head")
     logger.info("Миграции БД применены: %s", head)
+
+
+async def _ensure_default_admin(engine: AsyncEngine) -> None:
+    """Создаёт дефолтного администратора, если в admin_profiles никого нет.
+
+    Нужен для сценария апгрейда «старой» БД (созданной только через
+    ``create_all``): там миграции не реплеятся, а только стампятся, поэтому
+    миграция ``create_default_admin`` не выполняется и таблица admin_profiles
+    осталась бы пустой. Идемпотентен: если администратор уже есть — ничего
+    не делает.
+    """
+    try:
+        async with engine.begin() as conn:
+            count = (
+                await conn.execute(text("SELECT COUNT(*) FROM admin_profiles"))
+            ).scalar_one()
+            if count > 0:
+                return
+            now = datetime.now(UTC).isoformat()
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO admin_profiles
+                        (id, login, password_hash, email, is_active, is_default,
+                         created_at, updated_at)
+                    VALUES
+                        (:id, :login, :password_hash, NULL, :is_active,
+                         :is_default, :created_at, :updated_at)
+                    """
+                ),
+                {
+                    "id": uuid.uuid4().hex,
+                    "login": settings.default_admin_login,
+                    "password_hash": hash_password(settings.default_admin_password),
+                    "is_active": True,
+                    "is_default": True,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+            logger.info(
+                "Создан дефолтный администратор '%s' (admin_profiles была пустой)",
+                settings.default_admin_login,
+            )
+    except Exception:
+        logger.exception("Не удалось создать дефолтного администратора")
 
 
 async def apply_schema(engine: AsyncEngine) -> None:
@@ -211,3 +284,4 @@ async def apply_schema(engine: AsyncEngine) -> None:
         )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    await _ensure_default_admin(engine)

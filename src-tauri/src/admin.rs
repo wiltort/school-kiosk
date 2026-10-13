@@ -23,6 +23,15 @@ pub fn restart_app(app: AppHandle) {
     app.restart();
 }
 
+/// Сбрасывает флаг админ-режима. Вызывается фронтендом после реакции на
+/// Ctrl+Shift+A, чтобы одно нажатие не открывало форму входа повторно
+/// (см. useDesktopAdminPoll).
+#[tauri::command]
+pub fn clear_admin_mode() {
+    #[cfg(target_os = "windows")]
+    crate::kiosk::clear_admin_mode();
+}
+
 /// Проверка, что админ-режим активен. Вызывается фронтендом, чтобы
 /// открыть панель управления на десктопе (после Ctrl+Shift+A).
 #[tauri::command]
@@ -35,6 +44,16 @@ pub fn is_admin_active() -> bool {
     {
         false
     }
+}
+
+/// Разрешает/запрещает выход из киоска (Ctrl+Alt+X). Фронтенд вызывает с
+/// `true` после успешного входа в админку и с `false` при выходе из неё.
+#[tauri::command]
+pub fn set_exit_allowed(allowed: bool) {
+    #[cfg(target_os = "windows")]
+    crate::kiosk::set_exit_allowed(allowed);
+    #[cfg(not(target_os = "windows"))]
+    let _ = allowed;
 }
 
 /// Возвращает канал автообновления текущей сборки (`dev` / `main`).

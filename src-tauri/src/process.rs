@@ -14,7 +14,7 @@ use tauri::{AppHandle, Manager};
 use crate::{BACKEND_PORT, HEALTH_URL};
 
 /// Сколько ждать готовности бэкенда при старте.
-const STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 /// Интервал между health-check запросами.
 const POLL_INTERVAL: Duration = Duration::from_millis(300);
 

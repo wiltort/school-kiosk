@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import AdminPersonIcon from "../../components/AdminPersonIcon";
 import type { AdminSection } from "./constants";
 
@@ -10,17 +11,56 @@ interface AdminMenuBarProps {
   onExit: () => void;
 }
 
-/** Верхняя строка меню админки: «Настройки», «Расписания», «О проекте» и выход. */
+/** Верхняя строка меню админки: «Настройки», «Расписания», «О проекте» и меню пользователя. */
 export function AdminMenuBar({
   activeSection,
   onSectionChange,
   onExit,
 }: AdminMenuBarProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
   const items: { id: AdminSection; label: string }[] = [
     { id: "settings", label: "Настройки" },
     { id: "schedules", label: "Расписания" },
     { id: "about", label: "О проекте" },
   ];
+
+  // Закрываем выпадающее меню по клику вне его и по Escape.
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
+
+  const handleProfile = () => {
+    setMenuOpen(false);
+    onSectionChange("profile");
+  };
+
+  const handleExit = () => {
+    setMenuOpen(false);
+    onExit();
+  };
 
   return (
     <nav className="admin-menu admin-menu--top">
@@ -40,15 +80,45 @@ export function AdminMenuBar({
           </button>
         ))}
       </div>
-      <button
-        type="button"
-        className="admin-menu__exit"
-        aria-label="Выйти из админки"
-        title="Выйти из админки"
-        onClick={onExit}
-      >
-        <AdminPersonIcon size={30} isAdmin title="Выйти из админки" />
-      </button>
+
+      <div className="admin-menu__user" ref={userMenuRef}>
+        <button
+          type="button"
+          className={
+            menuOpen
+              ? "admin-menu__user-button admin-menu__user-button--open"
+              : "admin-menu__user-button"
+          }
+          aria-label="Меню администратора"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          title="Меню администратора"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <AdminPersonIcon size={30} isAdmin title="Меню администратора" />
+        </button>
+
+        {menuOpen && (
+          <div className="admin-menu__dropdown" role="menu">
+            <button
+              type="button"
+              role="menuitem"
+              className="admin-menu__dropdown-item"
+              onClick={handleProfile}
+            >
+              Профиль
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="admin-menu__dropdown-item"
+              onClick={handleExit}
+            >
+              Выход
+            </button>
+          </div>
+        )}
+      </div>
     </nav>
   );
 }

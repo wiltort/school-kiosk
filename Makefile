@@ -27,6 +27,8 @@ build-backend: ## Собрать Python-бэкенд в standalone .exe (PyInsta
 	$(POETRY) pyinstaller --noconfirm --clean --onefile --name python-backend \
 		--collect-submodules uvicorn \
 		--hidden-import aiosqlite \
+		--hidden-import src.core.security \
+		--hidden-import bcrypt \
 		--add-data "alembic;alembic" \
 		--add-data "alembic.ini;." \
 		--add-data "pyproject.toml;." \

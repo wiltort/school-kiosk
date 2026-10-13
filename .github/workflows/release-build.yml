@@ -84,7 +84,7 @@ jobs:
         # должны попасть в onefile-сборку, иначе бэкенд падает при старте:
         # run_migrations() → _make_config() → "No config file ... found".
         # Флаги дублируют make build-backend (см. Makefile).
-        run: poetry run pyinstaller --noconfirm --clean --onefile --name python-backend --collect-submodules uvicorn --hidden-import aiosqlite --add-data "alembic;alembic" --add-data "alembic.ini;." --add-data "pyproject.toml;." run_backend.py
+        run: poetry run pyinstaller --noconfirm --clean --onefile --name python-backend --collect-submodules uvicorn --hidden-import aiosqlite --hidden-import src.core.securiry --hidden-import bcrypt --add-data "alembic;alembic" --add-data "alembic.ini;." --add-data "pyproject.toml;." run_backend.py
         working-directory: backend
 
       # Гейт на публикацию: если собранный python-backend.exe не стартует на

@@ -25,6 +25,30 @@ static EXIT_ALLOWED: AtomicBool = AtomicBool::new(false);
 /// Хэндл приложения — нужен хук-потоку для эмитта событий и выхода.
 static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
 
+/// Пишет строку в stderr и в лог-файл `<data_dir>/logs/kiosk.log`.
+///
+/// В release-сборке консоли нет (`windows_subsystem = "windows"`), поэтому
+/// файл — единственный способ увидеть диагностику киоска на установленной
+/// версии. Используется для валидации гипотезы о remote-origin IPC.
+fn log(msg: &str) {
+    eprintln!("[kiosk] {msg}");
+    if let Some(app) = APP_HANDLE.get() {
+        if let Ok(dir) = app.path().app_data_dir() {
+            let logs_dir = dir.join("logs");
+            if std::fs::create_dir_all(&logs_dir).is_ok() {
+                use std::io::Write;
+                if let Ok(mut f) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(logs_dir.join("kiosk.log"))
+                {
+                    let _ = writeln!(f, "{msg}");
+                }
+            }
+        }
+    }
+}
+
 /// Комбинация для входа в админ-режим.
 const ADMIN_SHORTCUT: (&str, &str) = ("Ctrl", "Shift+A");
 /// Комбинация для выхода из киоска (только когда фронтенд разрешил выход).
@@ -43,14 +67,14 @@ pub fn exit_allowed() -> bool {
 /// Разрешает/запрещает выход из киоска (вызывается из admin.rs).
 pub fn set_exit_allowed(allowed: bool) {
     EXIT_ALLOWED.store(allowed, Ordering::SeqCst);
-    eprintln!(
-        "[kiosk] exit (Ctrl+Alt+X): {}",
+    log(&format!(
+        "exit (Ctrl+Alt+X): {}",
         if allowed {
             "разрешён"
         } else {
             "запрещён"
         }
-    );
+    ));
 }
 
 /// Выход из приложения (для хук-потока; в хук-потоке нет AppHandle).
@@ -68,6 +92,11 @@ pub fn activate(app: &App) -> Result<(), Box<dyn std::error::Error>> {
 
     // Сохраняем хэндл для эмитта событий и выхода из хук-потока.
     let _ = APP_HANDLE.set(app.handle().clone());
+
+    // Диагностика: какой URL реально загружен в WebView (local vs remote origin).
+    if let Ok(url) = window.url() {
+        log(&format!("WebView URL: {url}"));
+    }
 
     apply_window_state(&window)?;
     start_keyboard_hook();
@@ -312,13 +341,13 @@ fn toggle_admin_mode_throttled() {
 /// как резервный механизм.
 fn toggle_admin_mode() {
     ADMIN_MODE.store(!ADMIN_MODE.load(Ordering::SeqCst), Ordering::SeqCst);
-    eprintln!(
-        "[kiosk] admin mode: {}",
-        if is_admin_active() { "ON" } else { "OFF" }
-    );
+    let state = if is_admin_active() { "ON" } else { "OFF" };
+    log(&format!("admin mode: {state}"));
     if let Some(app) = APP_HANDLE.get() {
         if let Err(e) = app.emit("admin-mode", is_admin_active()) {
-            eprintln!("[kiosk] не удалось отправить событие admin-mode: {e}");
+            log(&format!("не удалось отправить событие admin-mode: {e}"));
+        } else {
+            log("событие admin-mode отправлено");
         }
     }
 }

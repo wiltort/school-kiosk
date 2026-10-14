@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-get-update-status"
+description = "Allows getting the current update status"
+commands.allow = ["get_update_status"]

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-is-admin-active"
+description = "Allows checking whether admin mode is active (Ctrl+Shift+A)"
+commands.allow = ["is_admin_active"]

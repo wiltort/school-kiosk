@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-set-exit-allowed"
+description = "Allows toggling the kiosk exit permission (Ctrl+Alt+X)"
+commands.allow = ["set_exit_allowed"]

@@ -18,6 +18,7 @@ dependencies = [
     "python-multipart (>=0.0.32,<0.0.33)",
     "fastapi-crons (>=2.5.0,<3.0.0)",
     "bcrypt (>=5.0.0,<6.0.0)",
+    "python-weather (>=2.2.6,<3.0.0)",
 ]
 
 [tool.poetry]

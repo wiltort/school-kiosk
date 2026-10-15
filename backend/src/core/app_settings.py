@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from src.enums.schedule_modes import ScheduleMode
+from src.enums.weather_api import WeatherAPIEnum
 
 APP_SETTINGS_FILE = "settings.json"
 
@@ -34,6 +35,9 @@ _DEFAULTS: dict[str, Any] = {
     "current_local_schedule_image_filename": None,
     "schedule_mode": ScheduleMode.SINGLE,
     "welcome_message": None,
+    "use_weather": False,
+    "weather_API": WeatherAPIEnum.WTTR,
+    "location": "Москва",
 }
 
 
@@ -74,6 +78,9 @@ class AppSettingsStore:
             if legacy.get("schedule_mode"):
                 with contextlib.suppress(ValueError):
                     data["schedule_mode"] = ScheduleMode(legacy["schedule_mode"])
+            if legacy.get("welcome_message"):
+                data["welcome_message"] = legacy["welcome_message"]
+
             self._write(self._path, data)
         return data
 

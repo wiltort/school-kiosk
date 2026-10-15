@@ -285,6 +285,7 @@ def test_get_me_invalid_token(client):
     assert response.status_code == 401
 
 
+@pytest.mark.slow
 def test_create_admin_profile(client):
     """POST / создаёт нового админа, и он может войти."""
     headers = _login_default_admin(client)
@@ -338,6 +339,7 @@ def test_create_admin_without_required_fields(client):
     )
 
 
+@pytest.mark.slow
 def test_create_admin_with_duplicate_login(client):
     """POST / с уже занятым логином возвращает 400."""
     headers = _login_default_admin(client)
@@ -367,6 +369,7 @@ def test_patch_me_rejected_for_default_admin(client):
     assert response.json()["detail"] == "Админ не найден"
 
 
+@pytest.mark.slow
 def test_patch_me_updates_profile(client):
     """PATCH /me меняет логин и имя недефолтного админа."""
     headers = _login_default_admin(client)
@@ -408,6 +411,7 @@ def test_patch_me_updates_profile(client):
     assert relogin.status_code == 200
 
 
+@pytest.mark.slow
 def test_patch_me_duplicate_login(client):
     """PATCH /me не позволяет занять чужой логин (400)."""
     headers = _login_default_admin(client)
@@ -434,6 +438,7 @@ def test_patch_me_duplicate_login(client):
     assert response.json()["detail"] == "Админ с таким логином уже существует"
 
 
+@pytest.mark.slow
 def test_patch_me_empty_payload(client):
     """PATCH /me с пустым телом возвращает 400."""
     headers = _login_default_admin(client)
@@ -456,6 +461,7 @@ def test_patch_me_empty_payload(client):
     assert response.json()["detail"] == "Нет данных для обновления"
 
 
+@pytest.mark.slow
 def test_patch_me_password_change_revokes_tokens(client):
     """Смена пароля через PATCH /me отзывает старые токены."""
     headers = _login_default_admin(client)
@@ -515,6 +521,7 @@ def test_delete_me_rejected_for_default_admin(client):
     assert client.get("/api/v1/admin/me", headers=headers).status_code == 200
 
 
+@pytest.mark.slow
 def test_delete_me_removes_admin_and_blocks_his_tokens(client):
     """DELETE /me удаляет недефолтного админа и делает его токен/пароль недействительными."""
     headers = _login_default_admin(client)

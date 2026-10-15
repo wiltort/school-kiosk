@@ -36,7 +36,7 @@ _DEFAULTS: dict[str, Any] = {
     "schedule_mode": ScheduleMode.SINGLE,
     "welcome_message": None,
     "use_weather": False,
-    "weather_API": WeatherAPIEnum.WTTR,
+    "weather_api": WeatherAPIEnum.WTTR,
     "location": "Москва",
 }
 
@@ -80,6 +80,12 @@ class AppSettingsStore:
                     data["schedule_mode"] = ScheduleMode(legacy["schedule_mode"])
             if legacy.get("welcome_message"):
                 data["welcome_message"] = legacy["welcome_message"]
+            if legacy.get("use_weather"):
+                data["use_weather"] = bool(legacy["use_weather"])
+            if legacy.get("weather_API"):
+                data["weather_api"] = WeatherAPIEnum(legacy["weather_api"])
+            if legacy.get("location"):
+                data["location"] = legacy["location"]
 
             self._write(self._path, data)
         return data
@@ -133,6 +139,19 @@ class AppSettingsStore:
         """Приветственное сообщение на главном экране либо ``None``."""
         return self.as_dict().get("welcome_message")
 
+    def use_weather(self) -> bool:
+        return bool(self.as_dict().get("use_weather"))
+
+    def weather_api(self) -> WeatherAPIEnum:
+        raw = self.as_dict().get("weather_api")
+        try:
+            return WeatherAPIEnum(raw) if raw is not None else WeatherAPIEnum.WTTR
+        except ValueError:
+            return WeatherAPIEnum.WTTR
+
+    def location(self) -> str | None:
+        return self.as_dict().get("location")
+
     def update(
         self,
         *,
@@ -142,6 +161,9 @@ class AppSettingsStore:
         current_local_schedule_image_filename: str | None = _UNSET,
         schedule_mode: str | None = _UNSET,
         welcome_message: str | None = _UNSET,
+        use_weather: bool = _UNSET,
+        weather_api: str | None = _UNSET,
+        location: str | None = _UNSET,
     ) -> dict[str, Any]:
         """Обновляет переданные поля и атомарно сохраняет файл.
 
@@ -166,6 +188,13 @@ class AppSettingsStore:
                     data["schedule_mode"] = ScheduleMode(schedule_mode)
             if welcome_message is not _UNSET:
                 data["welcome_message"] = (welcome_message or "").strip() or None
+            if use_weather is not _UNSET:
+                data["use_weather"] = bool(use_weather)
+            if weather_api is not _UNSET:
+                with contextlib.suppress(ValueError):
+                    data["weather_api"] = WeatherAPIEnum(weather_api)
+            if location is not _UNSET:
+                data["location"] = (location or "").strip() or None
             self._data = data
             self._write(self._path, data)
         return dict(data)

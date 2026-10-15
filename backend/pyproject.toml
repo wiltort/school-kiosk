@@ -120,6 +120,9 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 pythonpath = ["src"]
 filterwarnings = ["ignore::pytest.PytestCollectionWarning"]
+markers = [
+    "slow: тесты которые долго выполняются",
+]
 
 [project.scripts]
 app = "src.main:start"

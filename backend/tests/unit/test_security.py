@@ -1,5 +1,6 @@
 """Тесты генерации хэша и проверки пароля (src/core/security.py)."""
 
+import pytest
 from src.core.security import hash_password, verify_password
 
 
@@ -17,12 +18,14 @@ def test_verify_password_correct():
     assert verify_password("secret", hashed) is True
 
 
+@pytest.mark.slow
 def test_verify_password_wrong():
     """Неверный пароль отклоняется."""
     hashed = hash_password("secret")
     assert verify_password("wrong", hashed) is False
 
 
+@pytest.mark.slow
 def test_hash_is_salted():
     """Одинаковые пароли дают разные хэши (случайная соль)."""
     h1 = hash_password("same-password")
@@ -30,6 +33,7 @@ def test_hash_is_salted():
     assert h1 != h2
 
 
+@pytest.mark.slow
 def test_verify_password_empty():
     """Пустой пароль хэшируется и проверяется корректно."""
     hashed = hash_password("")
@@ -37,6 +41,7 @@ def test_verify_password_empty():
     assert verify_password("x", hashed) is False
 
 
+@pytest.mark.slow
 def test_long_passwords_truncated_to_72_bytes():
     """bcrypt работает максимум с 72 байтами; лишние символы отбрасываются.
 

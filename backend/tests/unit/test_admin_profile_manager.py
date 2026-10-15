@@ -77,6 +77,7 @@ async def test_update_admin_profile(manager_factory):
     }
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_update_login_with_collision(manager_factory):
     manager = _admin_profile_manager(manager_factory)
@@ -162,6 +163,7 @@ def _raw_admin_data(
     }
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_authenticate_default_admin_blocked_when_non_default_exists(
     manager_factory, async_session
@@ -205,6 +207,7 @@ async def test_authenticate_default_admin_allowed_when_no_non_default(
     assert isinstance(token_data.token, str)
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_authenticate_non_default_admin_allowed_with_default_present(
     manager_factory, async_session

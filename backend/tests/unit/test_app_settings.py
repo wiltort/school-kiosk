@@ -2,6 +2,7 @@
 
 import json
 
+import pytest
 from src.core.app_settings import AppSettingsStore
 
 
@@ -14,6 +15,9 @@ def test_defaults_when_no_file(tmp_path):
         "current_local_schedule_image_filename": None,
         "schedule_mode": "single",
         "welcome_message": None,
+        "use_weather": False,
+        "weather_api": "wttr.in",
+        "location": "Москва",
     }
     assert store.static_dir() is None
     assert store.autostart() is False
@@ -29,6 +33,8 @@ def test_update_persists_to_file(tmp_path):
         current_local_schedule_image_filename="schedule.png",
         schedule_mode="week",
         welcome_message="Добро пожаловать!",
+        use_weather=True,
+        location="New York",
     )
 
     assert result == {
@@ -38,6 +44,9 @@ def test_update_persists_to_file(tmp_path):
         "current_local_schedule_image_filename": "schedule.png",
         "schedule_mode": "week",
         "welcome_message": "Добро пожаловать!",
+        "use_weather": True,
+        "weather_api": "wttr.in",
+        "location": "New York",
     }
 
     # Данные реально записаны на диск.
@@ -58,6 +67,9 @@ def test_update_persists_to_file(tmp_path):
         "current_local_schedule_image_filename": "schedule.png",
         "schedule_mode": "week",
         "welcome_message": "Добро пожаловать!",
+        "use_weather": True,
+        "weather_api": "wttr.in",
+        "location": "New York",
     }
     assert reloaded.welcome_message() == "Добро пожаловать!"
 
@@ -76,6 +88,7 @@ def test_empty_welcome_message_normalizes_to_none(tmp_path):
     assert store.welcome_message() is None
 
 
+@pytest.mark.slow
 def test_wrong_schedule_mode_ignores_it(tmp_path):
     store = AppSettingsStore(tmp_path)
     store.update(schedule_mode="wrong")
@@ -99,6 +112,9 @@ def test_partial_update_keeps_other_fields(tmp_path):
         "current_local_schedule_image_filename": "schedule.png",
         "schedule_mode": "single",
         "welcome_message": None,
+        "use_weather": False,
+        "weather_api": "wttr.in",
+        "location": "Москва",
     }
 
     store.update(static_dir=None)
@@ -109,6 +125,9 @@ def test_partial_update_keeps_other_fields(tmp_path):
         "current_local_schedule_image_filename": "schedule.png",
         "schedule_mode": "single",
         "welcome_message": None,
+        "use_weather": False,
+        "weather_api": "wttr.in",
+        "location": "Москва",
     }
 
 
@@ -134,6 +153,9 @@ def test_migrates_static_dir_from_legacy_seed(tmp_path):
         "current_local_schedule_image_filename": None,
         "schedule_mode": "single",
         "welcome_message": None,
+        "use_weather": False,
+        "weather_api": "wttr.in",
+        "location": "Москва",
     }
 
     # Повторная загрузка больше не трогает legacy и читает свой файл.
@@ -158,6 +180,9 @@ def test_not_ignores_legacy_without_static_dir(tmp_path):
         "current_local_schedule_image_filename": None,
         "schedule_mode": "single",
         "welcome_message": None,
+        "use_weather": False,
+        "weather_api": "wttr.in",
+        "location": "Москва",
     }
 
     store.update(static_dir="Z:/Changed")
@@ -168,4 +193,7 @@ def test_not_ignores_legacy_without_static_dir(tmp_path):
         "current_local_schedule_image_filename": None,
         "schedule_mode": "single",
         "welcome_message": None,
+        "use_weather": False,
+        "weather_api": "wttr.in",
+        "location": "Москва",
     }

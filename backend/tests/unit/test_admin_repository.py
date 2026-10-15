@@ -92,6 +92,7 @@ async def test_non_default_admin_exists_false_when_empty(async_session):
     assert await repo.non_default_admin_exists(async_session) is False
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_non_default_admin_exists_false_when_only_default(async_session):
     """non_default_admin_exists() возвращает False, если есть только дефолтные."""

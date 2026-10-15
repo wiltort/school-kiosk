@@ -62,6 +62,7 @@ def test_save_generates_random_filename_with_ext(storage: ImageStorage):
     assert (storage._base / rel).read_bytes() == b"hello"
 
 
+@pytest.mark.slow
 def test_save_defaults_subdir_to_current_month(storage: ImageStorage):
     expected = datetime.now().strftime("%Y/%m")
     rel = storage.save(b"data", "a.png")

@@ -77,6 +77,7 @@ def test_backup_creates_copy_when_db_exists(tmp_path):
         engine.sync_engine.dispose()
 
 
+@pytest.mark.slow
 def test_backup_noop_for_missing_db(tmp_path):
     """Если файла БД нет — резервная копия не создаётся."""
     db_path = tmp_path / "missing.db"

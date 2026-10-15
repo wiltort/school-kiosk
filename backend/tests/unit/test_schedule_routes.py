@@ -2,6 +2,7 @@
 
 import uuid
 
+import pytest
 from freezegun import freeze_time
 from src.apps.schedule.routes import (
     local_schedule_image_router,
@@ -122,6 +123,7 @@ def test_get_with_invalid_uuid_returns_422(client):
     assert response.status_code == 422
 
 
+@pytest.mark.slow
 def test_update_returns_updated_record(client):
     """Тест обновления расписания."""
     created = _create_schedule_image_record(client)

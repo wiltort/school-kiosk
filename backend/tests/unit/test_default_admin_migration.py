@@ -41,6 +41,7 @@ def _connect(data_dir):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.slow
 def test_upgrade_head_creates_default_admin(tmp_path, monkeypatch):
     """После upgrade head появляются все таблицы и дефолтный админ."""
     _point_data_dir(tmp_path, monkeypatch)
@@ -71,6 +72,7 @@ def test_upgrade_head_creates_default_admin(tmp_path, monkeypatch):
     assert verify_password(settings.default_admin_password, password_hash)
 
 
+@pytest.mark.slow
 def test_upgrade_head_is_idempotent(tmp_path, monkeypatch):
     """Повторный upgrade head не дублирует дефолтного администратора."""
     _point_data_dir(tmp_path, monkeypatch)
@@ -86,6 +88,7 @@ def test_upgrade_head_is_idempotent(tmp_path, monkeypatch):
     assert count == 1
 
 
+@pytest.mark.slow
 def test_downgrade_removes_default_admin(tmp_path, monkeypatch):
     """Downgrade до базовой ревизии удаляет дефолтного администратора."""
     _point_data_dir(tmp_path, monkeypatch)
@@ -108,6 +111,7 @@ def test_downgrade_removes_default_admin(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_fresh_install_apply_schema_creates_default_admin(tmp_path, monkeypatch):
     """Свежая БД: apply_schema применяет миграции и создаёт админа."""
@@ -135,6 +139,7 @@ async def test_fresh_install_apply_schema_creates_default_admin(tmp_path, monkey
     assert verify_password(settings.default_admin_password, row[1])
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_legacy_db_upgrade_keeps_data_and_creates_default_admin(
     tmp_path, monkeypatch

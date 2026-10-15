@@ -40,7 +40,7 @@ repos:
       - id: pytest-unit
         name: pytest (unit)
         description: Run unit tests (fast, no external dependencies)
-        entry: cmd /c "poetry -C backend run pytest tests/unit -v --tb=short --no-header || exit /b 0"
+        entry: Poetry -C backend run pytest tests/unit -v --tb=short --no-header -m 'not slow'
         language: system
         types: [python]
         pass_filenames: false

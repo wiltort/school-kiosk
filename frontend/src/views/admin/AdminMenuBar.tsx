@@ -23,6 +23,8 @@ export function AdminMenuBar({
   const items: { id: AdminSection; label: string }[] = [
     { id: "settings", label: "Настройки" },
     { id: "schedules", label: "Расписания" },
+    { id: "announcements", label: "Объявления" },
+    { id: "units", label: "Сервисы" },
     { id: "about", label: "О проекте" },
   ];
 

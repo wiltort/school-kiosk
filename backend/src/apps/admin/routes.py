@@ -4,7 +4,7 @@
 т.к. оба загружают SPA с одного origin. Настройки хранит бэкенд без БД.
 """
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials
@@ -23,9 +23,35 @@ from src.apps.admin.schemas import (
     SettingsUpdate,
 )
 from src.apps.schedule.managers.schedule_image_manager import ScheduleImageManager
-from src.core.config import settings
+from src.apps.settings.services.settings_service import SettingsService
+from src.core.settings_schema import SettingsKey
+from src.enums.schedule_modes import ScheduleMode
+from src.enums.weather_api import WeatherAPIEnum
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _settings_response(data: dict[str, Any]) -> SettingsResponse:
+    """Собирает ответ API из словаря настроек."""
+    schedule_mode = data.get(SettingsKey.SCHEDULE_MODE.value)
+    weather_api = data.get(SettingsKey.WEATHER_API.value)
+    weather_location = data.get(SettingsKey.WEATHER_LOCATION.value)
+    refresh_interval = data.get(SettingsKey.WEATHER_REFRESH_INTERVAL.value)
+    return SettingsResponse(
+        local_image_dir=data.get(SettingsKey.SYSTEM_LOCAL_IMAGE_DIR.value),
+        schedule_mode=ScheduleMode(schedule_mode or ScheduleMode.SINGLE.value),
+        welcome_message=data.get(SettingsKey.UI_WELCOME_MESSAGE.value),
+        autostart=bool(data.get(SettingsKey.SYSTEM_AUTOSTART.value)),
+        autostart_supported=autostart.is_supported(),
+        weather_enabled=bool(data.get(SettingsKey.WEATHER_ENABLED.value)),
+        weather_api=WeatherAPIEnum(weather_api or WeatherAPIEnum.WTTR.value),
+        weather_location=str(weather_location or "Москва"),
+        weather_refresh_interval_minutes=int(refresh_interval or 60),
+        announcements_enabled=bool(data.get(SettingsKey.ANNOUNCEMENTS_ENABLED.value)),
+        announcements_ticker_enabled=bool(
+            data.get(SettingsKey.ANNOUNCEMENTS_TICKER_ENABLED.value)
+        ),
+    )
 
 
 @admin_router.post("/login", response_model=AdminAuthResponse)
@@ -51,50 +77,51 @@ async def logout(
 
 @admin_router.get("/settings", response_model=SettingsResponse)
 async def get_settings(
+    service: Annotated[SettingsService, Depends()],
     _: Annotated[AdminTokenSchema, Depends(get_current_admin_dependency)],
 ) -> SettingsResponse:
-    """Возвращает текущие настройки приложения."""
-    store = settings.app_settings
-    return SettingsResponse(
-        local_image_dir=store.local_image_dir(),
-        schedule_mode=store.schedule_mode(),
-        welcome_message=store.welcome_message(),
-        autostart=store.autostart(),
-        autostart_supported=autostart.is_supported(),
-    )
+    """Возвращает текущие настройки приложения из БД."""
+    return _settings_response(await service.as_dict())
 
 
 @admin_router.put("/settings", response_model=SettingsResponse)
 async def update_settings(
     payload: SettingsUpdate,
+    service: Annotated[SettingsService, Depends()],
     schedule_manager: Annotated[ScheduleImageManager, Depends()],
     _: Annotated[AdminTokenSchema, Depends(get_current_admin_dependency)],
 ) -> SettingsResponse:
-    """Сохраняет настройки и применяет автозагрузку сразу.
+    """Сохраняет настройки в БД и применяет их сразу.
 
-    Смена ``local_image_dir`` (папка локальных расписаний) сохраняется
-    и используется бэкендом сразу. При смене режима сбрасывает все активные
-    расписания.
+    Смена ``local_image_dir`` (папка локальных расписаний) используется
+    бэкендом сразу. При смене режима сбрасывает все активные расписания.
     """
-    store = settings.app_settings
-    schedule_mode_changed = store.schedule_mode() != payload.schedule_mode
-    store.update(
-        local_image_dir=payload.local_image_dir,
-        schedule_mode=payload.schedule_mode,
-        welcome_message=payload.welcome_message,
-        autostart=payload.autostart,
-    )
-    if schedule_mode_changed:
+    current_mode = await service.get(SettingsKey.SCHEDULE_MODE)
+    values: dict[str, object] = {
+        SettingsKey.SYSTEM_LOCAL_IMAGE_DIR.value: payload.local_image_dir,
+        SettingsKey.SCHEDULE_MODE.value: payload.schedule_mode.value,
+        SettingsKey.UI_WELCOME_MESSAGE.value: payload.welcome_message,
+        SettingsKey.SYSTEM_AUTOSTART.value: payload.autostart,
+    }
+    optional_fields = {
+        "weather_enabled": SettingsKey.WEATHER_ENABLED,
+        "weather_api": SettingsKey.WEATHER_API,
+        "weather_location": SettingsKey.WEATHER_LOCATION,
+        "weather_refresh_interval_minutes": SettingsKey.WEATHER_REFRESH_INTERVAL,
+        "announcements_enabled": SettingsKey.ANNOUNCEMENTS_ENABLED,
+        "announcements_ticker_enabled": SettingsKey.ANNOUNCEMENTS_TICKER_ENABLED,
+    }
+    for field, key in optional_fields.items():
+        if field in payload.model_fields_set:
+            value = getattr(payload, field)
+            if value is not None:
+                values[key.value] = value
+
+    data = await service.set_many(values)
+    if current_mode != payload.schedule_mode.value:
         await schedule_manager.set_all_inactive()
     autostart.set_enabled(payload.autostart)
-
-    return SettingsResponse(
-        local_image_dir=store.local_image_dir(),
-        schedule_mode=store.schedule_mode(),
-        welcome_message=store.welcome_message(),
-        autostart=store.autostart(),
-        autostart_supported=autostart.is_supported(),
-    )
+    return _settings_response(data)
 
 
 @admin_router.get(

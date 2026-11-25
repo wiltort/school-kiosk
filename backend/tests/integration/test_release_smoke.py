@@ -134,7 +134,7 @@ def test_cron_scheduler_starts_and_registers_job(run_backend, tmp_path):
     log = bp.data_dir / "logs" / "backend.log"
     assert log.is_file(), "Лог-файл не создан"
     text = log.read_text(encoding="utf-8")
-    assert "Starting cron scheduler with 2 jobs" in text
+    assert "Starting cron scheduler with 3 jobs" in text
     assert "Starting job loop for 'periodic_local_schedules_sync'" in text
 
 

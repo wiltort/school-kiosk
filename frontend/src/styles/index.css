@@ -21,10 +21,12 @@
 @import "./screens/shared.css";
 @import "./screens/schedule.css";
 @import "./screens/weather.css";
+@import "./screens/announcements.css";
 
-/* --- Админ-панель (каркас, меню, контролы, модалки, расписания) --- */
+/* --- Админ-панель (каркас, меню, контролы, модалки, контент) --- */
 @import "./screens/admin/admin-view.css";
 @import "./screens/admin/admin-menu.css";
 @import "./screens/admin/admin-controls.css";
 @import "./screens/admin/admin-modal.css";
 @import "./screens/admin/schedule-admin.css";
+@import "./screens/admin/content-admin.css";

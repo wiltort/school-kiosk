@@ -20,6 +20,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
+from src.apps.settings.services.settings_service import invalidate_settings_cache
 from src.core import migrations
 from src.core.database import DBDependency, get_db_dependency
 from src.core.storage import get_image_storage
@@ -143,6 +144,7 @@ async def client(async_engine, async_session_maker):
 async def clean_db(async_session_maker):
     """Автоматически очищает все таблицы после каждого теста."""
     yield
+    invalidate_settings_cache()
     async with async_session_maker() as session:
         try:
             for table in reversed(Base.metadata.sorted_tables):

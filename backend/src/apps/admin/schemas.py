@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.enums.schedule_modes import ScheduleMode
+from src.enums.weather_api import WeatherAPIEnum
 
 
 class AdminAuth(BaseModel):
@@ -98,6 +99,12 @@ class SettingsResponse(BaseModel):
     welcome_message: str | None
     autostart: bool
     autostart_supported: bool
+    weather_enabled: bool = False
+    weather_api: WeatherAPIEnum = WeatherAPIEnum.WTTR
+    weather_location: str = "Москва"
+    weather_refresh_interval_minutes: int = 60
+    announcements_enabled: bool = True
+    announcements_ticker_enabled: bool = True
 
 
 class SettingsUpdate(BaseModel):
@@ -105,3 +112,9 @@ class SettingsUpdate(BaseModel):
     schedule_mode: ScheduleMode = ScheduleMode.SINGLE
     welcome_message: str | None = None
     autostart: bool = False
+    weather_enabled: bool | None = None
+    weather_api: WeatherAPIEnum | None = None
+    weather_location: str | None = None
+    weather_refresh_interval_minutes: int | None = None
+    announcements_enabled: bool | None = None
+    announcements_ticker_enabled: bool | None = None

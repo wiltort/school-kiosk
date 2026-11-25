@@ -1,12 +1,12 @@
+import type { AppUnit } from "../types/kiosk";
 import type { ScheduleMode } from "../types/schedule";
 
 /**
  * Настройки киоск-режима.
  *
- * Здесь собраны параметры, которые в будущем должны управляться через админку
- * (например, таймаут возврата на главный экран). Пока значения берутся из
- * значений по умолчанию, но архитектура уже готова к загрузке настроек
- * с бэкенда через `loadKioskConfig`.
+ * Значения приходят с публичного эндпоинта `GET /api/v1/kiosk/config`
+ * (настройки в БД и реестр сервисов). Локальные дефолты используются,
+ * пока бэкенд недоступен.
  */
 
 export interface KioskConfig {
@@ -16,8 +16,18 @@ export interface KioskConfig {
   apiBaseUrl: string;
   /** Приветственное сообщение на главном экране (пустая строка — стандартный подзаголовок). */
   welcomeMessage: string;
-  /** Режим отображения расписания, заданный на бэкенде (settings.json). */
+  /** Режим отображения расписания, заданный на бэкенде. */
   scheduleMode: ScheduleMode;
+  /** Сервисы (плитки), включённые в реестре `app_units`. */
+  units: AppUnit[];
+  /** Включён ли сервис погоды в настройках. */
+  weatherEnabled: boolean;
+  /** Населённый пункт для прогноза погоды. */
+  weatherLocation: string;
+  /** Включён ли сервис объявлений. */
+  announcementsEnabled: boolean;
+  /** Показывать бегущую строку объявлений на главном экране. */
+  announcementsTickerEnabled: boolean;
 }
 
 // Префикс API. В dev-режиме относительный путь проксируется Vite на бэкенд.
@@ -27,6 +37,12 @@ const BACKEND_BASE_URL = "http://127.0.0.1:8765";
 // В собранном приложении нет Vite-прокси, поэтому нужен абсолютный URL бэкенда.
 const PROD_API_BASE_URL = `${BACKEND_BASE_URL}${DEV_API_PREFIX}`;
 
+/** Плитки по умолчанию, если реестр сервисов недоступен. */
+const DEFAULT_UNITS: AppUnit[] = [
+  { key: "schedule", title: "Расписание", is_enabled: true, order: 1 },
+  { key: "weather", title: "Погода", is_enabled: true, order: 2 },
+];
+
 const DEFAULT_CONFIG: KioskConfig = {
   // 2 минуты (по ТЗ). Значение станет настраиваемым из админки.
   inactivityTimeoutMs: 2 * 60 * 1000,
@@ -35,6 +51,11 @@ const DEFAULT_CONFIG: KioskConfig = {
   welcomeMessage: "",
   // По умолчанию расписание показывается одним изображением.
   scheduleMode: "single",
+  units: DEFAULT_UNITS,
+  weatherEnabled: false,
+  weatherLocation: "Москва",
+  announcementsEnabled: false,
+  announcementsTickerEnabled: false,
 };
 
 const config: KioskConfig = { ...DEFAULT_CONFIG };
@@ -75,13 +96,19 @@ export function getKioskConfig(): KioskConfig {
 interface KioskPublicConfig {
   welcome_message: string | null;
   schedule_mode: "single" | "week";
+  weather_enabled?: boolean;
+  weather_location?: string;
+  weather_refresh_interval_minutes?: number;
+  announcements_enabled?: boolean;
+  announcements_ticker_enabled?: boolean;
+  units?: AppUnit[];
 }
 
 /**
  * Загружает актуальные настройки киоска с бэкенда.
  *
  * Публичный эндпоинт `GET /api/v1/kiosk/config` отдаёт параметры главного
- * экрана (приветственное сообщение, режим расписания) без авторизации.
+ * экрана (приветствие, режим расписания, реестр сервисов) без авторизации.
  * Если бэкенд недоступен — возвращаем значения по умолчанию, чтобы киоск
  * продолжал работать автономно.
  *
@@ -106,6 +133,14 @@ export async function loadKioskConfig(): Promise<KioskConfig> {
       ...base,
       welcomeMessage: remote.welcome_message ?? "",
       scheduleMode: remote.schedule_mode,
+      units:
+        remote.units && remote.units.length > 0 ? remote.units : base.units,
+      weatherEnabled: remote.weather_enabled ?? base.weatherEnabled,
+      weatherLocation: remote.weather_location ?? base.weatherLocation,
+      announcementsEnabled:
+        remote.announcements_enabled ?? base.announcementsEnabled,
+      announcementsTickerEnabled:
+        remote.announcements_ticker_enabled ?? base.announcementsTickerEnabled,
     };
   } catch (e) {
     console.warn("[kiosk-config] fetch error — возвращаю локальные дефолты", e);

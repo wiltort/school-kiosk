@@ -1,5 +1,6 @@
 import os
 import sys
+import tomllib
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
@@ -8,6 +9,21 @@ from src.core.app_settings import AppSettingsStore
 from src.enums.schedule_modes import ScheduleMode
 
 BASE_DIR = Path(__file__).resolve().parents[2]
+
+
+class _RuntimePaths:
+    """Разрешённые пути, загруженные из БД при старте приложения.
+
+    Позволяет синхронным потребителям (например, :class:`ImageStorage`)
+    получать актуальные значения настроек без обращения к БД. Заполняется
+    в lifespan после применения схемы и seed'а.
+    """
+
+    static_dir: Path | None = None
+    local_image_dir: Path | None = None
+
+
+runtime_paths = _RuntimePaths()
 
 
 def _resolve_data_dir() -> Path:
@@ -66,8 +82,6 @@ def _read_app_version() -> str:
     отсутствовать в бандле, и ``None`` сломал бы pydantic-валидацию Settings.
     """
     try:
-        import tomllib
-
         pyproject = _resource_dir() / "pyproject.toml"
         if pyproject.is_file():
             data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
@@ -112,8 +126,17 @@ class Settings(BaseSettings):
 
     @property
     def app_settings(self) -> AppSettingsStore:
-        """Хранилище настроек приложения (settings.json в каталоге данных)."""
+        """Legacy-хранилище настроек (settings.json в каталоге данных).
+
+        Используется только как фолбэк до загрузки настроек из БД и как
+        источник для первичного seed'а.
+        """
         return AppSettingsStore(self.data_dir, _resolve_legacy_settings_file())
+
+    @property
+    def legacy_settings_file(self) -> Path | None:
+        """Путь к legacy-файлу настроек Tauri (источник первичного seed'а)."""
+        return _resolve_legacy_settings_file()
 
     @property
     def static_dir(self) -> Path:
@@ -126,6 +149,8 @@ class Settings(BaseSettings):
              обратной совместимости);
           3. Каталог загрузок внутри каталога данных (`<data_dir>/uploads`).
         """
+        if runtime_paths.static_dir is not None:
+            return runtime_paths.static_dir
         stored = self.app_settings.static_dir()
         if stored:
             return Path(stored).expanduser()
@@ -145,6 +170,8 @@ class Settings(BaseSettings):
              обратной совместимости);
            3. Каталог загрузок внутри каталога данных (`<data_dir>/uploads`).
         """
+        if runtime_paths.local_image_dir is not None:
+            return runtime_paths.local_image_dir
         stored = self.app_settings.local_image_dir()
         if stored:
             return Path(stored).expanduser()

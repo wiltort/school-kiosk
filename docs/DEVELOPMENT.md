@@ -32,6 +32,26 @@ Python-бэкенд, упакованный PyInstaller'ом в один `python
 
     make build
 
+## Настройки, сервисы и контент
+
+- Настройки приложения хранятся в таблице `app_settings` (key-value) и описаны
+  реестром [`backend/src/core/settings_schema.py`](../backend/src/core/settings_schema.py).
+- Реестр плиток главного экрана — таблица `app_units`
+  (`backend/src/apps/units`).
+- Объявления — `announcements` (`backend/src/apps/announcements`).
+- Прогноз погоды кешируется в `weather_forecasts`; провайдер и менеджер —
+  `backend/src/apps/weather`, фоновая задача —
+  `backend/src/tasks/weather_refresh.py`.
+- Legacy `settings.json` импортируется в БД при первом запуске
+  (`backend/src/apps/settings/services/seed.py`).
+- Миграция новых таблиц:
+  `backend/alembic/versions/9f1c2d3e4a5b_*.py`.
+
+Проверки перед коммитом:
+
+    cd backend && poetry run ruff check src tests && poetry run pytest tests/unit -q
+    cd frontend && npm run typecheck && npm run lint
+
 ## Автообновление
 
 Приложение обновляется из своей ветки: сборка из `dev` проверяет

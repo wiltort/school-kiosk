@@ -1,6 +1,7 @@
 import logging
 import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,10 +11,15 @@ from fastapi_crons import Crons, SQLiteStateBackend
 
 from src.apps import apps_router
 from src.apps.admin import autostart
-from src.core.config import settings
-from src.core.database import get_db_dependency
+from src.apps.settings.repositories import SettingsRepository
+from src.apps.settings.services.seed import seed_all
+from src.apps.settings.services.settings_service import SettingsService
+from src.core.app_settings import APP_SETTINGS_FILE
+from src.core.config import runtime_paths, settings
+from src.core.database import DBDependency, get_db_dependency
 from src.core.logging_setup import setup_logging
 from src.core.migrations import _resource_dir, apply_schema
+from src.core.settings_schema import SettingsKey
 from src.tasks.crontab import register_cron_jobs
 
 logger = logging.getLogger(__name__)
@@ -48,8 +54,65 @@ crons = Crons(
 )
 
 
+_runtime_initialized = False
+
+
+async def _resolve_runtime_path(
+    service: SettingsService,
+    key: SettingsKey,
+    fallback: Path,
+) -> Path:
+    """Возвращает путь из настроек либо фолбэк, если значение не задано."""
+    stored = await service.get_str(key)
+    return Path(stored).expanduser() if stored else fallback
+
+
+async def _bootstrap_runtime(app: FastAPI, db: DBDependency) -> None:
+    """Загружает настройки из БД и применяет их к процессу.
+
+    Выполняется после ``apply_schema``: таблицы уже существуют, а legacy
+    ``settings.json`` перенесён в ``app_settings``. Монтирование статики
+    вынесено сюда, потому что каталог теперь задаётся настройкой в БД.
+    """
+    # Приоритет источников: текущий файл настроек бэкенда (обновление с
+    # предыдущей версии), затем seed-файл установщика Tauri (чистая установка).
+    legacy_file = settings.data_dir / APP_SETTINGS_FILE
+    if not legacy_file.is_file():
+        legacy_file = settings.legacy_settings_file
+    await seed_all(db, legacy_file=legacy_file)
+    service = SettingsService(db=db, repo=SettingsRepository())
+    await service.ensure_defaults()
+
+    runtime_paths.static_dir = None
+    runtime_paths.local_image_dir = None
+    static_dir = await _resolve_runtime_path(
+        service, SettingsKey.SYSTEM_STATIC_DIR, settings.static_dir
+    )
+    local_image_dir = await _resolve_runtime_path(
+        service, SettingsKey.SYSTEM_LOCAL_IMAGE_DIR, settings.local_image_dir
+    )
+    runtime_paths.static_dir = static_dir
+    runtime_paths.local_image_dir = local_image_dir
+    static_dir.mkdir(parents=True, exist_ok=True)
+    local_image_dir.mkdir(parents=True, exist_ok=True)
+
+    global _runtime_initialized
+    if not _runtime_initialized:
+        app.mount(
+            settings.upload_url,
+            StaticFiles(directory=str(static_dir)),
+            name="uploads",
+        )
+        _runtime_initialized = True
+
+    if autostart.is_supported() and await service.get_bool(
+        SettingsKey.SYSTEM_AUTOSTART
+    ):
+        autostart.set_enabled(True)
+
+
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # noqa: ARG001 — required by FastAPI lifespan signature
+async def lifespan(app: FastAPI):
     db = get_db_dependency()
     if db.db_engine is not None:
         try:
@@ -61,14 +124,17 @@ async def lifespan(app: FastAPI):  # noqa: ARG001 — required by FastAPI lifesp
             raise
         finally:
             _init_logging()
+        await _bootstrap_runtime(app, db)
     if settings.cron_enabled:
+        register_cron_jobs(crons)
         await crons.start()
     try:
         yield
     finally:
         if settings.cron_enabled:
             await crons.stop()
-        await db.db_engine.dispose()
+        if db.db_engine is not None:
+            await db.db_engine.dispose()
 
 
 def create_app() -> FastAPI:
@@ -89,17 +155,7 @@ def create_app() -> FastAPI:
 
     app.include_router(apps_router)
 
-    settings.static_dir.mkdir(parents=True, exist_ok=True)
-    app.mount(
-        settings.upload_url,
-        StaticFiles(directory=str(settings.static_dir)),
-        name="uploads",
-    )
-    if autostart.is_supported() and settings.app_settings.autostart():
-        autostart.set_enabled(True)
     settings.data_dir.mkdir(parents=True, exist_ok=True)
-    if settings.cron_enabled:
-        register_cron_jobs(crons)
 
     _mount_spa(app)
 

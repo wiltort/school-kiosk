@@ -1,0 +1,127 @@
+/* ===================== Разделы «Объявления» и «Сервисы» ===================== */
+.content-admin {
+  width: min(960px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.content-admin__toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.content-admin__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.content-admin__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.content-admin__item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.content-admin__item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.content-admin__item-text {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.content-admin__item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.content-admin__badge {
+  padding: 2px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.content-admin__badge--on {
+  border-color: rgba(52, 211, 153, 0.5);
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+}
+
+/* ===================== Расширенные поля формы ===================== */
+.admin-modal--wide {
+  width: min(640px, 100%);
+}
+
+.admin-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.admin-field textarea,
+.admin-field input[type="number"],
+.admin-field input[type="datetime-local"] {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 1rem;
+  outline: none;
+}
+
+.admin-field textarea {
+  resize: vertical;
+}
+
+.admin-field textarea:focus,
+.admin-field input[type="number"]:focus,
+.admin-field input[type="datetime-local"]:focus {
+  border-color: var(--color-accent);
+}
+
+@media (max-width: 720px) {
+  .content-admin__item {
+    flex-direction: column;
+  }
+
+  .content-admin__item-actions {
+    justify-content: flex-start;
+  }
+
+  .admin-field-row {
+    grid-template-columns: 1fr;
+  }
+}

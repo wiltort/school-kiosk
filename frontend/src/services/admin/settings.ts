@@ -4,6 +4,9 @@ import type { ScheduleMode } from "../../types/schedule";
 
 const ADMIN_API_PATH = "/admin";
 
+/** Провайдер прогноза погоды. */
+export type WeatherApi = "wttr.in";
+
 /** Настройки приложения, отдаваемые админ-API. */
 export interface AdminSettings {
   /** Каталог локальных расписаний; null — значение по умолчанию. */
@@ -16,6 +19,18 @@ export interface AdminSettings {
   autostart: boolean;
   /** Поддерживает ли текущая платформа автозагрузку. */
   autostart_supported: boolean;
+  /** Включён ли сервис погоды. */
+  weather_enabled: boolean;
+  /** Провайдер прогноза погоды. */
+  weather_api: WeatherApi;
+  /** Населённый пункт для прогноза. */
+  weather_location: string;
+  /** Интервал обновления прогноза, минут. */
+  weather_refresh_interval_minutes: number;
+  /** Включён ли сервис объявлений. */
+  announcements_enabled: boolean;
+  /** Показывать бегущую строку объявлений. */
+  announcements_ticker_enabled: boolean;
 }
 
 /** Значения настроек, отправляемые на сохранение (PUT). */
@@ -24,6 +39,12 @@ export interface AdminSettingsUpdate {
   schedule_mode: ScheduleMode;
   welcome_message: string | null;
   autostart: boolean;
+  weather_enabled: boolean;
+  weather_api: WeatherApi;
+  weather_location: string;
+  weather_refresh_interval_minutes: number;
+  announcements_enabled: boolean;
+  announcements_ticker_enabled: boolean;
 }
 
 /** Возвращает текущие настройки админки. Требует действующий токен. */

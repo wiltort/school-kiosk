@@ -3,6 +3,17 @@
 from pathlib import Path
 
 import pytest
+from src.core.config import runtime_paths
+
+
+@pytest.fixture(autouse=True)
+def _reset_runtime_paths():
+    """Сбрасывает пути, загруженные из БД в lifespan, между тестами."""
+    runtime_paths.static_dir = None
+    runtime_paths.local_image_dir = None
+    yield
+    runtime_paths.static_dir = None
+    runtime_paths.local_image_dir = None
 
 
 @pytest.fixture(autouse=True)

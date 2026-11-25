@@ -1,9 +1,12 @@
 /** Раздел админ-панели, открываемый из строки меню. */
-export type AdminSection = "settings" | "schedules" | "about" | "profile";
+export type AdminSection =
+  "settings" | "schedules" | "announcements" | "units" | "about" | "profile";
 
 export const SECTION_TITLES: Record<AdminSection, string> = {
   settings: "Настройки",
   schedules: "Расписания",
+  announcements: "Объявления",
+  units: "Сервисы",
   about: "О проекте",
   profile: "Профиль",
 };

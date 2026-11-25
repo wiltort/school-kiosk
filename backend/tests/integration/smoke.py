@@ -11,11 +11,16 @@
 """
 
 import asyncio
+import atexit
+import contextlib
 import json
 import os
+import shutil
 import socket
 import sqlite3
 import subprocess
+import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -33,6 +38,30 @@ DEFAULT_BACKEND_EXE = BACKEND_DIR / "dist" / "python-backend.exe"
 
 # Frozen onefile при первом запуске распаковывает архив в _MEIPASS — даём запас.
 STARTUP_TIMEOUT_SEC = 90
+
+
+def _kill_tree(pid: int) -> bool:
+    """Убивает процесс вместе с дочерними (Windows, ``taskkill /T``).
+
+    PyInstaller onefile запускает *два* процесса с именем ``python-backend.exe``:
+    bootloader и распакованный дочерний. ``Popen.terminate()`` завершает только
+    bootloader, а дочерний продолжает работать, поэтому дерево убиваем целиком.
+    Возвращает ``False`` на не-Windows (там достаточно ``terminate()``).
+    """
+    if sys.platform != "win32":
+        return False
+    taskkill = shutil.which("taskkill")
+    if taskkill is None:
+        return False
+    try:
+        completed = subprocess.run(
+            [taskkill, "/F", "/T", "/PID", str(pid)],
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return False
+    return completed.returncode == 0
 
 
 def resolve_backend_exe() -> Path | None:
@@ -66,6 +95,7 @@ class BackendProcess:
         self.data_dir = data_dir
         self.port = port
         self.base_url = f"http://127.0.0.1:{port}"
+        _track(self)
 
     # -- жизненный цикл ------------------------------------------------------
 
@@ -73,14 +103,18 @@ class BackendProcess:
         return self.proc.poll() is None
 
     def stop(self) -> None:
-        """Корректно останавливает процесс (terminate, затем kill)."""
-        if self.proc.poll() is None:
-            self.proc.terminate()
-            try:
-                self.proc.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                self.proc.kill()
-                self.proc.wait(timeout=5)
+        """Останавливает процесс вместе с дочерними (идемпотентно)."""
+        try:
+            if self.proc.poll() is None:
+                if not _kill_tree(self.proc.pid):
+                    self.proc.terminate()
+                try:
+                    self.proc.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    self.proc.kill()
+                    self.proc.wait(timeout=5)
+        finally:
+            _untrack(self)
 
     # -- вывод процесса ------------------------------------------------------
 
@@ -126,6 +160,45 @@ class BackendProcess:
         with urllib.request.urlopen(self.base_url + path, timeout=5) as resp:
             body = resp.read().decode("utf-8")
             return resp.status, json.loads(body)
+
+
+# ---------------------------------------------------------------------------
+# Гарантированная очистка запущенных бэкендов
+# ---------------------------------------------------------------------------
+
+_SPAWNED: list[BackendProcess] = []
+_SPAWNED_LOCK = threading.Lock()
+
+
+def _track(bp: BackendProcess) -> None:
+    """Регистрирует живой процесс, чтобы финализаторы могли его остановить."""
+    with _SPAWNED_LOCK:
+        _SPAWNED.append(bp)
+
+
+def _untrack(bp: BackendProcess) -> None:
+    """Убирает процесс из реестра после остановки."""
+    with _SPAWNED_LOCK:
+        if bp in _SPAWNED:
+            _SPAWNED.remove(bp)
+
+
+def stop_all_spawned() -> None:
+    """Останавливает все бэкенды, запущенные тестами (идемпотентно).
+
+    Вызывается из финализатора pytest-сессии и через :mod:`atexit`, поэтому
+    осиротевшие процессы не остаются висеть даже при прерывании прогона
+    (Ctrl+C), после которого ``bp.stop()`` в тестовой фикстуре не выполнился.
+    """
+    with _SPAWNED_LOCK:
+        pending = list(reversed(_SPAWNED))
+        _SPAWNED.clear()
+    for bp in pending:
+        with contextlib.suppress(OSError):
+            bp.stop()
+
+
+atexit.register(stop_all_spawned)
 
 
 def inspect_db(data_dir: Path) -> tuple[Path, set[str], str | None]:
@@ -206,5 +279,10 @@ def spawn_backend(exe: Path, data_dir: Path, port: int) -> BackendProcess:
             cwd=str(data_dir),
         )
     bp = BackendProcess(proc, data_dir, port)
-    bp.wait_health()
+    try:
+        bp.wait_health()
+    except BaseException:
+        # Не оставляем процесс висеть, если бэкенд не поднялся/тест прерван.
+        bp.stop()
+        raise
     return bp

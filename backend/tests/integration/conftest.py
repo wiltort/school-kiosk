@@ -13,7 +13,20 @@ from tests.integration.smoke import (
     free_port,
     resolve_backend_exe,
     spawn_backend,
+    stop_all_spawned,
 )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_spawned_backends():
+    """Финализатор сессии: гарантированно останавливает все бэкенды.
+
+    Срабатывает и при прерывании прогона (Ctrl+C), когда teardown отдельных
+    фикстур может не выполниться, — чтобы не копить осиротевшие
+    ``python-backend.exe`` в системе.
+    """
+    yield
+    stop_all_spawned()
 
 
 @pytest.fixture(scope="session")

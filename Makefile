@@ -20,9 +20,12 @@ install-frontend: ## Установить зависимости frontend (npm)
 install-tauri: ## Установить Tauri CLI (cargo install tauri-cli)
 	cargo install tauri-cli
 
+.PHONY: kill-backend
+kill-backend: ## Остановить только бэкенд этой сборки (не все python-backend.exe в системе)
+	@powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object -Property Name -EQ 'python-backend.exe' | Where-Object -Property ExecutablePath -EQ (Resolve-Path '$(BACKEND)/dist/python-backend.exe' -ErrorAction SilentlyContinue).Path | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }; exit 0"
+
 .PHONY: build-backend
-build-backend: ## Собрать Python-бэкенд в standalone .exe (PyInstaller)
-	taskkill //F //IM python-backend.exe || true
+build-backend: kill-backend ## Собрать Python-бэкенд в standalone .exe (PyInstaller)
 	rm -f $(BACKEND)/dist/python-backend.exe
 	$(POETRY) pyinstaller --noconfirm --clean --onefile --name python-backend \
 		--collect-submodules uvicorn \
@@ -80,7 +83,6 @@ lint-rust: ## Формат + clippy для Rust (src-tauri)
 
 .PHONY: test
 test: ## Запустить все тесты
-	taskkill //F //IM python-backend.exe || true
 	$(POETRY) pytest
 
 .PHONY: test-unit
@@ -89,7 +91,6 @@ test-unit: ## Запустить только unit-тесты
 
 .PHONY: test-integration
 test-integration: ## Запустить только integration-тесты
-	taskkill //F //IM python-backend.exe || true
 	$(POETRY) pytest tests/integration
 
 .PHONY: test-coverage

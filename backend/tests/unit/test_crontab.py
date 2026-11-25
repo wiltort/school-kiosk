@@ -5,6 +5,8 @@ import inspect
 from src.tasks.crontab import (
     PERIODIC_FILE_SYNC_CRON,
     PERIODIC_FILE_SYNC_JOB_NAME,
+    WEATHER_REFRESH_CRON,
+    WEATHER_REFRESH_JOB_NAME,
     register_cron_jobs,
 )
 
@@ -33,16 +35,21 @@ class _FakeCrons:
 
 
 def test_register_cron_jobs_registers_periodic_file_sync():
-    """Джоб синхронизации регистрируется с ожидаемым расписанием."""
+    """Джобы синхронизации и погоды регистрируются с ожидаемым расписанием."""
     fake = _FakeCrons()
 
     register_cron_jobs(fake)
 
-    assert len(fake.jobs) == 2
+    assert len(fake.jobs) == 3
     job = fake.jobs[0]
     assert job.name == PERIODIC_FILE_SYNC_JOB_NAME
     assert job.expr == PERIODIC_FILE_SYNC_CRON
     assert inspect.iscoroutinefunction(job.func)
+
+    weather_job = fake.jobs[2]
+    assert weather_job.name == WEATHER_REFRESH_JOB_NAME
+    assert weather_job.expr == WEATHER_REFRESH_CRON
+    assert inspect.iscoroutinefunction(weather_job.func)
 
 
 def test_register_cron_jobs_is_idempotent():
@@ -52,5 +59,5 @@ def test_register_cron_jobs_is_idempotent():
     register_cron_jobs(fake)
     register_cron_jobs(fake)
 
-    assert len(fake.jobs) == 2
+    assert len(fake.jobs) == 3
     assert fake.jobs[0].name == PERIODIC_FILE_SYNC_JOB_NAME

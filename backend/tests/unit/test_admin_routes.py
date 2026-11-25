@@ -70,8 +70,7 @@ def test_login_and_settings_flow(client, monkeypatch, tmp_path):
     assert reloaded.json()["schedule_mode"] == "week"
     assert reloaded.json()["welcome_message"] == "Добро пожаловать!"
 
-    # Файл настроек реально создан в data_dir.
-    assert (tmp_path / "settings.json").is_file()
+    # Настройки хранятся в БД: повторный GET выше вернул сохранённые значения.
 
     # Пустые строки сбрасывают папку и приветствие на значение по умолчанию.
     reset = client.put(

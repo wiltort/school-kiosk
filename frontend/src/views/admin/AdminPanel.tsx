@@ -2,6 +2,8 @@ import HomeButton from "../../components/HomeButton";
 import { SECTION_TITLES, type AdminSection } from "./constants";
 import { SettingsPanel } from "./SettingsPanel";
 import { SchedulesPanel } from "./SchedulesPanel";
+import { AnnouncementsPanel } from "./AnnouncementsPanel";
+import { UnitsPanel } from "./UnitsPanel";
 import { AboutPanel } from "./AboutPanel";
 import { ProfilePanel } from "./ProfilePanel";
 
@@ -38,6 +40,8 @@ export function AdminPanel({
 
       {section === "settings" && <SettingsPanel onSaved={onSettingsSaved} />}
       {section === "schedules" && <SchedulesPanel />}
+      {section === "announcements" && <AnnouncementsPanel />}
+      {section === "units" && <UnitsPanel />}
       {section === "about" && <AboutPanel />}
       {section === "profile" && (
         <ProfilePanel

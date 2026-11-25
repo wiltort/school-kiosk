@@ -82,8 +82,9 @@ class AppSettingsStore:
                 data["welcome_message"] = legacy["welcome_message"]
             if legacy.get("use_weather"):
                 data["use_weather"] = bool(legacy["use_weather"])
-            if legacy.get("weather_API"):
-                data["weather_api"] = WeatherAPIEnum(legacy["weather_api"])
+            if legacy.get("weather_api"):
+                with contextlib.suppress(ValueError):
+                    data["weather_api"] = WeatherAPIEnum(legacy["weather_api"])
             if legacy.get("location"):
                 data["location"] = legacy["location"]
 
@@ -96,6 +97,11 @@ class AppSettingsStore:
             raw = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError, OSError:
             return {}
+        if not isinstance(raw, dict):
+            return {}
+        # Legacy-файл Tauri пишет ключ с заглавными буквами ``weather_API``.
+        if "weather_API" in raw and "weather_api" not in raw:
+            raw["weather_api"] = raw["weather_API"]
         return {key: raw.get(key) for key in _DEFAULTS if key in raw}
 
     def _write(self, path: Path, data: dict[str, Any]) -> None:

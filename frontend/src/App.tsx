@@ -4,6 +4,7 @@ import { useIdleTimeout } from "./hooks/useIdleTimeout";
 import { useKioskConfig } from "./hooks/useKioskConfig";
 import { useDesktopAdminPoll } from "./hooks/useDesktopAdminPoll";
 import AdminPersonIcon from "./components/AdminPersonIcon";
+import AnnouncementsView from "./views/AnnouncementsView";
 import HomeView from "./views/HomeView";
 import ScheduleView from "./views/ScheduleView";
 import VersionBadge from "./components/VersionBadge";
@@ -19,7 +20,8 @@ import { isAdminLoggedIn } from "./services/http";
 import { logoutAdmin } from "./services/admin/auth";
 import { fetchAdminProfile } from "./services/admin/profile";
 
-type View = "home" | "schedule" | "weather" | "login" | "admin";
+type View =
+  "home" | "schedule" | "weather" | "announcements" | "login" | "admin";
 
 /**
  * Корневой компонент киоск-режима.
@@ -39,6 +41,7 @@ export default function App() {
   const goHome = useCallback(() => setView("home"), []);
   const openSchedule = useCallback(() => setView("schedule"), []);
   const openWeather = useCallback(() => setView("weather"), []);
+  const openAnnouncements = useCallback(() => setView("announcements"), []);
   const openLogin = useCallback(() => setView("login"), []);
 
   // Десктоп: Ctrl+Shift+A переключает админ-режим (kiosk.rs) — открывает
@@ -137,7 +140,10 @@ export default function App() {
           <HomeView
             onSchedule={openSchedule}
             onWeather={openWeather}
+            onAnnouncements={openAnnouncements}
             welcomeMessage={config.welcomeMessage}
+            units={config.units}
+            tickerEnabled={config.announcementsTickerEnabled}
           />
           {/*
             Иконка входа в админку — только в браузерной версии и только пока
@@ -162,6 +168,7 @@ export default function App() {
         <ScheduleView onHome={goHome} scheduleMode={config.scheduleMode} />
       )}
       {view === "weather" && <WeatherView onHome={goHome} />}
+      {view === "announcements" && <AnnouncementsView onHome={goHome} />}
       {view === "login" && (
         <AdminLogin onHome={goHome} onSuccess={handleLoginSuccess} />
       )}

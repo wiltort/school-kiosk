@@ -80,3 +80,42 @@
 - [ ] API: отправка и проверка кода
 - [ ] UI: поле email + код + таймер
 - [ ] Mock SMTP в тестах
+
+## Настройки: отказ от legacy `settings.json` 🔻
+
+Мажорное изменение: единственный источник истины — SQLite (`app_settings`,
+`app_units`). JSON остаётся только как одноразовый read-only источник миграции
+для установок, обновляющихся с версий, где `settings.json` был основным
+хранилищем.
+
+### Следующий мажорный релиз — удаление legacy-хранилища
+- [ ] Удалить `backend/src/core/app_settings.py` и
+      `backend/tests/unit/test_app_settings.py`
+- [ ] `backend/src/core/config.py`: убрать импорт `AppSettingsStore`, свойство
+      `app_settings` и чтение `stored` в `static_dir` / `local_image_dir`;
+      удалить неиспользуемые `current_local_schedule_image_filename` и
+      `schedule_mode`
+- [ ] `backend/src/main.py`: убрать импорт `APP_SETTINGS_FILE`, перенести
+      константу пути legacy-файла в `seed.py` / `config.py`; сохранить выбор
+      источника сида (старый `<data_dir>/settings.json` → seed установщика)
+- [ ] Гарантировать, что бэкенд больше не пишет `<data_dir>/settings.json`
+      (сейчас `AppSettingsStore._load()` создаёт его при наличии legacy-файла)
+- [ ] Оставить `read_legacy_settings` + `LEGACY_SETTINGS_MAP` в
+      `backend/src/apps/settings/services/seed.py` как read-only миграцию:
+      импорт выполняется только при пустой таблице `app_settings`
+- [ ] Решить судьбу seed-файла установщика: `src-tauri/windows/hooks.nsh`
+      (`/STATICDIR` → `%APPDATA%\com.schoolkiosk.app\settings.json`),
+      `src-tauri/src/settings.rs` и `src-tauri/src/process.rs`. Вариант без JSON:
+      запись пути в реестр / `HKCU\Environment` и передача
+      `SCHOOL_KIOSK_STATIC_DIR` в бэкенд
+- [ ] Удалить или сократить мёртвый код Rust: `AppSettings::load`, `save_for`,
+      `SettingsDto`, `resolved_static_dir` (сейчас не вызываются)
+- [ ] Тесты: актуализировать `tests/unit/test_config.py` и
+      `tests/unit/conftest.py` (фикстура изоляции legacy-файла), добавить тест
+      «чистая установка не создаёт `settings.json`»
+- [ ] Документация: `docs/ADMIN.md`, `docs/DEVELOPMENT.md`,
+      `docs/INSTALLATION.md`, `CHANGELOG.md`
+- [ ] Проверить миграцию: обновление с версии на JSON и с версии, где
+      `app_settings` уже заполнена, не теряет `static_dir`, `local_image_dir`,
+      `autostart`, `schedule_mode`, `welcome_message`, настройки погоды и
+      объявлений

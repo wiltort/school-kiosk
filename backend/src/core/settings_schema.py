@@ -192,7 +192,7 @@ SETTINGS_SCHEMA: tuple[SettingSpec, ...] = (
         default=None,
         title="Текущее локальное изображение",
         unit="schedule",
-        description="Имя файла текущего локального изображения расписания.",
+        description="Имя файла текущего локального изображения расписания. Устаревшее.",
         nullable=True,
     ),
     SettingSpec(

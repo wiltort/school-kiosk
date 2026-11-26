@@ -40,10 +40,15 @@
 }
 
 .home__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 320px));
-  gap: clamp(20px, 4vw, 48px);
+  /* До пяти квадратных плиток в ряд, остальные переносятся на новые строки. */
+  --tile-size: clamp(88px, 13vh, 132px);
+  --tile-gap: clamp(12px, 2.5vw, 28px);
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
   justify-content: center;
+  gap: var(--tile-gap);
   width: 100%;
-  max-width: 880px;
+  max-width: calc(var(--tile-size) * 5 + var(--tile-gap) * 4);
 }

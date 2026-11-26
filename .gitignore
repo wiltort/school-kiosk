@@ -161,3 +161,4 @@ src-tauri/binaries/
 *.tmp-data/
 data/
 tmp-data/
+.gigaide/

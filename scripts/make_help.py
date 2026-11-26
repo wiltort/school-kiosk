@@ -33,6 +33,7 @@ SECTIONS = [
             "lint",
             "format",
             "check",
+            "kill-backend",
         ],
     ),
     ("Tauri (Rust)", ["install-tauri", "lint-rust"]),

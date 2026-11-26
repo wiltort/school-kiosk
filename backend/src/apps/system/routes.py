@@ -4,7 +4,7 @@ import socket
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from src.apps.settings.services.settings_service import SettingsService
+from src.apps.settings.managers import SettingsManager
 from src.apps.units.managers import AppUnitManager
 from src.core.config import settings
 from src.core.settings_schema import SettingsKey
@@ -15,7 +15,7 @@ kiosk_router = APIRouter(prefix="/kiosk", tags=["kiosk"])
 
 @kiosk_router.get("/config")
 async def get_kiosk_config(
-    settings_service: Annotated[SettingsService, Depends()],
+    settings_manager: Annotated[SettingsManager, Depends()],
     units_manager: Annotated[AppUnitManager, Depends()],
 ) -> dict:
     """Публичные настройки главного экрана (без авторизации).
@@ -25,7 +25,7 @@ async def get_kiosk_config(
     значений — БД (``app_settings`` и ``app_units``), редактируются через
     админ-панель.
     """
-    data = await settings_service.as_dict()
+    data = await settings_manager.as_dict()
     units = await units_manager.list_enabled()
     return {
         "welcome_message": data.get(SettingsKey.UI_WELCOME_MESSAGE.value),

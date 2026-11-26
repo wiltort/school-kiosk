@@ -11,9 +11,9 @@ from fastapi_crons import Crons, SQLiteStateBackend
 
 from src.apps import apps_router
 from src.apps.admin import autostart
+from src.apps.settings.managers import SettingsManager
 from src.apps.settings.repositories import SettingsRepository
-from src.apps.settings.services.seed import seed_all
-from src.apps.settings.services.settings_service import SettingsService
+from src.apps.settings.seed import seed_all
 from src.core.app_settings import APP_SETTINGS_FILE
 from src.core.config import runtime_paths, settings
 from src.core.database import DBDependency, get_db_dependency
@@ -58,12 +58,12 @@ _runtime_initialized = False
 
 
 async def _resolve_runtime_path(
-    service: SettingsService,
+    manager: SettingsManager,
     key: SettingsKey,
     fallback: Path,
 ) -> Path:
     """Возвращает путь из настроек либо фолбэк, если значение не задано."""
-    stored = await service.get_str(key)
+    stored = await manager.get_str(key)
     return Path(stored).expanduser() if stored else fallback
 
 
@@ -80,16 +80,16 @@ async def _bootstrap_runtime(app: FastAPI, db: DBDependency) -> None:
     if not legacy_file.is_file():
         legacy_file = settings.legacy_settings_file
     await seed_all(db, legacy_file=legacy_file)
-    service = SettingsService(db=db, repo=SettingsRepository())
-    await service.ensure_defaults()
+    manager = SettingsManager(db=db, repo=SettingsRepository())
+    await manager.ensure_defaults()
 
     runtime_paths.static_dir = None
     runtime_paths.local_image_dir = None
     static_dir = await _resolve_runtime_path(
-        service, SettingsKey.SYSTEM_STATIC_DIR, settings.static_dir
+        manager, SettingsKey.SYSTEM_STATIC_DIR, settings.static_dir
     )
     local_image_dir = await _resolve_runtime_path(
-        service, SettingsKey.SYSTEM_LOCAL_IMAGE_DIR, settings.local_image_dir
+        manager, SettingsKey.SYSTEM_LOCAL_IMAGE_DIR, settings.local_image_dir
     )
     runtime_paths.static_dir = static_dir
     runtime_paths.local_image_dir = local_image_dir
@@ -105,7 +105,7 @@ async def _bootstrap_runtime(app: FastAPI, db: DBDependency) -> None:
         )
         _runtime_initialized = True
 
-    if autostart.is_supported() and await service.get_bool(
+    if autostart.is_supported() and await manager.get_bool(
         SettingsKey.SYSTEM_AUTOSTART
     ):
         autostart.set_enabled(True)

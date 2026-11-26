@@ -43,7 +43,7 @@ Python-бэкенд, упакованный PyInstaller'ом в один `python
   `backend/src/apps/weather`, фоновая задача —
   `backend/src/tasks/weather_refresh.py`.
 - Legacy `settings.json` импортируется в БД при первом запуске
-  (`backend/src/apps/settings/services/seed.py`).
+  (`backend/src/apps/settings/seed.py`).
 - Миграция новых таблиц:
   `backend/alembic/versions/9f1c2d3e4a5b_*.py`.
 

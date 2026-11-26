@@ -9,7 +9,7 @@ from typing import Annotated
 import python_weather
 from fastapi import Depends, HTTPException, status
 
-from src.apps.settings.services.settings_service import SettingsService
+from src.apps.settings.managers import SettingsManager
 from src.apps.weather.repositories import WeatherForecastRepository
 from src.apps.weather.schemas import (
     DailyForecast,
@@ -88,12 +88,12 @@ class WeatherManager:
     def __init__(
         self,
         db: Annotated[DBDependency, Depends(get_db_dependency)],
-        settings_service: Annotated[SettingsService, Depends()],
+        settings_manager: Annotated[SettingsManager, Depends()],
         repo: Annotated[WeatherForecastRepository, Depends()],
         provider: Annotated[AbstractWeatherManager, Depends(get_weather_provider)],
     ) -> None:
         self.db = db
-        self.settings_service = settings_service
+        self.settings_manager = settings_manager
         self.repo = repo
         self.provider = provider
 
@@ -113,7 +113,7 @@ class WeatherManager:
             HTTPException: 404, если погода отключена; 503, если провайдер
                 недоступен и кеша нет.
         """
-        if require_enabled and not await self.settings_service.get_bool(
+        if require_enabled and not await self.settings_manager.get_bool(
             SettingsKey.WEATHER_ENABLED
         ):
             raise HTTPException(
@@ -122,11 +122,11 @@ class WeatherManager:
             )
 
         location = (
-            await self.settings_service.get_str(SettingsKey.WEATHER_LOCATION)
+            await self.settings_manager.get_str(SettingsKey.WEATHER_LOCATION)
             or "Москва"
         )
         api = (
-            await self.settings_service.get(SettingsKey.WEATHER_API)
+            await self.settings_manager.get(SettingsKey.WEATHER_API)
             or WeatherAPIEnum.WTTR.value
         )
         now = datetime.now(UTC)
@@ -148,7 +148,7 @@ class WeatherManager:
                 detail="Не удалось получить прогноз погоды",
             ) from exc
 
-        interval = await self.settings_service.get_int(
+        interval = await self.settings_manager.get_int(
             SettingsKey.WEATHER_REFRESH_INTERVAL
         )
         expires_at = now + timedelta(minutes=interval)
@@ -166,7 +166,7 @@ class WeatherManager:
 
     async def refresh_if_enabled(self) -> WeatherResponse | None:
         """Обновляет прогноз, если погода включена (для cron)."""
-        if not await self.settings_service.get_bool(SettingsKey.WEATHER_ENABLED):
+        if not await self.settings_manager.get_bool(SettingsKey.WEATHER_ENABLED):
             return None
         return await self.get_forecast(force=True)
 

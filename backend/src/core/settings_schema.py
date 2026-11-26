@@ -8,8 +8,8 @@
 
 Реестр используется:
 
-* :class:`~src.apps.settings.services.settings_service.SettingsService` — для
-  типизированного чтения/записи и валидации значений;
+* :class:`~src.apps.settings.managers.SettingsManager` — для типизированного
+  чтения/записи и валидации значений;
 * админской панелью — для построения формы настроек;
 * seed-ом при первом запуске — для переноса значений из legacy
   ``settings.json`` и заполнения значений по умолчанию.

@@ -1,6 +1,6 @@
 """Типизированный доступ к настройкам приложения в БД.
 
-Настройки хранятся в таблице ``app_settings`` (key-value). Сервис
+Настройки хранятся в таблице ``app_settings`` (key-value). Менеджер
 объединяет сохранённые значения со схемой :data:`SETTINGS_SCHEMA`
 (значения по умолчанию, типы и валидация) и кеширует результат в памяти
 процесса. Кеш сбрасывается после каждой записи.
@@ -39,7 +39,7 @@ def invalidate_settings_cache(cache_key: int | None = None) -> None:
             _caches.pop(cache_key, None)
 
 
-class SettingsService:
+class SettingsManager:
     """Читает и пишет настройки приложения с валидацией по схеме."""
 
     def __init__(

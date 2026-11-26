@@ -2,8 +2,8 @@
 
 import logging
 
+from src.apps.settings.managers import SettingsManager
 from src.apps.settings.repositories import SettingsRepository
-from src.apps.settings.services.settings_service import SettingsService
 from src.apps.weather.managers import WeatherManager, get_weather_provider
 from src.apps.weather.repositories import WeatherForecastRepository
 from src.core.database import get_db_dependency
@@ -16,7 +16,7 @@ def _build_manager() -> WeatherManager:
     db = get_db_dependency()
     return WeatherManager(
         db=db,
-        settings_service=SettingsService(db=db, repo=SettingsRepository()),
+        settings_manager=SettingsManager(db=db, repo=SettingsRepository()),
         repo=WeatherForecastRepository(),
         provider=get_weather_provider(),
     )

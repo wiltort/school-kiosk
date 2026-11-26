@@ -4,7 +4,7 @@ import json
 
 import pytest
 from sqlalchemy import select
-from src.apps.settings.services.seed import (
+from src.apps.settings.seed import (
     read_legacy_settings,
     seed_app_settings,
     seed_app_units,

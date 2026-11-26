@@ -23,7 +23,7 @@ from src.apps.admin.schemas import (
     SettingsUpdate,
 )
 from src.apps.schedule.managers.schedule_image_manager import ScheduleImageManager
-from src.apps.settings.services.settings_service import SettingsService
+from src.apps.settings.managers import SettingsManager
 from src.core.settings_schema import SettingsKey
 from src.enums.schedule_modes import ScheduleMode
 from src.enums.weather_api import WeatherAPIEnum
@@ -77,17 +77,17 @@ async def logout(
 
 @admin_router.get("/settings", response_model=SettingsResponse)
 async def get_settings(
-    service: Annotated[SettingsService, Depends()],
+    manager: Annotated[SettingsManager, Depends()],
     _: Annotated[AdminTokenSchema, Depends(get_current_admin_dependency)],
 ) -> SettingsResponse:
     """Возвращает текущие настройки приложения из БД."""
-    return _settings_response(await service.as_dict())
+    return _settings_response(await manager.as_dict())
 
 
 @admin_router.put("/settings", response_model=SettingsResponse)
 async def update_settings(
     payload: SettingsUpdate,
-    service: Annotated[SettingsService, Depends()],
+    manager: Annotated[SettingsManager, Depends()],
     schedule_manager: Annotated[ScheduleImageManager, Depends()],
     _: Annotated[AdminTokenSchema, Depends(get_current_admin_dependency)],
 ) -> SettingsResponse:
@@ -96,7 +96,7 @@ async def update_settings(
     Смена ``local_image_dir`` (папка локальных расписаний) используется
     бэкендом сразу. При смене режима сбрасывает все активные расписания.
     """
-    current_mode = await service.get(SettingsKey.SCHEDULE_MODE)
+    current_mode = await manager.get(SettingsKey.SCHEDULE_MODE)
     values: dict[str, object] = {
         SettingsKey.SYSTEM_LOCAL_IMAGE_DIR.value: payload.local_image_dir,
         SettingsKey.SCHEDULE_MODE.value: payload.schedule_mode.value,
@@ -117,7 +117,7 @@ async def update_settings(
             if value is not None:
                 values[key.value] = value
 
-    data = await service.set_many(values)
+    data = await manager.set_many(values)
     if current_mode != payload.schedule_mode.value:
         await schedule_manager.set_all_inactive()
     autostart.set_enabled(payload.autostart)

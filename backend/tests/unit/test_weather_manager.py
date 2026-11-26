@@ -2,11 +2,11 @@
 
 import pytest
 from fastapi import HTTPException
-from src.apps.settings.repositories import SettingsRepository
-from src.apps.settings.services.settings_service import (
-    SettingsService,
+from src.apps.settings.managers import (
+    SettingsManager,
     invalidate_settings_cache,
 )
+from src.apps.settings.repositories import SettingsRepository
 from src.apps.weather.managers import AbstractWeatherManager, WeatherManager
 from src.apps.weather.repositories import WeatherForecastRepository
 from src.apps.weather.schemas import ForecastSchema
@@ -44,7 +44,7 @@ def manager(async_session_maker, provider):
     db = DBDependency(async_session_maker)
     return WeatherManager(
         db=db,
-        settings_service=SettingsService(db=db, repo=SettingsRepository()),
+        settings_manager=SettingsManager(db=db, repo=SettingsRepository()),
         repo=WeatherForecastRepository(),
         provider=provider,
     )
@@ -101,7 +101,7 @@ async def test_disabled_weather_returns_404(manager):
 @pytest.mark.asyncio
 async def test_enabled_weather_returns_forecast(manager, provider):
     """Включённая погода отдаёт прогноз."""
-    await manager.settings_service.set(SettingsKey.WEATHER_ENABLED, True)
+    await manager.settings_manager.set(SettingsKey.WEATHER_ENABLED, True)
 
     result = await manager.get_forecast(require_enabled=True)
     assert result.forecast.location == "Москва"

@@ -101,7 +101,7 @@
 - [ ] Гарантировать, что бэкенд больше не пишет `<data_dir>/settings.json`
       (сейчас `AppSettingsStore._load()` создаёт его при наличии legacy-файла)
 - [ ] Оставить `read_legacy_settings` + `LEGACY_SETTINGS_MAP` в
-      `backend/src/apps/settings/services/seed.py` как read-only миграцию:
+      `backend/src/apps/settings/seed.py` как read-only миграцию:
       импорт выполняется только при пустой таблице `app_settings`
 - [ ] Решить судьбу seed-файла установщика: `src-tauri/windows/hooks.nsh`
       (`/STATICDIR` → `%APPDATA%\com.schoolkiosk.app\settings.json`),

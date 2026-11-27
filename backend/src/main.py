@@ -3,7 +3,7 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -152,6 +152,25 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def _log_api_requests(request: Request, call_next):
+        """Диагностика: логирует все API-запросы (метод, путь, статус, origin).
+
+        Нужен, чтобы отличать «запрос не дошёл до бэкенда» от «дошёл и получил
+        404/503». Без этого uvicorn access-log в ``backend.log`` не попадает.
+        """
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            logger.info(
+                "HTTP %s %s -> %s origin=%s ua=%s",
+                request.method,
+                request.url.path,
+                response.status_code,
+                request.headers.get("origin"),
+                request.headers.get("user-agent", "")[:80],
+            )
+        return response
 
     app.include_router(apps_router)
 

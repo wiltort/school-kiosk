@@ -38,10 +38,20 @@ export interface WeatherResponse {
 /** Загружает прогноз погоды с публичного эндпоинта. */
 export async function fetchWeatherForecast(): Promise<WeatherResponse> {
   const { apiBaseUrl } = getKioskConfig();
-  const response = await fetch(`${apiBaseUrl}/weather/forecast`, {
+  const url = `${apiBaseUrl}/weather/forecast`;
+  // Диагностика: видно фактический URL (origin + префикс) и ответ бэкенда.
+  console.info("[weather] fetch:", url, "origin:", window.location.origin);
+  const response = await fetch(url, {
     cache: "no-store",
   });
   if (!response.ok) {
+    let body = "";
+    try {
+      body = await response.text();
+    } catch {
+      /* ignore */
+    }
+    console.warn("[weather] HTTP", response.status, "body:", body);
     throw new Error(`Ошибка загрузки прогноза погоды: HTTP ${response.status}`);
   }
   return (await response.json()) as WeatherResponse;

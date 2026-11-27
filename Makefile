@@ -21,8 +21,8 @@ install-tauri: ## Установить Tauri CLI (cargo install tauri-cli)
 	cargo install tauri-cli
 
 .PHONY: kill-backend
-kill-backend: ## Остановить только бэкенд этой сборки (не все python-backend.exe в системе)
-	@powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object -Property Name -EQ 'python-backend.exe' | Where-Object -Property ExecutablePath -EQ (Resolve-Path '$(BACKEND)/dist/python-backend.exe' -ErrorAction SilentlyContinue).Path | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }; exit 0"
+kill-backend: ## Остановить бэкенд этой сборки: release python-backend.exe и dev-uvicorn на 8765
+	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/kill-backend.ps1
 
 .PHONY: build-backend
 build-backend: kill-backend ## Собрать Python-бэкенд в standalone .exe (PyInstaller)

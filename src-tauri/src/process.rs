@@ -27,6 +27,23 @@ impl BackendProcess {
     /// Спавнит бэкенд в фоне и блокирует поток до тех пор, пока тот не ответит
     /// на health-check (или не истечёт таймаут).
     pub fn spawn_and_wait(app: &AppHandle) -> io::Result<Self> {
+        // Порт уже занят — значит, живёт бэкенд от предыдущего запуска.
+        // В dev на Windows poetry/uvicorn порождают цепочку процессов, и
+        // `child.kill()` не завершает её целиком (см. `shutdown`). Без этой
+        // проверки health-check ниже «успешно» ответит на старый процесс,
+        // новый бэкенд упадёт с `address already in use`, а приложение будет
+        // работать со старым кодом: свежие правки не применяются, запросов
+        // нет в логах — то есть тихая рассинхронизация кода и рантайма.
+        if is_port_busy(BACKEND_PORT) {
+            return Err(io::Error::new(
+                io::ErrorKind::AddrInUse,
+                format!(
+                    "порт {BACKEND_PORT} уже занят: вероятно, остался бэкенд от прошлого \
+                     запуска. Остановите его (`make kill-backend`) и запустите приложение снова"
+                ),
+            ));
+        }
+
         let child = spawn_backend(app)?;
         let mut proc = Self { child };
 
@@ -46,8 +63,26 @@ impl BackendProcess {
         ))
     }
 
-    /// Останавливает дочерний процесс (вызывается при выходе).
+    /// Останавливает дочерний процесс вместе с потомками (вызывается при выходе).
+    ///
+    /// На Windows dev-бэкенд запускается цепочкой `cmd -> uvicorn.exe ->
+    /// python.exe`: `child.kill()` завершает только непосредственный процесс,
+    /// а сервер остаётся сиротой и продолжает держать порт 8765. Поэтому на
+    /// Windows завершаем всё дерево через `taskkill /T`.
     pub fn shutdown(&mut self) {
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            let _ = Command::new("taskkill")
+                .args(["/F", "/T", "/PID", &self.child.id().to_string()])
+                .creation_flags(CREATE_NO_WINDOW)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
+
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
@@ -215,6 +250,13 @@ fn backend_args() -> Vec<String> {
     std::env::var("SCHOOL_KIOSK_BACKEND_CMD")
         .map(|s| vec![s])
         .unwrap_or_default()
+}
+
+/// Занят ли TCP-порт на loopback (например, бэкендом прошлого запуска).
+fn is_port_busy(port: u16) -> bool {
+    use std::net::TcpListener;
+
+    TcpListener::bind(("127.0.0.1", port)).is_err()
 }
 
 /// Пинг бэкенда через TCP connect (быстрый health-check без HTTP-парсинга).

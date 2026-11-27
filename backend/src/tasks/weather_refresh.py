@@ -35,5 +35,26 @@ async def run_weather_refresh() -> None:
     except Exception:
         logger.exception("Не удалось обновить прогноз погоды")
         return
-    if result is not None:
-        logger.info("Прогноз погоды обновлён: %s", result.forecast.location)
+
+    if result is None:
+        logger.debug(
+            "Прогноз погоды не требует обновления: кеш свежий или погода отключена"
+        )
+        return
+
+    if result.is_stale:
+        logger.warning(
+            "Провайдер погоды недоступен — отдан устаревший кеш: "
+            "location=%s fetched_at=%s expires_at=%s",
+            result.forecast.location,
+            result.fetched_at,
+            result.expires_at,
+        )
+        return
+
+    logger.info(
+        "Прогноз погоды обновлён: location=%s fetched_at=%s expires_at=%s",
+        result.forecast.location,
+        result.fetched_at,
+        result.expires_at,
+    )

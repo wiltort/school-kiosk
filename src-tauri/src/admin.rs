@@ -13,12 +13,21 @@ use tauri::AppHandle;
 /// Выход из приложения. Вызывается командой `exit_app` из WebView.
 #[tauri::command]
 pub fn exit_app(app: AppHandle) {
+    eprintln!("[kiosk] exit_app: останавливаю бэкенд и вызываю AppHandle::exit(0)");
+    // `AppHandle::exit` приводит к `RunEvent::Exit` (там тоже есть остановка),
+    // но вызов здесь — страховка на случай, если событие не будет доставлено.
+    crate::process::shutdown_backend(&app);
     app.exit(0);
 }
 
 /// Перезапуск приложения (полезно после смены настроек).
 #[tauri::command]
 pub fn restart_app(app: AppHandle) {
+    eprintln!("[kiosk] restart_app: останавливаю бэкенд и перезапускаю приложение");
+    // `AppHandle::restart`, вызванный с main-thread, завершает процесс БЕЗ
+    // `RunEvent::Exit` — поэтому останавливаем бэкенд явно, иначе новый
+    // экземпляр упрётся в занятый порт 8765.
+    crate::process::shutdown_backend(&app);
     // `AppHandle::restart` не возвращает управление (приложение перезапускается).
     app.restart();
 }

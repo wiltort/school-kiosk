@@ -27,7 +27,7 @@ pub const FRONTEND_URL: &str = "http://127.0.0.1:8765/";
 
 /// Точка входа приложения (вызывается из `main.rs`).
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .setup(|app| {
             // 0. Автообновление из своей ветки (только в релизной сборке под
             // конкретный канал). В dev и локальных сборках не запускается:
@@ -109,6 +109,21 @@ pub fn run() {
             admin::get_update_channel,
             updater::get_update_status,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running School Kiosk");
+        .build(tauri::generate_context!())
+        .expect("error while building School Kiosk");
+
+    app.run(|app_handle, event| match event {
+        tauri::RunEvent::ExitRequested { code, .. } => {
+            eprintln!("[kiosk] RunEvent::ExitRequested code={code:?}");
+        }
+        tauri::RunEvent::Exit => {
+            // Критично: `tao` завершает процесс через `std::process::exit`,
+            // поэтому `Drop` для managed-state (BackendProcess) НЕ вызывается.
+            // Останавливаем бэкенд здесь явно, иначе `poetry`/`uvicorn`
+            // остаются сиротами и держат порт 8765.
+            eprintln!("[kiosk] RunEvent::Exit: останавливаю Python-бэкенд");
+            process::shutdown_backend(app_handle);
+        }
+        _ => {}
+    });
 }

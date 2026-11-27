@@ -1,7 +1,10 @@
 """Тесты менеджера погоды: кеш, TTL и офлайн-фолбэк."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import update
 from src.apps.settings.managers import (
     SettingsManager,
     invalidate_settings_cache,
@@ -12,6 +15,7 @@ from src.apps.weather.repositories import WeatherForecastRepository
 from src.apps.weather.schemas import ForecastSchema
 from src.core.database import DBDependency
 from src.core.settings_schema import SettingsKey
+from src.models import WeatherForecast
 
 
 class FakeProvider(AbstractWeatherManager):
@@ -114,3 +118,64 @@ async def test_refresh_if_enabled_skips_when_disabled(manager, provider):
     result = await manager.refresh_if_enabled()
     assert result is None
     assert provider.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_refresh_if_enabled_skips_fresh_cache(manager, provider):
+    """Cron не обращается к провайдеру, пока кеш свежий."""
+    await manager.settings_manager.set(SettingsKey.WEATHER_ENABLED, True)
+    await manager.get_forecast()
+    assert provider.calls == 1
+
+    result = await manager.refresh_if_enabled()
+    assert result is None
+    assert provider.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_refresh_if_enabled_refreshes_stale_cache(
+    manager, provider, async_session_maker
+):
+    """Cron обновляет прогноз после истечения TTL."""
+    await manager.settings_manager.set(SettingsKey.WEATHER_ENABLED, True)
+    await manager.get_forecast()
+    assert provider.calls == 1
+
+    async with async_session_maker() as session:
+        await session.execute(
+            update(WeatherForecast).values(
+                expires_at=datetime.now(UTC) - timedelta(minutes=1)
+            )
+        )
+        await session.commit()
+
+    provider.forecast = ForecastSchema(location="Москва", temperature=-3.0)
+    result = await manager.refresh_if_enabled()
+
+    assert result is not None
+    assert result.is_stale is False
+    assert result.forecast.temperature == -3.0
+    assert provider.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_refresh_if_enabled_reports_stale_on_provider_error(
+    manager, provider, async_session_maker
+):
+    """При сбое провайдера cron отдаёт кеш с is_stale=True, а не «успех»."""
+    await manager.settings_manager.set(SettingsKey.WEATHER_ENABLED, True)
+    await manager.get_forecast()
+
+    async with async_session_maker() as session:
+        await session.execute(
+            update(WeatherForecast).values(
+                expires_at=datetime.now(UTC) - timedelta(minutes=1)
+            )
+        )
+        await session.commit()
+
+    provider.error = RuntimeError("offline")
+    result = await manager.refresh_if_enabled()
+
+    assert result is not None
+    assert result.is_stale is True

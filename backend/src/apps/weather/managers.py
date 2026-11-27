@@ -48,7 +48,9 @@ class WttrWeatherManager(AbstractWeatherManager):
     name = WeatherAPIEnum.WTTR.value
 
     async def get_weather(self, location: str) -> ForecastSchema:
-        async with python_weather.Client(unit=python_weather.METRIC) as client:
+        async with python_weather.Client(
+            unit=python_weather.METRIC, locale=python_weather.enums.Locale.RUSSIAN
+        ) as client:
             forecast = await client.get(location)
         return ForecastSchema(
             location=forecast.location,
@@ -121,20 +123,9 @@ class WeatherManager:
                 detail="Погода отключена в настройках",
             )
 
-        location = (
-            await self.settings_manager.get_str(SettingsKey.WEATHER_LOCATION)
-            or "Москва"
-        )
-        api = (
-            await self.settings_manager.get(SettingsKey.WEATHER_API)
-            or WeatherAPIEnum.WTTR.value
-        )
-        now = datetime.now(UTC)
+        location, api, cached, now = await self._load_cache()
 
-        async with self.db.db_session() as session:
-            cached = await self.repo.get(session, location=location, api=api)
-
-        if cached is not None and not force and cached.expires_at > now:
+        if cached is not None and not force and self._is_fresh(cached, now):
             return self._response(cached, is_stale=False)
 
         try:
@@ -142,6 +133,12 @@ class WeatherManager:
         except Exception as exc:
             logger.warning("Провайдер погоды недоступен: %s", exc)
             if cached is not None:
+                logger.info(
+                    "Отдан устаревший прогноз: location=%s fetched_at=%s expires_at=%s",
+                    cached.location,
+                    cached.fetched_at,
+                    cached.expires_at,
+                )
                 return self._response(cached, is_stale=True)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -162,13 +159,56 @@ class WeatherManager:
                 expires_at=expires_at,
             )
             await with_retry_commit(session)
+        logger.info(
+            "Прогноз погоды обновлён: location=%s fetched_at=%s expires_at=%s",
+            row.location,
+            row.fetched_at,
+            row.expires_at,
+        )
         return self._response(row, is_stale=False)
 
     async def refresh_if_enabled(self) -> WeatherResponse | None:
-        """Обновляет прогноз, если погода включена (для cron)."""
+        """Обновляет прогноз для cron, только если кеш устарел.
+
+        Задача планировщика запускается часто (каждые 5 минут), но провайдер
+        опрашивается только после истечения TTL из настройки
+        ``weather.refresh_interval_minutes``.
+
+        Returns:
+            ``None``, если погода отключена или кеш ещё свежий. Иначе —
+            ответ провайдера; при его недоступности это устаревший кеш
+            с ``is_stale=True``.
+        """
         if not await self.settings_manager.get_bool(SettingsKey.WEATHER_ENABLED):
             return None
+
+        _, _, cached, now = await self._load_cache()
+        if self._is_fresh(cached, now):
+            return None
+
         return await self.get_forecast(force=True)
+
+    async def _load_cache(
+        self,
+    ) -> tuple[str, str, WeatherForecast | None, datetime]:
+        """Читает локацию, провайдера и текущий кеш прогноза."""
+        location = (
+            await self.settings_manager.get_str(SettingsKey.WEATHER_LOCATION)
+            or "Москва"
+        )
+        api = (
+            await self.settings_manager.get(SettingsKey.WEATHER_API)
+            or WeatherAPIEnum.WTTR.value
+        )
+        now = datetime.now(UTC)
+        async with self.db.db_session() as session:
+            cached = await self.repo.get(session, location=location, api=api)
+        return location, api, cached, now
+
+    @staticmethod
+    def _is_fresh(cached: WeatherForecast | None, now: datetime) -> bool:
+        """True, если кеш существует и его TTL ещё не истёк."""
+        return cached is not None and cached.expires_at > now
 
     @staticmethod
     def _response(row: WeatherForecast, *, is_stale: bool) -> WeatherResponse:

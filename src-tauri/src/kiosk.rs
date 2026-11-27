@@ -78,9 +78,17 @@ pub fn set_exit_allowed(allowed: bool) {
 }
 
 /// Выход из приложения (для хук-потока; в хук-потоке нет AppHandle).
+///
+/// `AppHandle::exit` лишь ставит запрос на выход в event-loop (и сразу
+/// возвращается). Реальная остановка бэкенда выполняется в `RunEvent::Exit`
+/// (см. `lib.rs`) и продублирована Windows Job Object в `process.rs`.
 pub fn request_exit() {
-    if let Some(app) = APP_HANDLE.get() {
-        app.exit(0);
+    match APP_HANDLE.get() {
+        Some(app) => {
+            log("request_exit: запрашиваю выход (AppHandle::exit(0))");
+            app.exit(0);
+        }
+        None => log("request_exit: APP_HANDLE ещё не инициализирован, выход невозможен"),
     }
 }
 

@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.apps.admin.auth import get_current_admin_dependency
 from src.apps.admin.schemas import AdminTokenSchema
@@ -24,5 +24,16 @@ async def refresh_forecast(
     manager: Annotated[WeatherManager, Depends()],
     _: Annotated[AdminTokenSchema, Depends(get_current_admin_dependency)],
 ) -> WeatherResponse:
-    """Принудительно обновляет прогноз погоды."""
-    return await manager.get_forecast(force=True)
+    """Принудительно обновляет прогноз погоды.
+
+    Raises:
+        HTTPException: 503, если провайдер недоступен и вместо свежего
+            прогноза отдан устаревший кеш.
+    """
+    response = await manager.get_forecast(force=True)
+    if response.is_stale:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Провайдер погоды недоступен, показан устаревший прогноз",
+        )
+    return response

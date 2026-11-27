@@ -3,7 +3,7 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -54,9 +54,6 @@ crons = Crons(
 )
 
 
-_runtime_initialized = False
-
-
 async def _resolve_runtime_path(
     manager: SettingsManager,
     key: SettingsKey,
@@ -67,12 +64,13 @@ async def _resolve_runtime_path(
     return Path(stored).expanduser() if stored else fallback
 
 
-async def _bootstrap_runtime(app: FastAPI, db: DBDependency) -> None:
+async def _bootstrap_runtime(db: DBDependency) -> None:
     """Загружает настройки из БД и применяет их к процессу.
 
     Выполняется после ``apply_schema``: таблицы уже существуют, а legacy
-    ``settings.json`` перенесён в ``app_settings``. Монтирование статики
-    вынесено сюда, потому что каталог теперь задаётся настройкой в БД.
+    ``settings.json`` перенесён в ``app_settings``. Здесь заполняется
+    :data:`runtime_paths`: каталог статики задаётся настройкой в БД, поэтому
+    раздача ``/uploads`` разрешает его на каждый запрос (см. ``_mount_uploads``).
     """
     # Приоритет источников: текущий файл настроек бэкенда (обновление с
     # предыдущей версии), затем seed-файл установщика Tauri (чистая установка).
@@ -96,15 +94,6 @@ async def _bootstrap_runtime(app: FastAPI, db: DBDependency) -> None:
     static_dir.mkdir(parents=True, exist_ok=True)
     local_image_dir.mkdir(parents=True, exist_ok=True)
 
-    global _runtime_initialized
-    if not _runtime_initialized:
-        app.mount(
-            settings.upload_url,
-            StaticFiles(directory=str(static_dir)),
-            name="uploads",
-        )
-        _runtime_initialized = True
-
     if autostart.is_supported() and await manager.get_bool(
         SettingsKey.SYSTEM_AUTOSTART
     ):
@@ -112,7 +101,7 @@ async def _bootstrap_runtime(app: FastAPI, db: DBDependency) -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     db = get_db_dependency()
     if db.db_engine is not None:
         try:
@@ -124,7 +113,7 @@ async def lifespan(app: FastAPI):
             raise
         finally:
             _init_logging()
-        await _bootstrap_runtime(app, db)
+        await _bootstrap_runtime(db)
     if settings.cron_enabled:
         register_cron_jobs(crons)
         await crons.start()
@@ -176,9 +165,38 @@ def create_app() -> FastAPI:
 
     settings.data_dir.mkdir(parents=True, exist_ok=True)
 
+    _mount_uploads(app)
     _mount_spa(app)
 
     return app
+
+
+def _mount_uploads(app: FastAPI) -> None:
+    """Раздаёт загруженную статику (изображения) из каталога настроек.
+
+    Каталог статики задаётся настройкой в БД и известен только после старта
+    приложения (lifespan), поэтому вместо ``StaticFiles`` (фиксирует каталог
+    при создании) используется маршрут, который разрешает путь на каждый
+    запрос через :attr:`settings.static_dir`.
+
+    Критично: маршрут регистрируется **до** SPA-fallback ``/{full_path:path}``
+    в :func:`_mount_spa`. Starlette матчит маршруты по порядку, и если
+    catch-all зарегистрирован раньше, он перехватывает ``/uploads/...`` и
+    отдаёт ``index.html`` вместо файла — в киоске картинки «не загружаются».
+    """
+
+    @app.api_route(
+        f"{settings.upload_url}/{{file_path:path}}",
+        methods=["GET", "HEAD"],
+        include_in_schema=False,
+        name="uploads",
+    )
+    def serve_upload(file_path: str):
+        root = settings.static_dir.resolve()
+        target = (root / file_path).resolve()
+        if not target.is_relative_to(root) or not target.is_file():
+            raise HTTPException(status_code=404, detail="Not Found")
+        return FileResponse(target)
 
 
 def _mount_spa(app: FastAPI) -> None:
